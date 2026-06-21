@@ -6,7 +6,7 @@ import {
   Link as LinkIcon, Download, Code, SearchCheck,
   ChevronRight, Pin, PinOff, Maximize, SaveAll, UploadCloud, 
   ClipboardCopy, FileJson, Image as ImageIcon, FileText, MessageSquare,
-  Library, Trash2, PlayCircle, BookmarkPlus
+  Library, Trash2, PlayCircle, BookmarkPlus, GitBranch, X
 } from 'lucide-react';
 
 // --- 预设题目库 ---
@@ -59,6 +59,7 @@ export default function NonogramApp() {
   const [rowCluesStr, setRowCluesStr] = useState(PRESETS.heart.rowClues.map(c => c.join(' ')));
   const [colCluesStr, setColCluesStr] = useState(PRESETS.heart.colClues.map(c => c.join('\n')));
   
+  // grid 中 0:空 1:黑 2:叉 | 推演模式中 -> 3:推演黑 4:推演叉
   const [grid, setGrid] = useState(Array(5).fill().map(() => Array(5).fill(0))); 
   const [cellSize, setCellSize] = useState(32); 
 
@@ -71,6 +72,10 @@ export default function NonogramApp() {
   
   const [hintInfo, setHintInfo] = useState(null);
   
+  // 推演模式状态
+  const [dedactionMode, setDedactionMode] = useState(false);
+  const [backupGrid, setBackupGrid] = useState(null);
+
   // 面板显示与停靠状态
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [isPanelPinned, setIsPanelPinned] = useState(true); 
@@ -88,13 +93,13 @@ export default function NonogramApp() {
   const [exportFilename, setExportFilename] = useState('nonogram-save');
   const [exportRemark, setExportRemark] = useState('');
 
-  // 题库收藏夹与随机生成状态
+  // 题库收藏夹状态
   const [puzzleCollection, setPuzzleCollection] = useState([]);
-  const [randomDifficulty, setRandomDifficulty] = useState('medium'); // 新增：难度控制
+  const [randomDifficulty, setRandomDifficulty] = useState('medium'); 
 
   // 辅助功能设置状态
   const [gameSettings, setGameSettings] = useState({
-    completeLineStyle: 'highlight', // 'fade' | 'highlight'
+    completeLineStyle: 'highlight', 
     autoMarkNumbers: true,
     hoverRowClues: true,
     hoverColClues: true,
@@ -136,7 +141,8 @@ export default function NonogramApp() {
     const clues = [];
     let count = 0;
     for (let v of line) {
-      if (v === 1) count++;
+      // 在计算线索完成度时，将推演的黑(3)视同正式黑(1)
+      if (v === 1 || v === 3) count++;
       else if (count > 0) { clues.push(count); count = 0; }
     }
     if (count > 0) clues.push(count);
@@ -168,7 +174,8 @@ export default function NonogramApp() {
 
   // --- 带有 300ms 防抖的 自动打X 功能 ---
   useEffect(() => {
-    if (!gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus) return;
+    // 推演模式下自动打 X 功能失效
+    if (!gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus || dedactionMode) return;
 
     const timer = setTimeout(() => {
       setGrid(prevGrid => {
@@ -207,7 +214,7 @@ export default function NonogramApp() {
     }, 300); 
 
     return () => clearTimeout(timer); 
-  }, [grid, gameSettings.autoFillCross, mode, isSolvedStatus, rows, cols, rowCluesStr, colCluesStr]);
+  }, [grid, gameSettings.autoFillCross, mode, isSolvedStatus, dedactionMode, rows, cols, rowCluesStr, colCluesStr]);
 
 
   // --- 初始化加载收藏夹与自动存读档 ---
@@ -217,12 +224,12 @@ export default function NonogramApp() {
 
     const interval = setInterval(() => {
       if (mode === 'play') {
-        const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus };
+        const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, dedactionMode, backupGrid };
         localStorage.setItem('nonogram_autosave_data', JSON.stringify(data));
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [mode, rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus]);
+  }, [mode, rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, dedactionMode, backupGrid]);
 
   const restoreAutoSave = () => {
     try {
@@ -245,12 +252,14 @@ export default function NonogramApp() {
     let currentStart = -1;
 
     for (let i = 0; i <= line.length; i++) {
-      if (i < line.length && line[i] === 1) {
+      // 兼容推演模式的 3 (推演黑块) 和 4 (推演叉)
+      const isBlack = (i < line.length && (line[i] === 1 || line[i] === 3));
+      if (isBlack) {
         if (currentStart === -1) currentStart = i;
       } else {
         if (currentStart !== -1) {
-          const isLeftBounded = currentStart === 0 || line[currentStart - 1] === 2;
-          const isRightBounded = i === line.length || line[i] === 2;
+          const isLeftBounded = currentStart === 0 || line[currentStart - 1] === 2 || line[currentStart - 1] === 4;
+          const isRightBounded = i === line.length || line[i] === 2 || line[i] === 4;
           
           let hasUnknownLeft = false;
           for (let k = 0; k < currentStart; k++) {
@@ -428,6 +437,8 @@ export default function NonogramApp() {
     setHintInfo(null);
     setMarkedRowClues({});
     setMarkedColClues({});
+    setDedactionMode(false);
+    setBackupGrid(null);
   };
 
   const loadPreset = (presetKey) => {
@@ -435,9 +446,8 @@ export default function NonogramApp() {
     initBoard(p.rows, p.cols, p.rowClues, p.colClues);
   };
 
-  // --- 优化后的随机生成器 (支持难度和空/满行剔除) ---
   const generateRandom = () => {
-    let prob = 0.55; // 默认中等
+    let prob = 0.55; 
     if (randomDifficulty === 'easy') prob = 0.65;
     if (randomDifficulty === 'hard') prob = 0.40;
 
@@ -445,36 +455,30 @@ export default function NonogramApp() {
       Array(cols).fill().map(() => (Math.random() < prob ? 1 : 0))
     );
     
-    // 如果不是简单难度，且棋盘大于 2x2，执行防满行/满列检测修复
     if (randomDifficulty !== 'easy' && rows > 2 && cols > 2) {
       let changed = true;
       let loops = 0;
-      // 循环修复，直到没有违规的行列（最大尝试10次防止死循环）
       while (changed && loops < 10) {
         changed = false;
         loops++;
-        
-        // 修复行
         for (let r = 0; r < rows; r++) {
           let sum = 0;
           for (let c = 0; c < cols; c++) sum += randomGrid[r][c];
-          if (sum === cols) { // 满行，挖个洞
+          if (sum === cols) { 
             randomGrid[r][Math.floor(Math.random() * cols)] = 0;
             changed = true;
-          } else if (sum === 0) { // 空行，填个坑
+          } else if (sum === 0) { 
             randomGrid[r][Math.floor(Math.random() * cols)] = 1;
             changed = true;
           }
         }
-        
-        // 修复列
         for (let c = 0; c < cols; c++) {
           let sum = 0;
           for (let r = 0; r < rows; r++) sum += randomGrid[r][c];
-          if (sum === rows) { // 满列，挖个洞
+          if (sum === rows) { 
             randomGrid[Math.floor(Math.random() * rows)][c] = 0;
             changed = true;
-          } else if (sum === 0) { // 空列，填个坑
+          } else if (sum === 0) { 
             randomGrid[Math.floor(Math.random() * rows)][c] = 1;
             changed = true;
           }
@@ -511,6 +515,8 @@ export default function NonogramApp() {
     setHintInfo(null);
     setMarkedRowClues({});
     setMarkedColClues({});
+    setDedactionMode(false);
+    setBackupGrid(null);
   };
 
   // --- 本地题库管理 ---
@@ -521,7 +527,7 @@ export default function NonogramApp() {
         id: Date.now(),
         name,
         date: new Date().toLocaleString(),
-        rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus
+        rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, dedactionMode, backupGrid
       }, ...puzzleCollection];
       setPuzzleCollection(newCol);
       localStorage.setItem('nonogram_collection', JSON.stringify(newCol));
@@ -545,7 +551,7 @@ export default function NonogramApp() {
   // --- 本地存档导出/导入 ---
   const handleExportCode = () => {
     const finalFilename = exportFilename.trim() || 'nonogram-save';
-    const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, remark: exportRemark.trim() };
+    const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, remark: exportRemark.trim(), dedactionMode, backupGrid };
     const jsonStr = JSON.stringify(data);
     const base64 = btoa(encodeURIComponent(jsonStr));
     setExportData(base64);
@@ -568,7 +574,7 @@ export default function NonogramApp() {
 
   const handleExportJSON = () => {
     const finalFilename = exportFilename.trim() || 'nonogram-save';
-    const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, remark: exportRemark.trim() };
+    const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, remark: exportRemark.trim(), dedactionMode, backupGrid };
     const jsonStr = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -625,14 +631,14 @@ export default function NonogramApp() {
           const x = leftWidth + c * EXPORT_CELL_SIZE;
           const y = topHeight + r * EXPORT_CELL_SIZE;
 
-          if (grid[r][c] === 1) { 
-            ctx.fillStyle = '#1e293b'; 
+          if (grid[r][c] === 1 || grid[r][c] === 3) { 
+            ctx.fillStyle = grid[r][c] === 3 ? '#d946ef' : '#1e293b'; // 黑块或推演黑
             ctx.fillRect(x, y, EXPORT_CELL_SIZE, EXPORT_CELL_SIZE);
           } else {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(x, y, EXPORT_CELL_SIZE, EXPORT_CELL_SIZE);
-            if (grid[r][c] === 2) { 
-              ctx.strokeStyle = '#ef4444'; 
+            if (grid[r][c] === 2 || grid[r][c] === 4) { 
+              ctx.strokeStyle = grid[r][c] === 4 ? '#d946ef' : '#ef4444'; // 叉或推演叉
               ctx.lineWidth = 3;
               ctx.globalAlpha = 0.8;
               ctx.beginPath();
@@ -670,7 +676,7 @@ export default function NonogramApp() {
 
       for (let c = 0; c < cols; c++) {
         const clues = parsedColClues[c];
-        const colLine = grid.map(row => row[c]).map(v => v===1?1:(v===2?2:0));
+        const colLine = grid.map(row => row[c]).map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
         const autoMarkedCol = gameSettings.autoMarkNumbers ? getAutoMarked(colLine, clues).marked : [];
 
         const x = leftWidth + c * EXPORT_CELL_SIZE + EXPORT_CELL_SIZE / 2;
@@ -690,7 +696,7 @@ export default function NonogramApp() {
 
       for (let r = 0; r < rows; r++) {
         const clues = parsedRowClues[r];
-        const rowLine = grid[r].map(v => v===1?1:(v===2?2:0));
+        const rowLine = grid[r].map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
         const autoMarkedRow = gameSettings.autoMarkNumbers ? getAutoMarked(rowLine, clues).marked : [];
 
         const y = topHeight + r * EXPORT_CELL_SIZE + EXPORT_CELL_SIZE / 2 + 1; 
@@ -764,6 +770,8 @@ export default function NonogramApp() {
       setMarkedRowClues(data.markedRowClues || {});
       setMarkedColClues(data.markedColClues || {});
       setIsSolvedStatus(data.isSolvedStatus || false);
+      setDedactionMode(data.dedactionMode || false);
+      setBackupGrid(data.backupGrid || null);
       setAlertMsg('✅ 存档导入成功！已恢复进度。');
       setShowLocalImport(false);
       setMode('play');
@@ -968,6 +976,15 @@ export default function NonogramApp() {
   };
 
   // --- 交互逻辑核心 ---
+  const checkLineValid = (clues, length, currentLine) => {
+    if (currentLine.every(v => v !== -1)) return true;
+    const allPossibilities = generateLines(clues, length);
+    const validPossibilities = allPossibilities.filter(p => 
+        p.every((val, idx) => currentLine[idx] === -1 || currentLine[idx] === val)
+    );
+    return validPossibilities.length > 0;
+  };
+
   const updateCell = (r, c, val) => {
     if (hintInfo?.isError) {
       if (hintInfo.type === 'cell' && hintInfo.r === r && hintInfo.c === c) {
@@ -990,15 +1007,29 @@ export default function NonogramApp() {
     if (mode !== 'play') return;
     e.preventDefault();
     let newAction = 0;
+    
+    const currentVal = grid[r][c];
 
     if (e.button === 0) {
       if (interactionMode === 'toggle') {
-        newAction = (grid[r][c] + 1) % 3;
+        if (!dedactionMode) {
+           newAction = currentVal === 0 ? 1 : (currentVal === 1 ? 2 : 0);
+        } else {
+           newAction = (currentVal === 0 || currentVal === 1 || currentVal === 2) ? 3 : (currentVal === 3 ? 4 : 0);
+        }
       } else {
         newAction = currentBrush;
+        if (dedactionMode) {
+           if (currentBrush === 1) newAction = 3;
+           if (currentBrush === 2) newAction = 4;
+        }
       }
     } else if (e.button === 2) {
-      newAction = grid[r][c] === 2 ? 0 : 2;
+      if (!dedactionMode) {
+         newAction = currentVal === 2 ? 0 : 2;
+      } else {
+         newAction = currentVal === 4 ? 0 : 4;
+      }
     }
 
     setDragAction(newAction);
@@ -1104,12 +1135,15 @@ export default function NonogramApp() {
       for (let c = 0; c < cols; c++) {
         const userVal = grid[r][c]; 
         const solvedVal = solvedBoard[r][c]; 
+        
+        const isUserBlack = (userVal === 1 || userVal === 3);
+        const isUserCross = (userVal === 2 || userVal === 4);
 
-        if (solvedVal !== -1 && userVal !== 0) {
-          if (userVal === 1 && solvedVal === 0) {
+        if (solvedVal !== -1 && (isUserBlack || isUserCross)) {
+          if (isUserBlack && solvedVal === 0) {
             errorFound = true; errorR = r; errorC = c; break;
           }
-          if (userVal === 2 && solvedVal === 1) {
+          if (isUserCross && solvedVal === 1) {
             errorFound = true; errorR = r; errorC = c; break;
           }
         }
@@ -1119,7 +1153,7 @@ export default function NonogramApp() {
 
     if (errorFound) {
       setHintInfo({ 
-        text: `⚠️ 发现错误！第 ${errorR + 1} 行，第 ${errorC + 1} 列填错了，它与最终标准答案相冲突！`, 
+        text: `⚠️ 发现错误！第 ${errorR + 1} 行，第 ${errorC + 1} 列与最终答案冲突！请检查您的推理。`, 
         type: 'cell', 
         r: errorR, 
         c: errorC, 
@@ -1128,7 +1162,7 @@ export default function NonogramApp() {
     } else {
       const hasUnknowns = solvedBoard.some(row => row.includes(-1));
       if (hasUnknowns) {
-        setHintInfo({ text: "✅ 目前填入的内容全部正确！（注：由于此题部分区域需要高级猜测技巧，未验证全局唯一性）", type: 'success', isError: false });
+        setHintInfo({ text: "✅ 目前填涂全部正确！（注：由于此题部分区域需要高级猜测技巧，未验证全局唯一性）", type: 'success', isError: false });
       } else {
         setHintInfo({ text: "✅ 检查通过！当前已填入的内容与最终答案完全一致，请继续保持！", type: 'success', isError: false });
       }
@@ -1151,8 +1185,8 @@ export default function NonogramApp() {
       const clues = isRow ? parsedRowClues[lineIdx] : parsedColClues[lineIdx];
       const length = isRow ? cols : rows;
       const currentLine = isRow 
-        ? grid[lineIdx].map(v => v === 1 ? 1 : (v === 2 ? 0 : -1))
-        : grid.map(r => r[lineIdx]).map(v => v === 1 ? 1 : (v === 2 ? 0 : -1));
+        ? grid[lineIdx].map(v => (v === 1 || v === 3) ? 1 : ((v === 2 || v === 4) ? 0 : -1))
+        : grid.map(r => r[lineIdx]).map(v => (v === 1 || v === 3) ? 1 : ((v === 2 || v === 4) ? 0 : -1));
         
       if (currentLine.every(v => v !== -1)) return { status: 'full' };
 
@@ -1226,14 +1260,35 @@ export default function NonogramApp() {
       });
     } else {
       setHintInfo({
-        text: "🧠 当前盘面没有简单的单行/单列线索可以推进了。您可能需要结合多行交叉推导，或者利用假设法来进行下一步试探（或者检查一下是不是哪里填错了）。",
+        text: "🧠 当前盘面没有简单的单行/单列线索可以推进了。您可能需要结合多行交叉推导，或者利用假设法（推演模式）来进行下一步试探。",
         type: 'info',
         isError: false
       });
     }
   };
 
+  const startDeduction = () => {
+    setBackupGrid(grid.map(r => [...r]));
+    setDedactionMode(true);
+    setAlertMsg('🔬 已进入推演模式。填涂将以紫色独立显示。不满意可随时放弃。');
+  };
+
+  const applyDeduction = () => {
+    setGrid(prev => prev.map(r => r.map(c => c === 3 ? 1 : (c === 4 ? 2 : c))));
+    setDedactionMode(false);
+    setBackupGrid(null);
+    setAlertMsg('✅ 推演成功！已将推演结果应用到当前进度。');
+  };
+
+  const cancelDeduction = () => {
+    setGrid(backupGrid);
+    setDedactionMode(false);
+    setBackupGrid(null);
+    setAlertMsg('🔙 已取消推演，盘面恢复至推演前状态。');
+  };
+
   const autoSolve = () => {
+    if (dedactionMode) cancelDeduction();
     setAlertMsg('');
     setHintInfo(null);
     
@@ -1245,7 +1300,6 @@ export default function NonogramApp() {
 
     const finalGrid = solvedBoard.map(row => row.map(cell => cell === 1 ? 1 : (cell === 0 ? 2 : 0)));
     setGrid(finalGrid);
-    // 强制触发一次校验 (useEffect 虽有依赖但这里手动更新 UI 更直观)
     setIsSolvedStatus(true);
     if (solvedBoard.some(row => row.includes(-1))) {
       setIsSolvedStatus(false);
@@ -1260,6 +1314,8 @@ export default function NonogramApp() {
     setHintInfo(null);
     setMarkedRowClues({});
     setMarkedColClues({});
+    setDedactionMode(false);
+    setBackupGrid(null);
   };
 
   // --- 提前计算悬浮高亮与外挂数据 ---
@@ -1273,7 +1329,7 @@ export default function NonogramApp() {
   let hoverRowInsertIdx = -1;
   if (showHoverRow) {
     hoverParsedRow = parseClue(rowCluesStr[hoverPos.r]);
-    const rowLine = grid[hoverPos.r].map(v => v===1?1:(v===2?2:0));
+    const rowLine = grid[hoverPos.r].map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
     const autoRes = gameSettings.autoMarkNumbers ? getAutoMarked(rowLine, hoverParsedRow) : { marked: [], assignedBlocks: [] };
     hoverAutoRow = autoRes.marked;
     hoverRowInsertIdx = getInsertIdx(cols, hoverParsedRow, hoverPos.c, autoRes.assignedBlocks);
@@ -1284,7 +1340,7 @@ export default function NonogramApp() {
   let hoverColInsertIdx = -1;
   if (showHoverCol) {
     hoverParsedCol = parseClue(colCluesStr[hoverPos.c]);
-    const colLine = grid.map(row => row[hoverPos.c]).map(v => v===1?1:(v===2?2:0));
+    const colLine = grid.map(row => row[hoverPos.c]).map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
     const autoRes = gameSettings.autoMarkNumbers ? getAutoMarked(colLine, hoverParsedCol) : { marked: [], assignedBlocks: [] };
     hoverAutoCol = autoRes.marked;
     hoverColInsertIdx = getInsertIdx(rows, hoverParsedCol, hoverPos.r, autoRes.assignedBlocks);
@@ -1293,7 +1349,6 @@ export default function NonogramApp() {
   const hoverOnlyRow = showHoverRow && !showHoverCol;
   const hoverOnlyCol = !showHoverRow && showHoverCol;
 
-  // 悬浮线索渲染组件
   const renderTooltipClues = (parsed, autoMarked, manualMarkedDict, insertIdx, isRow) => {
     return Array.from({ length: parsed.length + 1 }).map((_, i) => {
         const elements = [];
@@ -1670,6 +1725,36 @@ export default function NonogramApp() {
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">操作方式</h2>
                 <div className="flex gap-2">
+                  {!dedactionMode ? (
+                    <button 
+                      onClick={startDeduction}
+                      className="px-2 py-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-fuchsia-200"
+                    >
+                      <GitBranch className="w-3.5 h-3.5" /> 开始推演
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={applyDeduction}
+                        className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-emerald-200"
+                        title="推演成功，合并入盘面"
+                      >
+                        <Check className="w-3.5 h-3.5" /> 应用
+                      </button>
+                      <button 
+                        onClick={cancelDeduction}
+                        className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-rose-200"
+                        title="推演失败，恢复至推演前"
+                      >
+                        <X className="w-3.5 h-3.5" /> 放弃
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <div className="flex gap-2">
                   <button 
                     onClick={validateGrid}
                     className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-blue-200"
@@ -1684,6 +1769,7 @@ export default function NonogramApp() {
                   </button>
                 </div>
               </div>
+
               
               <div className="flex gap-2">
                 <button 
@@ -1755,19 +1841,23 @@ export default function NonogramApp() {
         )}
 
         {/* Board 容器 */}
-        <div id="board-scroll-container" className="flex-1 overflow-auto p-4 md:p-8 flex" onMouseLeave={handleGlobalLeave}>
+        <div 
+          id="board-scroll-container" 
+          className={`flex-1 overflow-auto p-4 md:p-8 flex ${dedactionMode ? 'bg-fuchsia-50/50 shadow-[inset_0_0_40px_rgba(217,70,239,0.15)]' : ''}`} 
+          onMouseLeave={handleGlobalLeave}
+        >
           <div className="m-auto relative">
             
             <div 
               id="board-grid"
-              className="grid gap-[1px] bg-slate-400 border-2 border-slate-800 shadow-xl relative" 
+              className={`grid gap-[1px] bg-slate-400 border-2 shadow-xl relative transition-colors ${dedactionMode ? 'border-fuchsia-600 shadow-[0_0_20px_rgba(217,70,239,0.3)]' : 'border-slate-800'}`} 
               style={{ gridTemplateColumns: `auto repeat(${cols}, ${cellSize}px) auto` }}
               onContextMenu={(e) => e.preventDefault()}
               onMouseLeave={handleGlobalLeave} 
             >
               
               {/* === 第一行：顶部列线索 === */}
-              <div className="bg-white border-r-2 border-b-2 border-slate-800" /> 
+              <div className={`bg-white border-r-2 border-b-2 transition-colors ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}`} /> 
               
               {colCluesStr.map((str, c) => {
                 const isDone = mode === 'play' && isLineCompleted(c, false, grid);
@@ -1776,13 +1866,14 @@ export default function NonogramApp() {
                 const clueTextSize = getClueTextSize();
                 const parsed = parseClue(str);
                 
-                const colLine = grid.map(row => row[c]).map(v => v===1?1:(v===2?2:0));
+                const colLine = grid.map(row => row[c]).map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
                 const autoMarkedCol = gameSettings.autoMarkNumbers ? getAutoMarked(colLine, parsed).marked : [];
 
                 return (
-                  <div key={`col-clue-top-${c}`} className={`flex flex-col justify-end items-center pb-2 border-b-2 border-slate-800 transition-colors
-                    ${isHintCol ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverCol ? 'bg-[#e0f2e9]' : (isDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))} 
-                    ${c % 5 === 4 && c !== cols - 1 ? 'border-r-2' : ''} 
+                  <div key={`col-clue-top-${c}`} className={`flex flex-col justify-end items-center pb-2 border-b-2 transition-colors
+                    ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}
+                    ${isHintCol ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverCol ? (dedactionMode ? 'bg-fuchsia-100' : 'bg-[#e0f2e9]') : (isDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))} 
+                    ${c % 5 === 4 && c !== cols - 1 ? (dedactionMode ? 'border-r-2 border-r-fuchsia-600' : 'border-r-2 border-r-slate-800') : ''} 
                     ${isDone && gameSettings.completeLineStyle === 'fade' ? 'opacity-30' : ''}`}
                   >
                     {mode === 'edit' ? (
@@ -1816,7 +1907,7 @@ export default function NonogramApp() {
                 );
               })}
               
-              <div className="bg-white border-l-2 border-b-2 border-slate-800" /> 
+              <div className={`bg-white border-l-2 border-b-2 transition-colors ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}`} /> 
 
 
               {/* === 中间区域 === */}
@@ -1827,7 +1918,7 @@ export default function NonogramApp() {
                 const clueTextSize = getClueTextSize();
                 const parsed = parseClue(rowCluesStr[r]);
                 
-                const rowLine = row.map(v => v===1?1:(v===2?2:0));
+                const rowLine = row.map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
                 const autoMarkedRow = gameSettings.autoMarkNumbers ? getAutoMarked(rowLine, parsed).marked : [];
                 
                 const renderRowClues = () => parsed.map((num, i) => {
@@ -1848,9 +1939,10 @@ export default function NonogramApp() {
                   <React.Fragment key={`row-${r}`}>
                     
                     {/* 左侧行线索 */}
-                    <div className={`flex justify-end items-center pr-2 border-r-2 border-slate-800 gap-1.5 transition-colors
-                      ${isHintRow ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverRow ? 'bg-[#e0f2e9]' : (isRowDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))}
-                      ${r % 5 === 4 && r !== rows - 1 ? 'border-b-2' : ''} 
+                    <div className={`flex justify-end items-center pr-2 border-r-2 gap-1.5 transition-colors
+                      ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}
+                      ${isHintRow ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverRow ? (dedactionMode ? 'bg-fuchsia-100' : 'bg-[#e0f2e9]') : (isRowDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))}
+                      ${r % 5 === 4 && r !== rows - 1 ? (dedactionMode ? 'border-b-2 border-b-fuchsia-600' : 'border-b-2 border-b-slate-800') : ''} 
                       ${isRowDone && gameSettings.completeLineStyle === 'fade' ? 'opacity-30' : ''}`}
                     >
                       {mode === 'edit' ? (
@@ -1875,8 +1967,8 @@ export default function NonogramApp() {
                       const isExactErrorCell = hintInfo?.type === 'cell' && hintInfo.r === r && hintInfo.c === c && hintInfo.isError;
                       const isHoverCell = (hoverPos.r === r || hoverPos.c === c) && mode === 'play';
                       
-                      const borderRight = c % 5 === 4 && c !== cols - 1 ? 'border-r-2 border-r-slate-800' : '';
-                      const borderBottom = r % 5 === 4 && r !== rows - 1 ? 'border-b-2 border-b-slate-800' : '';
+                      const borderRight = c % 5 === 4 && c !== cols - 1 ? (dedactionMode ? 'border-r-2 border-r-fuchsia-600' : 'border-r-2 border-r-slate-800') : '';
+                      const borderBottom = r % 5 === 4 && r !== rows - 1 ? (dedactionMode ? 'border-b-2 border-b-fuchsia-600' : 'border-b-2 border-b-slate-800') : '';
 
                       let inMeasureRect = false;
                       if (measureStart && hoverPos.r !== -1 && hoverPos.c !== -1) {
@@ -1889,15 +1981,17 @@ export default function NonogramApp() {
 
                       let cellBg = isHintCell 
                         ? (hintInfo.isError ? 'bg-red-200' : 'bg-amber-100')
-                        : (isHoverCell ? 'bg-[#e0f2e9]' : 'bg-white');
+                        : (isHoverCell ? (dedactionMode ? 'bg-fuchsia-50' : 'bg-[#e0f2e9]') : 'bg-white');
 
                       let finalBg = '';
                       if (isExactErrorCell) {
-                        finalBg = cell === 1 ? 'bg-red-700 animate-pulse' : 'bg-red-300 animate-pulse';
+                        finalBg = (cell === 1 || cell === 3) ? 'bg-red-700 animate-pulse' : 'bg-red-300 animate-pulse';
                       } else if (inMeasureRect) {
-                        finalBg = cell === 1 ? 'bg-indigo-800' : 'bg-indigo-100';
+                        finalBg = (cell === 1 || cell === 3) ? 'bg-indigo-800' : 'bg-indigo-100';
                       } else {
-                        finalBg = cell === 1 ? 'bg-slate-800' : cellBg;
+                        if (cell === 1) finalBg = 'bg-slate-800';
+                        else if (cell === 3) finalBg = 'bg-fuchsia-600'; // 推演黑
+                        else finalBg = cellBg;
                       }
 
                       return (
@@ -1909,12 +2003,12 @@ export default function NonogramApp() {
                             flex items-center justify-center cursor-crosshair transition-colors duration-75
                             ${borderRight} ${borderBottom}
                             ${mode !== 'play' ? 'opacity-50 pointer-events-none' : ''}
-                            ${finalBg} ${mode === 'play' && cell === 1 && !isExactErrorCell ? 'hover:bg-slate-700' : (mode === 'play' && !inMeasureRect && !isExactErrorCell ? 'hover:bg-slate-300' : '')}
+                            ${finalBg} ${mode === 'play' && (cell === 1 || cell === 3) && !isExactErrorCell ? 'hover:brightness-110' : (mode === 'play' && !inMeasureRect && !isExactErrorCell ? (dedactionMode ? 'hover:bg-fuchsia-100' : 'hover:bg-slate-300') : '')}
                           `}
                           style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
                         >
-                          {cell === 2 && (
-                            <svg className={`${isExactErrorCell ? 'text-red-900' : 'text-red-500'} opacity-80`} style={{ width: '65%', height: '65%' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+                          {(cell === 2 || cell === 4) && (
+                            <svg className={`${isExactErrorCell ? 'text-red-900' : (cell === 4 ? 'text-fuchsia-500' : 'text-red-500')} opacity-80`} style={{ width: '65%', height: '65%' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
                               <path d="M18 6L6 18M6 6l12 12" />
                             </svg>
                           )}
@@ -1923,9 +2017,10 @@ export default function NonogramApp() {
                     })}
 
                     {/* 右侧行线索 */}
-                    <div className={`flex justify-start items-center pl-2 border-l-2 border-slate-800 gap-1.5 transition-colors
-                      ${isHintRow ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverRow ? 'bg-[#e0f2e9]' : (isRowDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))}
-                      ${r % 5 === 4 && r !== rows - 1 ? 'border-b-2' : ''} 
+                    <div className={`flex justify-start items-center pl-2 border-l-2 gap-1.5 transition-colors
+                      ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}
+                      ${isHintRow ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverRow ? (dedactionMode ? 'bg-fuchsia-100' : 'bg-[#e0f2e9]') : (isRowDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))}
+                      ${r % 5 === 4 && r !== rows - 1 ? (dedactionMode ? 'border-b-2 border-b-fuchsia-600' : 'border-b-2 border-b-slate-800') : ''} 
                       ${isRowDone && gameSettings.completeLineStyle === 'fade' ? 'opacity-30' : ''}`}
                     >
                        {mode === 'edit' ? <span className="text-slate-300 px-4 text-xs font-medium">镜像</span> : renderRowClues()}
@@ -1935,7 +2030,7 @@ export default function NonogramApp() {
               })}
 
               {/* === 最后一行：底部列线索 === */}
-              <div className="bg-white border-r-2 border-t-2 border-slate-800" />
+              <div className={`bg-white border-r-2 border-t-2 transition-colors ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}`} />
 
               {colCluesStr.map((str, c) => {
                 const isDone = mode === 'play' && isLineCompleted(c, false, grid);
@@ -1944,13 +2039,14 @@ export default function NonogramApp() {
                 const clueTextSize = getClueTextSize();
                 const parsed = parseClue(str);
                 
-                const colLine = grid.map(row => row[c]).map(v => v===1?1:(v===2?2:0));
+                const colLine = grid.map(row => row[c]).map(v => (v===1 || v===3)?1:((v===2 || v===4)?2:0));
                 const autoMarkedCol = gameSettings.autoMarkNumbers ? getAutoMarked(colLine, parsed).marked : [];
 
                 return (
-                  <div key={`col-clue-bottom-${c}`} className={`flex flex-col justify-start items-center pt-2 border-t-2 border-slate-800 transition-colors
-                    ${isHintCol ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverCol ? 'bg-[#e0f2e9]' : (isDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))} 
-                    ${c % 5 === 4 && c !== cols - 1 ? 'border-r-2' : ''} 
+                  <div key={`col-clue-bottom-${c}`} className={`flex flex-col justify-start items-center pt-2 border-t-2 transition-colors
+                    ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}
+                    ${isHintCol ? (hintInfo.isError ? 'bg-red-100' : 'bg-amber-100/80') : (isHoverCol ? (dedactionMode ? 'bg-fuchsia-100' : 'bg-[#e0f2e9]') : (isDone && gameSettings.completeLineStyle === 'highlight' ? 'bg-emerald-100' : 'bg-slate-50'))} 
+                    ${c % 5 === 4 && c !== cols - 1 ? (dedactionMode ? 'border-r-2 border-r-fuchsia-600' : 'border-r-2 border-r-slate-800') : ''} 
                     ${isDone && gameSettings.completeLineStyle === 'fade' ? 'opacity-30' : ''}`}
                   >
                     {mode === 'edit' ? <span className="text-slate-300 text-xs font-medium pt-2">镜像</span> : (
@@ -1972,7 +2068,7 @@ export default function NonogramApp() {
                 );
               })}
 
-              <div className="bg-white border-l-2 border-t-2 border-slate-800" />
+              <div className={`bg-white border-l-2 border-t-2 transition-colors ${dedactionMode ? 'border-fuchsia-600' : 'border-slate-800'}`} />
 
             </div>
           </div>
