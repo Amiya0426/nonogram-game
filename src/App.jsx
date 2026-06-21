@@ -202,7 +202,7 @@ export default function NonogramApp() {
     setIsSolvedStatus(win);
   }, [grid, mode, rows, cols, isLineCompleted]);
 
-  // --- 带有 300ms 防抖的 自动打X 功能 ---
+  // --- 带有 1000 ms 防抖的 自动打X 功能 ---
   useEffect(() => {
     // 推演模式下自动打 X 功能失效
     if (!gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus || deductionLevel > 0) return;
@@ -241,7 +241,7 @@ export default function NonogramApp() {
 
         return changed ? newGrid : prevGrid; 
       });
-    }, 300); 
+    }, 1000); 
 
     return () => clearTimeout(timer); 
   }, [grid, gameSettings.autoFillCross, mode, isSolvedStatus, deductionLevel, rows, cols, rowCluesStr, colCluesStr]);
