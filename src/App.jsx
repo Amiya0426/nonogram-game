@@ -88,8 +88,9 @@ export default function NonogramApp() {
   const [exportFilename, setExportFilename] = useState('nonogram-save');
   const [exportRemark, setExportRemark] = useState('');
 
-  // 题库收藏夹状态
+  // 题库收藏夹与随机生成状态
   const [puzzleCollection, setPuzzleCollection] = useState([]);
+  const [randomDifficulty, setRandomDifficulty] = useState('medium'); // 新增：难度控制
 
   // 辅助功能设置状态
   const [gameSettings, setGameSettings] = useState({
@@ -150,8 +151,7 @@ export default function NonogramApp() {
     return JSON.stringify(targetClues) === JSON.stringify(currentClues);
   }, [rowCluesStr, colCluesStr]);
 
-  // --- [核心修复] 全局检查完成状态的 useEffect ---
-  // 不再在单元格更新时同步检查，依靠 useEffect 实时响应网格变化
+  // --- 全局检查完成状态的 useEffect ---
   useEffect(() => {
     if (mode !== 'play') return;
     let win = true;
@@ -166,11 +166,10 @@ export default function NonogramApp() {
     setIsSolvedStatus(win);
   }, [grid, mode, rows, cols, isLineCompleted]);
 
-  // --- [核心修复] 带有 300ms 防抖的 自动打X 功能 ---
+  // --- 带有 300ms 防抖的 自动打X 功能 ---
   useEffect(() => {
     if (!gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus) return;
 
-    // 设置 300ms 防抖计时器：当用户快速连点或连续拖拽时，重置计时，不执行自动填充
     const timer = setTimeout(() => {
       setGrid(prevGrid => {
         let changed = false;
@@ -179,7 +178,6 @@ export default function NonogramApp() {
         const parsedRowClues = rowCluesStr.map(parseClue);
         const parsedColClues = colCluesStr.map(parseClue);
 
-        // 检查每一行是否完成，并填充剩余空格
         for (let r = 0; r < rows; r++) {
           const rowLine = newGrid[r];
           if (JSON.stringify(getLineClue(rowLine)) === JSON.stringify(parsedRowClues[r])) {
@@ -192,7 +190,6 @@ export default function NonogramApp() {
           }
         }
         
-        // 检查每一列是否完成，并填充剩余空格
         for (let c = 0; c < cols; c++) {
           const colLine = newGrid.map(row => row[c]);
           if (JSON.stringify(getLineClue(colLine)) === JSON.stringify(parsedColClues[c])) {
@@ -205,11 +202,11 @@ export default function NonogramApp() {
           }
         }
 
-        return changed ? newGrid : prevGrid; // 仅在有改动时才返回新数组，避免无效渲染
+        return changed ? newGrid : prevGrid; 
       });
-    }, 300); // 防抖延迟时间，足以吸收双击和快速拖拽
+    }, 300); 
 
-    return () => clearTimeout(timer); // 只要 grid 变化（用户继续操作），就清空上次的计时器
+    return () => clearTimeout(timer); 
   }, [grid, gameSettings.autoFillCross, mode, isSolvedStatus, rows, cols, rowCluesStr, colCluesStr]);
 
 
@@ -438,11 +435,53 @@ export default function NonogramApp() {
     initBoard(p.rows, p.cols, p.rowClues, p.colClues);
   };
 
+  // --- 优化后的随机生成器 (支持难度和空/满行剔除) ---
   const generateRandom = () => {
-    const randomGrid = Array(rows).fill().map(() => 
-      Array(cols).fill().map(() => (Math.random() > 0.45 ? 1 : 0))
+    let prob = 0.55; // 默认中等
+    if (randomDifficulty === 'easy') prob = 0.65;
+    if (randomDifficulty === 'hard') prob = 0.40;
+
+    let randomGrid = Array(rows).fill().map(() => 
+      Array(cols).fill().map(() => (Math.random() < prob ? 1 : 0))
     );
     
+    // 如果不是简单难度，且棋盘大于 2x2，执行防满行/满列检测修复
+    if (randomDifficulty !== 'easy' && rows > 2 && cols > 2) {
+      let changed = true;
+      let loops = 0;
+      // 循环修复，直到没有违规的行列（最大尝试10次防止死循环）
+      while (changed && loops < 10) {
+        changed = false;
+        loops++;
+        
+        // 修复行
+        for (let r = 0; r < rows; r++) {
+          let sum = 0;
+          for (let c = 0; c < cols; c++) sum += randomGrid[r][c];
+          if (sum === cols) { // 满行，挖个洞
+            randomGrid[r][Math.floor(Math.random() * cols)] = 0;
+            changed = true;
+          } else if (sum === 0) { // 空行，填个坑
+            randomGrid[r][Math.floor(Math.random() * cols)] = 1;
+            changed = true;
+          }
+        }
+        
+        // 修复列
+        for (let c = 0; c < cols; c++) {
+          let sum = 0;
+          for (let r = 0; r < rows; r++) sum += randomGrid[r][c];
+          if (sum === rows) { // 满列，挖个洞
+            randomGrid[Math.floor(Math.random() * rows)][c] = 0;
+            changed = true;
+          } else if (sum === 0) { // 空列，填个坑
+            randomGrid[Math.floor(Math.random() * rows)][c] = 1;
+            changed = true;
+          }
+        }
+      }
+    }
+
     const extractClues = (line) => {
       const clues = [];
       let count = 0;
@@ -940,8 +979,6 @@ export default function NonogramApp() {
       }
     }
     
-    // 【核心修复】：移除直接在 updateCell 中的同步检查与同步自动填充
-    // 全部交由下面带有防抖延迟的 useEffect 处理，避免轮切模式下的状态突变
     setGrid(prev => {
       let newGrid = prev.map(row => [...row]);
       newGrid[r][c] = val;
@@ -1398,6 +1435,16 @@ export default function NonogramApp() {
               </div>
               
               <div className="flex ml-auto gap-1">
+                <select 
+                  value={randomDifficulty}
+                  onChange={(e) => setRandomDifficulty(e.target.value)}
+                  className="px-2 py-1 text-xs rounded-md border border-slate-300 outline-none focus:border-emerald-500 bg-white"
+                  title="随机生成难度"
+                >
+                  <option value="easy">简单</option>
+                  <option value="medium">中等</option>
+                  <option value="hard">困难</option>
+                </select>
                 <button onClick={generateRandom} className="p-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-md transition-colors" title="随机生成该尺寸的题目">
                   <RefreshCw className="w-4 h-4" />
                 </button>
