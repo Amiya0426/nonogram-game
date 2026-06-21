@@ -117,6 +117,102 @@ export default function NonogramApp() {
   useEffect(() => { cluesRef.current = { r: rowCluesStr, c: colCluesStr }; }, [rowCluesStr, colCluesStr]);
   useEffect(() => { settingsRef.current = gameSettings; }, [gameSettings]);
 
+  // --- 辅助函数 ---
+  const parseClue = (str) => {
+    if (typeof str !== 'string') return [0];
+    const parsed = str.trim().split(/[\s,]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n > 0);
+    return parsed.length > 0 ? parsed : [0];
+  };
+
+  const getClueTextSize = () => {
+    if (cellSize < 20) return 'text-[11px]';
+    if (cellSize < 28) return 'text-sm';
+    if (cellSize < 40) return 'text-base';
+    return 'text-lg';
+  };
+
+  const getLineClue = (line) => {
+    const clues = [];
+    let count = 0;
+    for (let v of line) {
+      if (v === 1) count++;
+      else if (count > 0) { clues.push(count); count = 0; }
+    }
+    if (count > 0) clues.push(count);
+    return clues.length > 0 ? clues : [0];
+  };
+
+  const isLineCompleted = useCallback((lineIdx, isRow, currentGrid) => {
+    const rawStr = isRow ? rowCluesStr[lineIdx] : colCluesStr[lineIdx];
+    const targetClues = parseClue(rawStr);
+    const line = isRow ? currentGrid[lineIdx] : currentGrid.map(row => row[lineIdx]);
+    const currentClues = getLineClue(line);
+    return JSON.stringify(targetClues) === JSON.stringify(currentClues);
+  }, [rowCluesStr, colCluesStr]);
+
+  // --- [核心修复] 全局检查完成状态的 useEffect ---
+  // 不再在单元格更新时同步检查，依靠 useEffect 实时响应网格变化
+  useEffect(() => {
+    if (mode !== 'play') return;
+    let win = true;
+    for (let r = 0; r < rows; r++) {
+      if (!isLineCompleted(r, true, grid)) { win = false; break; }
+    }
+    if (win) {
+      for (let c = 0; c < cols; c++) {
+        if (!isLineCompleted(c, false, grid)) { win = false; break; }
+      }
+    }
+    setIsSolvedStatus(win);
+  }, [grid, mode, rows, cols, isLineCompleted]);
+
+  // --- [核心修复] 带有 300ms 防抖的 自动打X 功能 ---
+  useEffect(() => {
+    if (!gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus) return;
+
+    // 设置 300ms 防抖计时器：当用户快速连点或连续拖拽时，重置计时，不执行自动填充
+    const timer = setTimeout(() => {
+      setGrid(prevGrid => {
+        let changed = false;
+        let newGrid = prevGrid.map(row => [...row]);
+        
+        const parsedRowClues = rowCluesStr.map(parseClue);
+        const parsedColClues = colCluesStr.map(parseClue);
+
+        // 检查每一行是否完成，并填充剩余空格
+        for (let r = 0; r < rows; r++) {
+          const rowLine = newGrid[r];
+          if (JSON.stringify(getLineClue(rowLine)) === JSON.stringify(parsedRowClues[r])) {
+            for (let c = 0; c < cols; c++) {
+              if (newGrid[r][c] === 0) { 
+                newGrid[r][c] = 2; 
+                changed = true; 
+              }
+            }
+          }
+        }
+        
+        // 检查每一列是否完成，并填充剩余空格
+        for (let c = 0; c < cols; c++) {
+          const colLine = newGrid.map(row => row[c]);
+          if (JSON.stringify(getLineClue(colLine)) === JSON.stringify(parsedColClues[c])) {
+            for (let r = 0; r < rows; r++) {
+              if (newGrid[r][c] === 0) { 
+                newGrid[r][c] = 2; 
+                changed = true; 
+              }
+            }
+          }
+        }
+
+        return changed ? newGrid : prevGrid; // 仅在有改动时才返回新数组，避免无效渲染
+      });
+    }, 300); // 防抖延迟时间，足以吸收双击和快速拖拽
+
+    return () => clearTimeout(timer); // 只要 grid 变化（用户继续操作），就清空上次的计时器
+  }, [grid, gameSettings.autoFillCross, mode, isSolvedStatus, rows, cols, rowCluesStr, colCluesStr]);
+
+
   // --- 初始化加载收藏夹与自动存读档 ---
   useEffect(() => {
     const storedCol = localStorage.getItem('nonogram_collection');
@@ -144,20 +240,6 @@ export default function NonogramApp() {
     }
   };
 
-  // --- 辅助函数 ---
-  const parseClue = (str) => {
-    if (typeof str !== 'string') return [0];
-    const parsed = str.trim().split(/[\s,]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n > 0);
-    return parsed.length > 0 ? parsed : [0];
-  };
-
-  const getClueTextSize = () => {
-    if (cellSize < 20) return 'text-[11px]';
-    if (cellSize < 28) return 'text-sm';
-    if (cellSize < 40) return 'text-base';
-    return 'text-lg';
-  };
-
   // --- 重构：完美级 自动检测高亮算法 ---
   const getAutoMarked = useCallback((line, clues) => {
     const marked = new Array(clues.length).fill(false);
@@ -165,7 +247,6 @@ export default function NonogramApp() {
     const blocks = [];
     let currentStart = -1;
 
-    // 提取所有的连续黑块
     for (let i = 0; i <= line.length; i++) {
       if (i < line.length && line[i] === 1) {
         if (currentStart === -1) currentStart = i;
@@ -197,7 +278,6 @@ export default function NonogramApp() {
       }
     }
 
-    // 1. 从左向右贪婪匹配：只有在左侧绝对没有未知区域时才敢断定
     let clueIdx = 0;
     for (let b = 0; b < blocks.length; b++) {
       if (clueIdx >= clues.length) break;
@@ -211,7 +291,6 @@ export default function NonogramApp() {
       }
     }
 
-    // 2. 从右向左贪婪匹配：只有在右侧绝对没有未知区域时才敢断定
     clueIdx = clues.length - 1;
     for (let b = blocks.length - 1; b >= 0; b--) {
       if (clueIdx < 0) break;
@@ -226,7 +305,6 @@ export default function NonogramApp() {
       }
     }
 
-    // 3. 孤岛唯一匹配：如果一个完全闭合的区块长度，在所有线索中只出现了一次，那么它一定对应那个线索
     for (let b = 0; b < blocks.length; b++) {
       if (blocks[b].isFullyBounded && blocks[b].assignedClueIdx === -1) {
         const len = blocks[b].len;
@@ -248,7 +326,6 @@ export default function NonogramApp() {
     return { marked, assignedBlocks };
   }, []);
 
-  // --- 计算鼠标在线索中的插入位置 (智能外挂 `!`) ---
   const getInsertIdx = useCallback((lineLength, clues, mouseIdx, assignedBlocks) => {
     if (!clues || clues.length === 0 || clues[0] === 0) return 0;
     
@@ -265,7 +342,6 @@ export default function NonogramApp() {
         }
     }
     
-    // 如果鼠标正好在一个已知区块内，标记在它的后面
     for (const b of assignedBlocks) {
         if (mouseIdx >= b.start && mouseIdx <= b.end) {
             return b.clueIdx + 1; 
@@ -316,18 +392,24 @@ export default function NonogramApp() {
       }
     };
 
+    const handleBlur = () => {
+      measureStartRef.current = null;
+      setMeasureStart(null);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('blur', handleBlur);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
-  // --- 强制清除事件残留 ---
   const handleGlobalLeave = () => {
     setHoverPos({ r: -1, c: -1 });
     measureStartRef.current = null;
@@ -847,26 +929,6 @@ export default function NonogramApp() {
   };
 
   // --- 交互逻辑核心 ---
-  const checkLineValid = (clues, length, currentLine) => {
-    if (currentLine.every(v => v !== -1)) return true;
-    const allPossibilities = generateLines(clues, length);
-    const validPossibilities = allPossibilities.filter(p => 
-        p.every((val, idx) => currentLine[idx] === -1 || currentLine[idx] === val)
-    );
-    return validPossibilities.length > 0;
-  };
-
-  const getLineClue = (line) => {
-    const clues = [];
-    let count = 0;
-    for (let v of line) {
-      if (v === 1) count++;
-      else if (count > 0) { clues.push(count); count = 0; }
-    }
-    if (count > 0) clues.push(count);
-    return clues.length > 0 ? clues : [0];
-  };
-
   const updateCell = (r, c, val) => {
     if (hintInfo?.isError) {
       if (hintInfo.type === 'cell' && hintInfo.r === r && hintInfo.c === c) {
@@ -878,40 +940,11 @@ export default function NonogramApp() {
       }
     }
     
+    // 【核心修复】：移除直接在 updateCell 中的同步检查与同步自动填充
+    // 全部交由下面带有防抖延迟的 useEffect 处理，避免轮切模式下的状态突变
     setGrid(prev => {
       let newGrid = prev.map(row => [...row]);
       newGrid[r][c] = val;
-      
-      // 新增辅助：如果允许，在整行/整列完成时自动填充X
-      if (settingsRef.current.autoFillCross) {
-        const rowLine = newGrid[r];
-        const rClues = parseClue(cluesRef.current.r[r]);
-        if (JSON.stringify(getLineClue(rowLine)) === JSON.stringify(rClues)) {
-            newGrid[r] = rowLine.map(v => v === 0 ? 2 : v);
-        }
-        
-        const colLine = newGrid.map(row => row[c]);
-        const cClues = parseClue(cluesRef.current.c[c]);
-        if (JSON.stringify(getLineClue(colLine)) === JSON.stringify(cClues)) {
-            for (let i = 0; i < rows; i++) {
-                if (newGrid[i][c] === 0) newGrid[i][c] = 2;
-            }
-        }
-      }
-      
-      if (hintInfo?.isError) {
-        if (hintInfo.type === 'row' && hintInfo.index === r) {
-            const clues = parseClue(cluesRef.current.r[r]);
-            const currentLine = newGrid[r].map(v => v === 1 ? 1 : (v === 2 ? 0 : -1));
-            if (checkLineValid(clues, cols, currentLine)) setHintInfo(null);
-        } else if (hintInfo.type === 'col' && hintInfo.index === c) {
-            const clues = parseClue(cluesRef.current.c[c]);
-            const currentLine = newGrid.map(row => row[c]).map(v => v === 1 ? 1 : (v === 2 ? 0 : -1));
-            if (checkLineValid(clues, rows, currentLine)) setHintInfo(null);
-        }
-      }
-      
-      checkWin(newGrid);
       return newGrid;
     });
   };
@@ -945,25 +978,6 @@ export default function NonogramApp() {
     if (e.buttons === 0) return; 
 
     updateCell(r, c, dragAction);
-  };
-
-  const isLineCompleted = (lineIdx, isRow, currentGrid) => {
-    const rawStr = isRow ? rowCluesStr[lineIdx] : colCluesStr[lineIdx];
-    const targetClues = parseClue(rawStr);
-    const line = isRow ? currentGrid[lineIdx] : currentGrid.map(row => row[lineIdx]);
-    const currentClues = getLineClue(line);
-    return JSON.stringify(targetClues) === JSON.stringify(currentClues);
-  };
-
-  const checkWin = (currentGrid) => {
-    let win = true;
-    for (let r = 0; r < rows; r++) {
-      if (!isLineCompleted(r, true, currentGrid)) win = false;
-    }
-    for (let c = 0; c < cols; c++) {
-      if (!isLineCompleted(c, false, currentGrid)) win = false;
-    }
-    setIsSolvedStatus(win);
   };
 
   const generateLines = (clues, length) => {
@@ -1194,8 +1208,10 @@ export default function NonogramApp() {
 
     const finalGrid = solvedBoard.map(row => row.map(cell => cell === 1 ? 1 : (cell === 0 ? 2 : 0)));
     setGrid(finalGrid);
-    checkWin(finalGrid);
+    // 强制触发一次校验 (useEffect 虽有依赖但这里手动更新 UI 更直观)
+    setIsSolvedStatus(true);
     if (solvedBoard.some(row => row.includes(-1))) {
+      setIsSolvedStatus(false);
       setAlertMsg("逻辑推导已完成。剩余部分存在多解或需要深度试错。");
     }
   };
@@ -1450,7 +1466,7 @@ export default function NonogramApp() {
               )}
             </div>
 
-            {/* 本地存档导出/导入 */}
+            {/* 本地存档导出/导入 - 加入自定义文件名与备注 */}
             <div className="pt-3 border-t border-slate-200 mt-1">
               <button 
                 onClick={() => setShowLocalImport(!showLocalImport)}
