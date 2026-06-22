@@ -7,7 +7,7 @@ import {
   ChevronRight, Pin, PinOff, Maximize, SaveAll, UploadCloud, 
   ClipboardCopy, FileJson, Image as ImageIcon, FileText, MessageSquare,
   Library, Trash2, PlayCircle, BookmarkPlus, GitBranch, X,
-  ChevronDown, Palette, SlidersHorizontal
+  ChevronDown, Palette, SlidersHorizontal, History
 } from 'lucide-react';
 
 // --- 主题配置预设 ---
@@ -61,51 +61,45 @@ const PRESETS = {
     rows: 10, cols: 10,
     rowClues: [[4], [2, 2], [1, 2, 1], [1, 1], [1, 1], [1, 1, 1, 1], [1, 1], [1, 4, 1], [2, 2], [4]],
     colClues: [[4], [2, 2], [1, 2, 1], [1, 1, 1], [1, 1, 2], [1, 1, 2], [1, 1, 1], [1, 2, 1], [2, 2], [4]]
-  },
-  uploaded_puzzle: {
-    name: '截图谜题 (30x25)',
-    rows: 30, cols: 25,
-    rowClues: [
-      [3, 5, 3, 7], [3, 5, 2, 7], [1, 1, 7, 1, 4], [2, 5, 1, 3], [2, 5, 3],
-      [1, 2, 3, 3, 3], [1, 2, 3, 2, 1], [6, 1, 3, 2], [5, 3, 4], [7, 1, 5, 4],
-      [7, 2, 3], [1, 3, 2, 1, 1, 1], [4, 2, 4, 1], [1, 6, 9], [3, 6, 2, 3, 4],
-      [7, 2, 3, 4], [4, 2, 2, 4], [3, 5, 3], [1, 2, 1, 2, 2], [3, 2, 2],
-      [3, 1, 2], [1, 10, 3], [1, 1, 5, 1, 1, 6], [1, 2, 5, 4, 4], [4, 1, 4, 3, 1, 4],
-      [4, 1, 1, 4], [4, 3, 2], [3, 4], [3, 1, 10], [4, 11]
-    ],
-    colClues: [
-      [2, 2, 4, 9], [2, 3, 4, 4, 6], [3, 5, 4, 6], [4, 4, 3, 1], [4, 1, 2, 2],
-      [1, 9, 3], [3, 7, 3], [2, 3, 6, 7, 1], [2, 3, 2, 1, 1], [3, 2, 4, 1],
-      [6, 4, 2, 1, 2, 5], [7, 1, 2, 1, 1, 3, 1], [1, 1, 1, 2], [7, 2, 10], [1, 3, 1, 2, 2, 1, 7],
-      [1, 2, 2, 5, 3], [11, 1, 3], [3, 4, 8, 1, 2], [3, 4, 1, 5, 3, 2], [2, 3, 1, 1, 1, 1, 2],
-      [2, 1, 4, 2, 2], [3, 2, 5, 4, 2], [4, 6, 6, 4], [4, 1, 5, 11], [4, 1, 2, 3, 1, 1]
-    ]
   }
 };
 
 export default function NonogramApp() {
-  // --- 状态管理 ---
-  const [mode, setMode] = useState('play'); 
-  const [rows, setRows] = useState(5);
-  const [cols, setCols] = useState(5);
   
-  const [rowCluesStr, setRowCluesStr] = useState(PRESETS.heart.rowClues.map(c => c.join(' ')));
-  const [colCluesStr, setColCluesStr] = useState(PRESETS.heart.colClues.map(c => c.join('\n')));
+  // ==========================================
+  // 1. 本地存储初始化逻辑
+  // ==========================================
+  const loadSavedState = () => {
+    try {
+      const saved = localStorage.getItem('nonogram_master_save');
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error('Failed to load saved state', e); }
+    return null;
+  };
+
+  const initialState = loadSavedState();
+
+  const [mode, setMode] = useState(initialState?.mode || 'play'); 
+  const [rows, setRows] = useState(initialState?.rows || 5);
+  const [cols, setCols] = useState(initialState?.cols || 5);
   
-  const [grid, setGrid] = useState(Array(5).fill().map(() => Array(5).fill(0))); 
-  const [cellSize, setCellSize] = useState(32); 
+  const [rowCluesStr, setRowCluesStr] = useState(initialState?.rowCluesStr || PRESETS.heart.rowClues.map(c => c.join(' ')));
+  const [colCluesStr, setColCluesStr] = useState(initialState?.colCluesStr || PRESETS.heart.colClues.map(c => c.join('\n')));
+  
+  const [grid, setGrid] = useState(initialState?.grid || Array(5).fill().map(() => Array(5).fill(0))); 
+  const [cellSize, setCellSize] = useState(initialState?.cellSize || 32); 
 
   const [interactionMode, setInteractionMode] = useState('toggle'); 
   const [currentBrush, setCurrentBrush] = useState(1); 
 
   const [dragAction, setDragAction] = useState(null); 
-  const [isSolvedStatus, setIsSolvedStatus] = useState(false);
+  const [isSolvedStatus, setIsSolvedStatus] = useState(initialState?.isSolvedStatus || false);
   const [alertMsg, setAlertMsg] = useState('');
   
   const [hintInfo, setHintInfo] = useState(null);
   
-  const [deductionLevel, setDeductionLevel] = useState(0); 
-  const [backupGrids, setBackupGrids] = useState([]); 
+  const [deductionLevel, setDeductionLevel] = useState(initialState?.deductionLevel || 0); 
+  const [backupGrids, setBackupGrids] = useState(initialState?.backupGrids || []); 
 
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [isPanelPinned, setIsPanelPinned] = useState(true); 
@@ -125,62 +119,78 @@ export default function NonogramApp() {
   const [puzzleCollection, setPuzzleCollection] = useState([]);
   const [randomDifficulty, setRandomDifficulty] = useState('medium'); 
 
-  // 辅助功能设置状态
-  const [gameSettings, setGameSettings] = useState({
+  const [gameSettings, setGameSettings] = useState(initialState?.gameSettings || {
     completeLineStyle: 'highlight', 
     autoMarkNumbers: true,
     hoverRowClues: true,
     hoverColClues: true,
     autoFillCross: true, 
-    showClueSums: true, // A: 线索求和(剩余未高亮)
-    showSpaceSums: true, // B: 空白求和(本行列剩余空格)
+    showClueSums: true,
+    showSpaceSums: true,
   });
 
-  const [themeColors, setThemeColors] = useState(DEFAULT_THEME);
+  const [themeColors, setThemeColors] = useState(initialState?.themeColors || DEFAULT_THEME);
 
-  // 交互状态
   const [hoverPos, setHoverPos] = useState({ r: -1, c: -1 }); 
-  const [markedRowClues, setMarkedRowClues] = useState({}); 
-  const [markedColClues, setMarkedColClues] = useState({}); 
+  const [markedRowClues, setMarkedRowClues] = useState(initialState?.markedRowClues || {}); 
+  const [markedColClues, setMarkedColClues] = useState(initialState?.markedColClues || {}); 
 
+  // --- 时光机系统状态 ---
+  const [timeSnapshots, setTimeSnapshots] = useState(initialState?.timeSnapshots || {});
+  
   const hoverPosRef = useRef({ r: -1, c: -1 });
   const measureStartRef = useRef(null);
   const [measureStart, setMeasureStart] = useState(null);
   
   const cluesRef = useRef({ r: [], c: [] });
   const settingsRef = useRef(gameSettings);
+  const gridRef = useRef(grid);
 
   useEffect(() => { hoverPosRef.current = hoverPos; }, [hoverPos]);
   useEffect(() => { cluesRef.current = { r: rowCluesStr, c: colCluesStr }; }, [rowCluesStr, colCluesStr]);
   useEffect(() => { settingsRef.current = gameSettings; }, [gameSettings]);
+  useEffect(() => { gridRef.current = grid; }, [grid]);
 
-  // --- 初始化与自动保存 ---
+  // ==========================================
+  // 2. 主动持久化：只要状态发生变化，立刻写入 localStorage
+  // ==========================================
   useEffect(() => {
-    const storedCol = localStorage.getItem('nonogram_collection');
-    if (storedCol) setPuzzleCollection(JSON.parse(storedCol));
+    const dataToSave = {
+      mode, rows, cols, rowCluesStr, colCluesStr, grid, cellSize,
+      isSolvedStatus, deductionLevel, backupGrids, gameSettings, themeColors,
+      markedRowClues, markedColClues, timeSnapshots
+    };
+    localStorage.setItem('nonogram_master_save', JSON.stringify(dataToSave));
+  }, [mode, rows, cols, rowCluesStr, colCluesStr, grid, cellSize, isSolvedStatus, deductionLevel, backupGrids, gameSettings, themeColors, markedRowClues, markedColClues, timeSnapshots]);
 
-    const interval = setInterval(() => {
-      if (mode === 'play') {
-        const data = { 
-          rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, 
-          isSolvedStatus, deductionLevel, backupGrids, themeColors, gameSettings
-        };
-        localStorage.setItem('nonogram_autosave_data', JSON.stringify(data));
-      }
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [mode, rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, deductionLevel, backupGrids, themeColors, gameSettings]);
+  // ==========================================
+  // 3. 时光机系统
+  // ==========================================
+  useEffect(() => {
+    if (mode !== 'play') return;
+    const createSnapshot = (key) => {
+      setTimeSnapshots(prev => {
+        if (prev[key] && JSON.stringify(prev[key]) === JSON.stringify(gridRef.current)) return prev;
+        return { ...prev, [key]: JSON.parse(JSON.stringify(gridRef.current)) };
+      });
+    };
+    const timer10s = setInterval(() => createSnapshot('10s'), 10000);
+    const timer30s = setInterval(() => createSnapshot('30s'), 30000);
+    const timer1m = setInterval(() => createSnapshot('1m'), 60000);
+    const timer5m = setInterval(() => createSnapshot('5m'), 300000);
+    const timer10m = setInterval(() => createSnapshot('10m'), 600000);
 
-  const restoreAutoSave = () => {
-    try {
-      const jsonStr = localStorage.getItem('nonogram_autosave_data');
-      if (jsonStr) {
-        applyImportedData(JSON.parse(jsonStr));
-      } else {
-        setAlertMsg('ℹ️ 未找到自动存档数据。');
-      }
-    } catch (e) {
-      setAlertMsg('❌ 恢复自动存档失败。');
+    return () => {
+      clearInterval(timer10s); clearInterval(timer30s);
+      clearInterval(timer1m); clearInterval(timer5m); clearInterval(timer10m);
+    };
+  }, [mode]);
+
+  const restoreSnapshot = (key) => {
+    if (timeSnapshots[key]) {
+      setGrid(timeSnapshots[key]);
+      setAlertMsg(`已恢复到约 [${key}] 前的状态。`);
+      setHintInfo(null);
     }
   };
 
@@ -259,7 +269,7 @@ export default function NonogramApp() {
         }
         return changed ? newGrid : prevGrid; 
       });
-    }, 1000); 
+    }, 2000); 
 
     return () => clearTimeout(timer); 
   }, [grid, gameSettings.autoFillCross, mode, isSolvedStatus, deductionLevel, rows, cols, rowCluesStr, colCluesStr]);
@@ -817,12 +827,6 @@ export default function NonogramApp() {
     }
   };
 
-  const checkLineValid = (clues, length, currentLine) => {
-    if (currentLine.every(v => v !== -1)) return true;
-    const validPossibilities = generateLines(clues, length).filter(p => p.every((val, idx) => currentLine[idx] === -1 || currentLine[idx] === val));
-    return validPossibilities.length > 0;
-  };
-
   const updateCell = (r, c, val) => {
     if (hintInfo?.isError) {
       if ((hintInfo.type === 'cell' && hintInfo.r === r && hintInfo.c === c) || (hintInfo.type === 'row' && hintInfo.index === r) || (hintInfo.type === 'col' && hintInfo.index === c)) {
@@ -972,7 +976,7 @@ export default function NonogramApp() {
       let explainStr = "";
       if (bestHint.sureBlack > 0 && bestHint.sureCross > 0) explainStr = `必然有 ${bestHint.sureBlack} 个可以涂黑的方块，以及 ${bestHint.sureCross} 个可以打叉的空白。`;
       else if (bestHint.sureBlack > 0) explainStr = `必然有 ${bestHint.sureBlack} 个方块是可以被安全涂黑的。`;
-      else explainStr = `必然有 ${bestHint.sureCross} 个地方是不可能被涂黑的（应该打叉）。`;
+      else explainStr = `必然有 ${bestHint.sureCross} 个地方是不可能被打叉的（应该打叉）。`;
       setHintInfo({ text: `💡 破局点在 ${direction} ${bestHint.index + 1} 行/列 (线索: ${clueText})。结合您现有的标记，排除掉所有不可能的组合后，${explainStr} 试着推演一下这一段！`, type: bestHint.type, index: bestHint.index, isError: false });
     } else {
       setHintInfo({ text: "🧠 当前盘面没有简单的单行/单列线索可以推进了。您可能需要结合多行交叉推导，或者利用假设法（推演模式）来进行下一步试探。", type: 'info', isError: false });
@@ -1023,6 +1027,21 @@ export default function NonogramApp() {
     return 'bg-[#e0f2e9]';
   };
 
+  // --- 高级插入提示算法：智能合并高亮状态（防跳动） ---
+  const getSmartInsertIdx = (rawIdx, combinedMarked) => {
+    // 如果没有任何数字被高亮，则不予显示感叹号（返回 -1）
+    if (combinedMarked.every(m => !m)) return -1;
+    // 如果原始插入位置处于两个没有高亮的数字之间，向后顺延（直到遇到下一个高亮的数字，或抵达队伍末尾）
+    if (rawIdx > 0 && rawIdx < combinedMarked.length && !combinedMarked[rawIdx - 1] && !combinedMarked[rawIdx]) {
+      let snappedIdx = rawIdx;
+      while (snappedIdx < combinedMarked.length && !combinedMarked[snappedIdx]) {
+        snappedIdx++;
+      }
+      return snappedIdx;
+    }
+    return rawIdx;
+  };
+
   const showMeasure = measureStart && hoverPos.r !== -1 && hoverPos.c !== -1;
   const showHoverRow = gameSettings.hoverRowClues && hoverPos.r !== -1;
   const showHoverCol = gameSettings.hoverColClues && hoverPos.c !== -1;
@@ -1034,7 +1053,9 @@ export default function NonogramApp() {
     const rowLine = grid[hoverPos.r] || [];
     const autoRes = gameSettings.autoMarkNumbers ? getAutoMarked(rowLine, hoverParsedRow) : { marked: [], assignedBlocks: [] };
     hoverAutoRow = autoRes.marked;
-    hoverRowInsertIdx = getInsertIdx(cols, hoverParsedRow, hoverPos.c, autoRes.assignedBlocks);
+    const rawIdx = getInsertIdx(cols, hoverParsedRow, hoverPos.c, autoRes.assignedBlocks);
+    const combinedMarked = hoverParsedRow.map((_, i) => markedRowClues[`${hoverPos.r}-${i}`] || hoverAutoRow[i]);
+    hoverRowInsertIdx = getSmartInsertIdx(rawIdx, combinedMarked);
   }
 
   let hoverParsedCol = [], hoverAutoCol = [], hoverColInsertIdx = -1;
@@ -1043,7 +1064,9 @@ export default function NonogramApp() {
     const colLine = grid.map(row => row[hoverPos.c]);
     const autoRes = gameSettings.autoMarkNumbers ? getAutoMarked(colLine, hoverParsedCol) : { marked: [], assignedBlocks: [] };
     hoverAutoCol = autoRes.marked;
-    hoverColInsertIdx = getInsertIdx(rows, hoverParsedCol, hoverPos.r, autoRes.assignedBlocks);
+    const rawIdx = getInsertIdx(rows, hoverParsedCol, hoverPos.r, autoRes.assignedBlocks);
+    const combinedMarked = hoverParsedCol.map((_, i) => markedColClues[`${hoverPos.c}-${i}`] || hoverAutoCol[i]);
+    hoverColInsertIdx = getSmartInsertIdx(rawIdx, combinedMarked);
   }
 
   const hoverOnlyRow = showHoverRow && !showHoverCol;
@@ -1139,34 +1162,64 @@ export default function NonogramApp() {
           {/* === 1. 游玩操作与推演区 === */}
           {mode === 'play' && (
             <Accordion title="推演与操作" icon={MousePointerClick} defaultOpen={true}>
+              {/* 多级推演控件区域 */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   {deductionLevel < 3 && (
-                    <button onClick={startDeduction} className={`px-2 py-2 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border flex-1 justify-center ${deductionLevel === 0 ? 'bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 border-fuchsia-200' : ''} ${deductionLevel === 1 ? 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200' : ''} ${deductionLevel === 2 ? 'bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-200' : ''}`}>
-                      <GitBranch className="w-4 h-4" /> {deductionLevel === 0 ? "开始推演 (1级)" : `深入推演 (${deductionLevel + 1}级)`}
+                    <button 
+                      onClick={startDeduction}
+                      className={`px-2 py-2 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border flex-1 justify-center
+                        ${deductionLevel === 0 ? 'bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 border-fuchsia-200' : ''}
+                        ${deductionLevel === 1 ? 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200' : ''}
+                        ${deductionLevel === 2 ? 'bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-200' : ''}
+                      `}
+                    >
+                      <GitBranch className="w-4 h-4" /> 
+                      {deductionLevel === 0 ? "开始推演 (1级)" : `深入推演 (${deductionLevel + 1}级)`}
                     </button>
                   )}
                   {deductionLevel > 0 && (
                     <>
-                      <button onClick={applyDeduction} className="px-2 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-emerald-200 flex-1 justify-center"><Check className="w-4 h-4" /> 应用({deductionLevel})</button>
-                      <button onClick={cancelDeduction} className="px-2 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-rose-200 flex-1 justify-center"><X className="w-4 h-4" /> 放弃({deductionLevel})</button>
+                      <button onClick={applyDeduction} className="px-2 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-emerald-200 flex-1 justify-center">
+                        <Check className="w-4 h-4" /> 应用({deductionLevel})
+                      </button>
+                      <button onClick={cancelDeduction} className="px-2 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-rose-200 flex-1 justify-center">
+                        <X className="w-4 h-4" /> 放弃({deductionLevel})
+                      </button>
                     </>
                   )}
                 </div>
               </div>
+              
               <div className="flex gap-2">
-                <button onClick={validateGrid} className="flex-1 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-blue-200"><SearchCheck className="w-4 h-4" /> 检查错误</button>
-                <button onClick={provideHint} className="flex-1 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-amber-200"><Lightbulb className="w-4 h-4" /> 给我提示</button>
+                <button onClick={validateGrid} className="flex-1 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-blue-200">
+                  <SearchCheck className="w-4 h-4" /> 检查错误
+                </button>
+                <button onClick={provideHint} className="flex-1 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-amber-200">
+                  <Lightbulb className="w-4 h-4" /> 给我提示
+                </button>
               </div>
+              
               <div className="flex gap-2 mt-2">
-                <button onClick={() => setInteractionMode('toggle')} className={`flex-1 py-2 text-sm rounded-lg border font-medium flex items-center justify-center gap-2 transition-all ${interactionMode === 'toggle' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}><MousePointerClick className="w-4 h-4" /> 轮切</button>
-                <button onClick={() => setInteractionMode('paint')} className={`flex-1 py-2 text-sm rounded-lg border font-medium flex items-center justify-center gap-2 transition-all ${interactionMode === 'paint' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}><PaintRoller className="w-4 h-4" /> 放置</button>
+                <button onClick={() => setInteractionMode('toggle')} className={`flex-1 py-2 text-sm rounded-lg border font-medium flex items-center justify-center gap-2 transition-all ${interactionMode === 'toggle' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                  <MousePointerClick className="w-4 h-4" /> 轮切
+                </button>
+                <button onClick={() => setInteractionMode('paint')} className={`flex-1 py-2 text-sm rounded-lg border font-medium flex items-center justify-center gap-2 transition-all ${interactionMode === 'paint' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                  <PaintRoller className="w-4 h-4" /> 放置
+                </button>
               </div>
+
               {interactionMode === 'paint' && (
                 <div className="flex gap-2 p-1 bg-slate-50 rounded-lg border border-slate-200">
-                  <button onClick={() => setCurrentBrush(1)} className={`flex-1 py-2 rounded flex justify-center ${currentBrush === 1 ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-200'}`}><Square fill="currentColor" className="w-5 h-5" /></button>
-                  <button onClick={() => setCurrentBrush(2)} className={`flex-1 py-2 rounded flex justify-center ${currentBrush === 2 ? 'bg-red-50 text-red-500 shadow-sm border border-red-200' : 'text-slate-400 hover:bg-slate-200'}`}><XSquare className="w-5 h-5" /></button>
-                  <button onClick={() => setCurrentBrush(0)} className={`flex-1 py-2 rounded flex justify-center ${currentBrush === 0 ? 'bg-white text-slate-700 shadow-sm border border-slate-200' : 'text-slate-400 hover:bg-slate-200'}`}><Eraser className="w-5 h-5" /></button>
+                  <button onClick={() => setCurrentBrush(1)} className={`flex-1 py-2 rounded flex justify-center ${currentBrush === 1 ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-200'}`}>
+                    <Square fill="currentColor" className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => setCurrentBrush(2)} className={`flex-1 py-2 rounded flex justify-center ${currentBrush === 2 ? 'bg-red-50 text-red-500 shadow-sm border border-red-200' : 'text-slate-400 hover:bg-slate-200'}`}>
+                    <XSquare className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => setCurrentBrush(0)} className={`flex-1 py-2 rounded flex justify-center ${currentBrush === 0 ? 'bg-white text-slate-700 shadow-sm border border-slate-200' : 'text-slate-400 hover:bg-slate-200'}`}>
+                    <Eraser className="w-5 h-5" />
+                  </button>
                 </div>
               )}
             </Accordion>
@@ -1201,7 +1254,19 @@ export default function NonogramApp() {
             </div>
           </Accordion>
 
-          {/* === 3. 辅助与主题 === */}
+          {/* === 3. 时光机 === */}
+          <Accordion title="存档回溯" icon={History} defaultOpen={false}>
+             <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                   <button onClick={() => restoreSnapshot('10s')} disabled={!timeSnapshots['10s']} className="py-2 bg-indigo-50 text-indigo-700 text-xs font-bold rounded border border-indigo-200 disabled:opacity-50 flex items-center justify-center gap-1 transition-colors hover:bg-indigo-100"><History className="w-3.5 h-3.5"/> 10秒</button>
+                   <button onClick={() => restoreSnapshot('30s')} disabled={!timeSnapshots['30s']} className="py-2 bg-indigo-50 text-indigo-700 text-xs font-bold rounded border border-indigo-200 disabled:opacity-50 flex items-center justify-center gap-1 transition-colors hover:bg-indigo-100"><History className="w-3.5 h-3.5"/> 30秒</button>
+                   <button onClick={() => restoreSnapshot('1m')} disabled={!timeSnapshots['1m']} className="py-2 bg-indigo-50 text-indigo-700 text-xs font-bold rounded border border-indigo-200 disabled:opacity-50 flex items-center justify-center gap-1 transition-colors hover:bg-indigo-100"><History className="w-3.5 h-3.5"/> 1分钟</button>
+                   <button onClick={() => restoreSnapshot('5m')} disabled={!timeSnapshots['5m']} className="py-2 bg-indigo-50 text-indigo-700 text-xs font-bold rounded border border-indigo-200 disabled:opacity-50 flex items-center justify-center gap-1 transition-colors hover:bg-indigo-100"><History className="w-3.5 h-3.5"/> 5分钟 </button>
+                </div>
+             </div>
+          </Accordion>
+
+          {/* === 4. 辅助与主题 === */}
           <Accordion title="辅助与主题" icon={SlidersHorizontal} defaultOpen={false}>
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
@@ -1236,12 +1301,11 @@ export default function NonogramApp() {
               </div>
             </div>
             <div className="flex justify-between items-center mt-1 pt-3 border-t border-slate-100">
-              <span className="text-[10px] text-slate-400 flex items-center gap-1"><SaveAll className="w-3 h-3"/> 自动存档已开启</span>
-              <button onClick={restoreAutoSave} className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-1 rounded transition-colors font-bold border border-indigo-100">恢复崩溃进度</button>
+              <span className="text-[10px] text-slate-400 flex items-center gap-1"><SaveAll className="w-3 h-3"/> 全局状态自动保存已开启</span>
             </div>
           </Accordion>
 
-          {/* === 4. 题库与存档管理 === */}
+          {/* === 5. 题库与存档管理 === */}
           <Accordion title="题库与存档管理" icon={Library} defaultOpen={false}>
             <div className="flex items-center justify-between">
               <div className="text-xs text-slate-700 font-bold">本地收藏夹</div>
@@ -1376,10 +1440,10 @@ export default function NonogramApp() {
                     style={clueBgStyle}
                   >
                     {mode === 'play' && gameSettings.showClueSums && (
-                      <span className="absolute top-0.5 left-0.5 text-xs text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
+                      <span className="absolute top-0.5 left-0.5 text-[11px] text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
                     )}
                     {mode === 'play' && gameSettings.showSpaceSums && (
-                      <span className="absolute top-0.5 right-0.5 text-xs text-emerald-600 font-bold leading-none pointer-events-none" title="本列剩余空白格数">{sumB}</span>
+                      <span className="absolute top-0.5 right-0.5 text-[11px] text-emerald-600 font-bold leading-none pointer-events-none" title="本列剩余空白格数">{sumB}</span>
                     )}
                     
                     {mode === 'edit' ? (
@@ -1464,12 +1528,11 @@ export default function NonogramApp() {
                          style={rowClueBgStyle}
                     >
                       {mode === 'play' && gameSettings.showClueSums && (
-                        <span className="absolute top-0.5 left-0.5 text-xs text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
+                        <span className="absolute top-0.5 left-0.5 text-[11px] text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
                       )}
                       {mode === 'play' && gameSettings.showSpaceSums && (
-                        <span className="absolute bottom-0.5 left-0.5 text-xs text-emerald-600 font-bold leading-none pointer-events-none" title="本行剩余空白格数">{sumB}</span>
+                        <span className="absolute bottom-0.5 left-0.5 text-[11px] text-emerald-600 font-bold leading-none pointer-events-none" title="本行剩余空白格数">{sumB}</span>
                       )}
-                      
                       {mode === 'edit' ? (
                         <input 
                           type="text"
@@ -1566,10 +1629,10 @@ export default function NonogramApp() {
                          style={rowClueBgStyle}
                     >
                       {mode === 'play' && gameSettings.showClueSums && (
-                        <span className="absolute top-0.5 right-0.5 text-xs text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
+                        <span className="absolute top-0.5 right-0.5 text-[11px] text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
                       )}
                       {mode === 'play' && gameSettings.showSpaceSums && (
-                        <span className="absolute bottom-0.5 right-0.5 text-xs text-emerald-600 font-bold leading-none pointer-events-none" title="本行剩余空白格数">{sumB}</span>
+                        <span className="absolute bottom-0.5 right-0.5 text-[11px] text-emerald-600 font-bold leading-none pointer-events-none" title="本行剩余空白格数">{sumB}</span>
                       )}
                        {mode === 'edit' ? <span className="text-slate-300 px-4 text-xs font-medium">镜像</span> : renderRowClues()}
                     </div>
@@ -1612,10 +1675,10 @@ export default function NonogramApp() {
                     style={clueBgStyle}
                   >
                     {mode === 'play' && gameSettings.showClueSums && (
-                      <span className="absolute bottom-0 left-0.5 text-xs text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
+                      <span className="absolute bottom-0 left-0.5 text-[11px] text-blue-500 font-bold leading-none pointer-events-none" title="剩余线索和 (非高亮数字之和)">{sumA}</span>
                     )}
                     {mode === 'play' && gameSettings.showSpaceSums && (
-                      <span className="absolute bottom-0 right-0.5 text-xs text-emerald-600 font-bold leading-none pointer-events-none" title="本列剩余空白格数">{sumB}</span>
+                      <span className="absolute bottom-0 right-0.5 text-[11px] text-emerald-600 font-bold leading-none pointer-events-none" title="本列剩余空白格数">{sumB}</span>
                     )}
 
                     {mode === 'edit' ? <span className="text-slate-300 text-xs font-medium pt-2">镜像</span> : (
