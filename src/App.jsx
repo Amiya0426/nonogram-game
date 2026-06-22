@@ -860,46 +860,142 @@ export default function NonogramApp() {
     updateCell(r, c, dragAction);
   };
 
-  const generateLines = (clues, length) => {
-    if (clues.length === 0 || (clues.length === 1 && clues[0] === 0)) return [Array(length).fill(0)];
-    const lines = [];
-    const minSpaceNeeded = clues.reduce((a, b) => a + b, 0) + clues.length - 1;
-    for (let start = 0; start <= length - minSpaceNeeded; start++) {
-      const block = [...Array(start).fill(0), ...Array(clues[0]).fill(1)];
-      if (clues.length > 1) block.push(0);
-      const restLines = generateLines(clues.slice(1), length - block.length);
-      for (let rest of restLines) lines.push([...block, ...rest]);
-    }
-    return lines;
-  };
+  // --- 替换原有的 generateLines，采用高效的 DP 验证法 ---
+  const canFit = (line, clues) => {
+    const memo = new Map();
+    const dp = (lIdx, cIdx) => {
+      // 线索全部分配完毕，剩余的格子不能有黑块 (1)
+      if (cIdx === clues.length) {
+        for (let i = lIdx; i < line.length; i++) {
+          if (line[i] === 1) return false;
+        }
+        return true;
+      }
+      if (lIdx >= line.length) return false;
 
-  const solveBoardLogic = (rClues, cClues, rCount, cCount) => {
-    const parsedRowClues = rClues.map(parseClue); const parsedColClues = cClues.map(parseClue);
-    let tempBoard = Array(rCount).fill().map(() => Array(cCount).fill(-1));
-    let rowPossibilities = parsedRowClues.map(r => generateLines(r, cCount));
-    let colPossibilities = parsedColClues.map(c => generateLines(c, rCount));
-    let changed = true; let iteration = 0;
-    while (changed && iteration < 100) {
-      changed = false; iteration++;
-      for (let i = 0; i < rCount; i++) {
-        const validRows = rowPossibilities[i].filter(p => p.every((val, j) => tempBoard[i][j] === -1 || tempBoard[i][j] === val));
-        rowPossibilities[i] = validRows;
-        if (validRows.length === 0) return null; 
-        for (let j = 0; j < cCount; j++) {
-          if (tempBoard[i][j] === -1 && validRows.length > 0) {
-            if (validRows.every(p => p[j] === 1)) { tempBoard[i][j] = 1; changed = true; }
-            else if (validRows.every(p => p[j] === 0)) { tempBoard[i][j] = 0; changed = true; }
+      const key = `${lIdx}-${cIdx}`;
+      if (memo.has(key)) return memo.get(key);
+
+      let possible = false;
+      // 方案 1：当前格子不作为黑块起点（前提是它本身不是明确的黑块）
+      if (line[lIdx] !== 1) {
+        possible = dp(lIdx + 1, cIdx);
+      }
+
+      // 方案 2：在这里放置当前线索块
+      if (!possible) {
+        const clueLen = clues[cIdx];
+        if (lIdx + clueLen <= line.length) {
+          let canPlaceBlock = true;
+          for (let i = 0; i < clueLen; i++) {
+            if (line[lIdx + i] === 0) { // 块内部不能包含明确的叉 (0)
+              canPlaceBlock = false;
+              break;
+            }
+          }
+          // 块的末尾必须是边界，或者是一个不能为黑块的格子
+          if (canPlaceBlock && lIdx + clueLen < line.length) {
+            if (line[lIdx + clueLen] === 1) {
+              canPlaceBlock = false;
+            }
+          }
+
+          if (canPlaceBlock) {
+            // 如果成功放置，跳过紧挨着的一个空格
+            possible = dp(lIdx + clueLen + 1, cIdx + 1);
           }
         }
       }
-      for (let j = 0; j < cCount; j++) {
-        const validCols = colPossibilities[j].filter(p => p.every((val, i) => tempBoard[i][j] === -1 || tempBoard[i][j] === val));
-        colPossibilities[j] = validCols;
-        if (validCols.length === 0) return null;
-        for (let i = 0; i < rCount; i++) {
-          if (tempBoard[i][j] === -1 && validCols.length > 0) {
-            if (validCols.every(p => p[i] === 1)) { tempBoard[i][j] = 1; changed = true; }
-            else if (validCols.every(p => p[i] === 0)) { tempBoard[i][j] = 0; changed = true; }
+
+      memo.set(key, possible);
+      return possible;
+    };
+    return dp(0, 0);
+  };
+
+  const solveLineFast = (line, clues) => {
+    const validClues = clues.filter(c => c > 0); // 过滤掉占位符 0
+    if (!canFit(line, validClues)) return null; // 该行本身已经逻辑矛盾
+
+    let changed = false;
+    let newLine = [...line];
+
+    // 逐个遍历未知格子 (-1)，假设它的状态并验证
+    for (let i = 0; i < line.length; i++) {
+      if (newLine[i] === -1) {
+        newLine[i] = 1;
+        const canBe1 = canFit(newLine, validClues);
+
+        newLine[i] = 0;
+        const canBe0 = canFit(newLine, validClues);
+
+        newLine[i] = -1; // 测试完毕，先恢复原状
+
+        if (canBe1 && !canBe0) {
+          newLine[i] = 1; // 只能是黑块
+          changed = true;
+        } else if (!canBe1 && canBe0) {
+          newLine[i] = 0; // 只能是白块(叉)
+          changed = true;
+        } else if (!canBe1 && !canBe0) {
+          return null; // 无论填什么都不行，说明出现了逻辑死胡同
+        }
+      }
+    }
+    return { newLine, changed };
+  };
+
+  const solveBoardLogic = (rClues, cClues, rCount, cCount) => {
+    const parsedRowClues = rClues.map(parseClue); 
+    const parsedColClues = cClues.map(parseClue);
+    let tempBoard = Array(rCount).fill().map(() => Array(cCount).fill(-1));
+
+    let changed = true; 
+    let iteration = 0;
+    
+    // 使用标记队列：只有受影响的行/列才需要重新计算
+    let rowQueue = Array(rCount).fill(true);
+    let colQueue = Array(cCount).fill(true);
+
+    while (changed && iteration < 200) {
+      changed = false; iteration++;
+
+      // 处理行
+      for (let r = 0; r < rCount; r++) {
+        if (!rowQueue[r]) continue;
+        rowQueue[r] = false;
+
+        const rowLine = tempBoard[r];
+        const res = solveLineFast(rowLine, parsedRowClues[r]);
+        if (!res) return null; 
+
+        if (res.changed) {
+          changed = true;
+          for (let c = 0; c < cCount; c++) {
+            if (tempBoard[r][c] !== res.newLine[c]) {
+              tempBoard[r][c] = res.newLine[c];
+              colQueue[c] = true; // 对应的列发生了变化，加入下次计算队列
+            }
+          }
+        }
+      }
+
+      // 处理列
+      for (let c = 0; c < cCount; c++) {
+        if (!colQueue[c]) continue;
+        colQueue[c] = false;
+
+        const colLine = tempBoard.map(row => row[c]);
+        const res = solveLineFast(colLine, parsedColClues[c]);
+        if (!res) return null;
+
+        if (res.changed) {
+          changed = true;
+          for (let r = 0; r < rCount; r++) {
+            if (tempBoard[r][c] !== res.newLine[r]) {
+              tempBoard[r][c] = res.newLine[r];
+              rowQueue[r] = true; // 对应的行发生了变化，加入下次计算队列
+            }
           }
         }
       }
@@ -943,16 +1039,20 @@ export default function NonogramApp() {
     const evaluateLine = (lineIdx, isRow) => {
       const clues = isRow ? parsedRowClues[lineIdx] : parsedColClues[lineIdx];
       const length = isRow ? cols : rows;
-      const currentLine = isRow ? grid[lineIdx].map(v => (v % 2 === 1) ? 1 : ((v > 0 && v % 2 === 0) ? 0 : -1)) : grid.map(r => r[lineIdx]).map(v => (v % 2 === 1) ? 1 : ((v > 0 && v % 2 === 0) ? 0 : -1));
+      const currentLine = isRow 
+        ? grid[lineIdx].map(v => (v % 2 === 1) ? 1 : ((v > 0 && v % 2 === 0) ? 0 : -1)) 
+        : grid.map(r => r[lineIdx]).map(v => (v % 2 === 1) ? 1 : ((v > 0 && v % 2 === 0) ? 0 : -1));
+      
       if (currentLine.every(v => v !== -1)) return { status: 'full' };
-      const validPossibilities = generateLines(clues, length).filter(p => p.every((val, idx) => currentLine[idx] === -1 || currentLine[idx] === val));
-      if (validPossibilities.length === 0) return { status: 'error' };
+      
+      const res = solveLineFast(currentLine, clues);
+      if (!res) return { status: 'error' };
 
       let sureBlack = 0, sureCross = 0;
       for (let idx = 0; idx < length; idx++) {
-        if (currentLine[idx] === -1 && validPossibilities.length > 0) {
-          if (validPossibilities.every(p => p[idx] === 1)) sureBlack++;
-          else if (validPossibilities.every(p => p[idx] === 0)) sureCross++;
+        if (currentLine[idx] === -1 && res.newLine[idx] !== -1) {
+          if (res.newLine[idx] === 1) sureBlack++;
+          else if (res.newLine[idx] === 0) sureCross++;
         }
       }
       return { status: 'ok', sureBlack, sureCross, totalNew: sureBlack + sureCross };
