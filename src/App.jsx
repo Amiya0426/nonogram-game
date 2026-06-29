@@ -93,7 +93,7 @@ export default function NonogramApp() {
   const [exportFilename, setExportFilename] = useState('nonogram-save');
   const [exportRemark, setExportRemark] = useState('');
 
-  // --- 收藏夹初始化 ---
+  // --- 收藏夹初始化逻辑 ---
   const [puzzleCollection, setPuzzleCollection] = useState(() => {
     try {
       const saved = localStorage.getItem('nonogram_collection');
@@ -117,7 +117,6 @@ export default function NonogramApp() {
   const [markedRowClues, setMarkedRowClues] = useState(initialState?.markedRowClues || {}); 
   const [markedColClues, setMarkedColClues] = useState(initialState?.markedColClues || {}); 
 
-  // 最后一次检查正确的状态节点
   const [lastCorrectSnapshot, setLastCorrectSnapshot] = useState(initialState?.lastCorrectSnapshot || null);
   
   const hoverPosRef = useRef({ r: -1, c: -1 });
@@ -274,7 +273,28 @@ export default function NonogramApp() {
         const parsedRowClues = rowCluesStr.map(parseClue);
         const parsedColClues = colCluesStr.map(parseClue);
 
+        // 引入行内判定函数，以便安全调用
+        const getLineClueLocal = (line) => {
+          const clues = [];
+          let count = 0;
+          for (let v of line) {
+            if (v % 2 === 1) count++;
+            else if (count > 0) { clues.push(count); count = 0; }
+          }
+          if (count > 0) clues.push(count);
+          return clues.length > 0 ? clues : [0];
+        };
+
         const processLine = (line, clues, updateGridFn) => {
+           // --- 恢复的原有逻辑：整行/列填涂完全匹配目标线索时，剩余全部打叉 ---
+           const currentClues = getLineClueLocal(line);
+           if (JSON.stringify(currentClues) === JSON.stringify(clues)) {
+               for (let k = 0; k < line.length; k++) {
+                   if (line[k] === 0) { updateGridFn(k, 2); changed = true; }
+               }
+               return; // 完全匹配后，无需再进行局部的智能高亮打叉判定
+           }
+
            const { marked, assignedBlocks } = getAutoMarked(line, clues);
            
            const blockMap = {};
