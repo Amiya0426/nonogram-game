@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Settings, Play, Check, RefreshCw, Dices, Eraser, 
   AlertCircle, ZoomIn, MousePointerClick, PaintRoller, 
-  Square, CheckSquare, XSquare, Menu, FileMinus, Lightbulb,
-  Link as LinkIcon, Download, Code, SearchCheck,
-  ChevronRight, Pin, PinOff, Maximize, SaveAll, UploadCloud, 
-  ClipboardCopy, FileJson, Image as ImageIcon, FileText, MessageSquare,
-  Library, Trash2, PlayCircle, BookmarkPlus, GitBranch, X,
-  ChevronDown, Palette, SlidersHorizontal, History, Undo2, FolderHeart, FileSymlink
+  Square, XSquare, Menu, FileMinus, Lightbulb,
+  Download, SearchCheck,
+  ChevronRight, Pin, PinOff, Maximize, UploadCloud, 
+  ClipboardCopy, FileJson, Image as ImageIcon, Trash2, PlayCircle, BookmarkPlus, GitBranch, X,
+  SlidersHorizontal, Undo2, FolderHeart, FileSymlink
 } from 'lucide-react';
 
 // --- 默认主题颜色 ---
@@ -74,7 +73,6 @@ export default function NonogramApp() {
   const [currentBrush, setCurrentBrush] = useState(1); 
 
   const [dragAction, setDragAction] = useState(null); 
-  const [isSolvedStatus, setIsSolvedStatus] = useState(initialState?.isSolvedStatus || false);
   const [alertMsg, setAlertMsg] = useState('');
   
   const [hintInfo, setHintInfo] = useState(null);
@@ -89,7 +87,6 @@ export default function NonogramApp() {
   const [importData, setImportData] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [localImportData, setLocalImportData] = useState('');
-  const [exportData, setExportData] = useState('');
   const [exportFilename, setExportFilename] = useState('nonogram-save');
   const [exportRemark, setExportRemark] = useState('');
 
@@ -98,9 +95,12 @@ export default function NonogramApp() {
     try {
       const saved = localStorage.getItem('nonogram_collection');
       if (saved) return JSON.parse(saved);
-    } catch (e) {}
+    } catch {
+      console.warn('Failed to load collection from localStorage.');
+    }
     return [];
   });
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState([]);
 
   const [randomDifficulty, setRandomDifficulty] = useState('medium'); 
 
@@ -135,15 +135,6 @@ export default function NonogramApp() {
   // ==========================================
   // 2. 主动持久化
   // ==========================================
-  useEffect(() => {
-    const dataToSave = {
-      mode, rows, cols, rowCluesStr, colCluesStr, grid, cellSize,
-      isSolvedStatus, deductionLevel, backupGrids, gameSettings,
-      markedRowClues, markedColClues, lastCorrectSnapshot
-    };
-    localStorage.setItem('nonogram_master_save', JSON.stringify(dataToSave));
-  }, [mode, rows, cols, rowCluesStr, colCluesStr, grid, cellSize, isSolvedStatus, deductionLevel, backupGrids, gameSettings, markedRowClues, markedColClues, lastCorrectSnapshot]);
-
   const parseClue = (str) => {
     if (typeof str !== 'string') return [0];
     const parsed = str.trim().split(/[\s,]+/).map(n => parseInt(n)).filter(n => !isNaN(n) && n > 0);
@@ -176,8 +167,8 @@ export default function NonogramApp() {
     return JSON.stringify(targetClues) === JSON.stringify(currentClues);
   }, [rowCluesStr, colCluesStr]);
 
-  useEffect(() => {
-    if (mode !== 'play') return;
+  const isSolvedStatus = useMemo(() => {
+    if (mode !== 'play') return false;
     let win = true;
     for (let r = 0; r < rows; r++) {
       if (!isLineCompleted(r, true, grid)) { win = false; break; }
@@ -187,7 +178,7 @@ export default function NonogramApp() {
         if (!isLineCompleted(c, false, grid)) { win = false; break; }
       }
     }
-    setIsSolvedStatus(win);
+    return win;
   }, [grid, mode, rows, cols, isLineCompleted]);
 
   const getAutoMarked = useCallback((line, clues) => {
@@ -433,7 +424,6 @@ export default function NonogramApp() {
     setRowCluesStr(rClues ? rClues.map(arr => arr.join(' ')) : Array(validR).fill('0'));
     setColCluesStr(cClues ? cClues.map(arr => arr.join('\n')) : Array(validC).fill('0'));
     setGrid(Array(validR).fill().map(() => Array(validC).fill(0)));
-    setIsSolvedStatus(false);
     setAlertMsg('');
     setHintInfo(null);
     setMarkedRowClues({}); setMarkedColClues({});
@@ -483,7 +473,7 @@ export default function NonogramApp() {
   const clearClues = () => {
     setRowCluesStr(Array(rows).fill('0')); setColCluesStr(Array(cols).fill('0'));
     setGrid(Array(rows).fill().map(() => Array(cols).fill(0)));
-    setIsSolvedStatus(false); setAlertMsg(''); setHintInfo(null);
+    setAlertMsg(''); setHintInfo(null);
     setMarkedRowClues({}); setMarkedColClues({});
     setDeductionLevel(0); setBackupGrids([]);
     setLastCorrectSnapshot(null);
@@ -497,6 +487,7 @@ export default function NonogramApp() {
         rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, deductionLevel, backupGrids
       }, ...puzzleCollection];
       setPuzzleCollection(newCol);
+      setSelectedCollectionIds(prev => [newCol[0].id, ...prev]);
       localStorage.setItem('nonogram_collection', JSON.stringify(newCol));
       setAlertMsg(`✅ 题目 "${name}" 已成功存入收藏夹！`);
     }
@@ -507,21 +498,32 @@ export default function NonogramApp() {
     setExportFilename(item.name);
   };
 
+  const toggleCollectionSelection = (id) => {
+    setSelectedCollectionIds(prev => prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]);
+  };
+
+  const selectAllCollection = () => {
+    setSelectedCollectionIds(puzzleCollection.map(item => item.id));
+  };
+
+  const clearCollectionSelection = () => {
+    setSelectedCollectionIds([]);
+  };
+
   const deleteFromCollection = (id) => {
     if (confirm("确定要永久删除这个收藏的题目吗？")) {
       const newCol = puzzleCollection.filter(p => p.id !== id);
       setPuzzleCollection(newCol);
+      setSelectedCollectionIds(prev => prev.filter(itemId => itemId !== id));
       localStorage.setItem('nonogram_collection', JSON.stringify(newCol));
     }
   };
 
   const handleExportCode = () => {
     const finalFilename = exportFilename.trim() || 'nonogram-save';
-    // --- 优化3：删除了 themeColors 的导出 ---
     const data = { rows, cols, rowCluesStr, colCluesStr, grid, markedRowClues, markedColClues, isSolvedStatus, remark: exportRemark.trim(), deductionLevel, backupGrids };
     const jsonStr = JSON.stringify(data);
     const base64 = btoa(encodeURIComponent(jsonStr));
-    setExportData(base64);
     try {
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(base64).then(() => setAlertMsg(`✅ 存档代码 [${finalFilename}] 已成功复制！`));
@@ -534,7 +536,9 @@ export default function NonogramApp() {
         document.body.removeChild(textArea);
         setAlertMsg(`✅ 存档代码 [${finalFilename}] 已成功复制！`);
       }
-    } catch(e) { setAlertMsg('✅ 存档代码已生成，请在下方手动复制。'); }
+    } catch {
+      setAlertMsg('✅ 存档代码已生成，请在下方手动复制。');
+    }
   };
 
   const handleExportJSON = () => {
@@ -548,6 +552,32 @@ export default function NonogramApp() {
     link.href = url; link.click();
     URL.revokeObjectURL(url);
     setAlertMsg(`✅ 存档文件 [${finalFilename}] 已成功下载！`);
+  };
+
+  const handleExportCollectionJSON = (selectedOnly = false) => {
+    if (!puzzleCollection.length) {
+      setAlertMsg('❌ 当前收藏夹为空，无法批量下载。');
+      return;
+    }
+
+    const exportItems = selectedOnly
+      ? puzzleCollection.filter(item => selectedCollectionIds.includes(item.id))
+      : puzzleCollection;
+
+    if (!exportItems.length) {
+      setAlertMsg('❌ 当前没有选中任何收藏题目，无法下载。');
+      return;
+    }
+
+    const finalFilename = exportFilename.trim() || (selectedOnly ? 'nonogram-collection-selected' : 'nonogram-collection');
+    const jsonStr = JSON.stringify(exportItems, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `${finalFilename}-${new Date().getTime()}.json`;
+    link.href = url; link.click();
+    URL.revokeObjectURL(url);
+    setAlertMsg(`✅ 已${selectedOnly ? '下载所选收藏题目' : '批量下载收藏夹'}中的 ${exportItems.length} 个题目为 JSON 文件！`);
   };
 
   const exportAsImage = (format = 'png') => {
@@ -664,7 +694,9 @@ export default function NonogramApp() {
       const jsonStr = decodeURIComponent(atob(localImportData.trim()));
       applyImportedData(JSON.parse(jsonStr));
       setLocalImportData('');
-    } catch (err) { setAlertMsg('❌ 导入失败，存档代码格式错误或已损坏！'); }
+    } catch {
+      setAlertMsg('❌ 导入失败，存档代码格式错误或已损坏！');
+    }
   };
 
   const handleImportFile = (e) => {
@@ -672,7 +704,9 @@ export default function NonogramApp() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (event) => {
-      try { applyImportedData(JSON.parse(event.target.result)); } catch (err) { setAlertMsg('❌ 导入失败，文件格式错误或已损坏！'); }
+      try { applyImportedData(JSON.parse(event.target.result)); } catch {
+        setAlertMsg('❌ 导入失败，文件格式错误或已损坏！');
+      }
     };
     reader.readAsText(file); e.target.value = null; 
   };
@@ -683,7 +717,6 @@ export default function NonogramApp() {
       setRowCluesStr(data.rowCluesStr); setColCluesStr(data.colCluesStr);
       setGrid(data.grid);
       setMarkedRowClues(data.markedRowClues || {}); setMarkedColClues(data.markedColClues || {});
-      setIsSolvedStatus(data.isSolvedStatus || false);
       setDeductionLevel(data.deductionLevel || 0); setBackupGrids(data.backupGrids || []);
       if (data.gameSettings) setGameSettings(data.gameSettings);
       setLastCorrectSnapshot(null); // 导入后清除历史回溯点
@@ -723,7 +756,9 @@ export default function NonogramApp() {
           r = height; c = width;
         }
       }
-    } catch (e) {}
+    } catch {
+      console.warn('Failed to parse task clue fallback block.');
+    }
 
     if (parsedRowClues.length === 0 || parsedColClues.length === 0) {
       try {
@@ -738,7 +773,9 @@ export default function NonogramApp() {
           parsedRowClues = rowGroups.map(extractNumbers); parsedColClues = colGroups.map(extractNumbers);
           r = parsedRowClues.length; c = parsedColClues.length;
         }
-      } catch (e) {}
+      } catch {
+        console.warn('Failed to parse DOM task groups.');
+      }
     }
 
     if (parsedRowClues.length === 0 || parsedColClues.length === 0) {
@@ -765,7 +802,9 @@ export default function NonogramApp() {
             r = parsedRowClues.length; c = parsedColClues.length;
           }
         }
-      } catch(e) {}
+      } catch {
+        console.warn('Failed to parse table-based task layout.');
+      }
     }
 
     if (parsedRowClues.length === 0 || parsedColClues.length === 0) {
@@ -792,7 +831,9 @@ export default function NonogramApp() {
               html = proxy.includes('allorigins') ? (await response.json()).contents : await response.text();
               if (html && html.includes('<html')) break;
             }
-          } catch (e) {}
+          } catch {
+            console.warn('Proxy fetch attempt failed, trying next proxy.');
+          }
         }
         if (!html || !html.includes('<html')) throw new Error("代理请求失败或被目标网站拦截。请直接使用【粘贴网页源代码】的方式提取！");
         parseHtmlAndLoad(html);
@@ -1058,10 +1099,11 @@ export default function NonogramApp() {
     if (bestHint) {
       const direction = bestHint.type === 'row' ? '横向第' : '纵向第';
       const clueText = bestHint.type === 'row' ? rowCluesStr[bestHint.index] : colCluesStr[bestHint.index].replace(/\n/g, ' ');
-      let explainStr = "";
-      if (bestHint.sureBlack > 0 && bestHint.sureCross > 0) explainStr = `必然有 ${bestHint.sureBlack} 个可以涂黑的方块，以及 ${bestHint.sureCross} 个可以打叉的空白。`;
-      else if (bestHint.sureBlack > 0) explainStr = `必然有 ${bestHint.sureBlack} 个方块是可以被安全涂黑的。`;
-      else explainStr = `必然有 ${bestHint.sureCross} 个地方是不可能被打叉的（应该打叉）。`;
+      const explainStr = bestHint.sureBlack > 0 && bestHint.sureCross > 0
+        ? `必然有 ${bestHint.sureBlack} 个可以涂黑的方块，以及 ${bestHint.sureCross} 个可以打叉的空白。`
+        : bestHint.sureBlack > 0
+          ? `必然有 ${bestHint.sureBlack} 个方块是可以被安全涂黑的。`
+          : `必然有 ${bestHint.sureCross} 个地方是不可能被打叉的（应该打叉）。`;
       setHintInfo({ text: `💡 破局点在 ${direction} ${bestHint.index + 1} 行/列 (线索: ${clueText})。结合您现有的标记，排除掉所有不可能的组合后，${explainStr} 试着推演一下这一段！`, type: bestHint.type, index: bestHint.index, isError: false });
     } else {
       setHintInfo({ text: "🧠 当前盘面没有简单的单行/单列线索可以推进了。您可能需要结合多行交叉推导，或者利用假设法（推演模式）来进行下一步试探。", type: 'info', isError: false });
@@ -1074,14 +1116,14 @@ export default function NonogramApp() {
     if (!solvedBoard) { setAlertMsg("当前题目存在矛盾，无解！"); return; }
 
     const finalGrid = solvedBoard.map(row => row.map(cell => cell === 1 ? 1 : (cell === 0 ? 2 : 0)));
-    setGrid(finalGrid); setIsSolvedStatus(true);
-    if (solvedBoard.some(row => row.includes(-1))) { setIsSolvedStatus(false); setAlertMsg("逻辑推导已完成。剩余部分存在多解或需要深度试错。"); }
+    setGrid(finalGrid);
+    if (solvedBoard.some(row => row.includes(-1))) { setAlertMsg("逻辑推导已完成。剩余部分存在多解或需要深度试错。"); }
     setDeductionLevel(0); setBackupGrids([]);
   };
 
   const clearBoard = () => {
     setGrid(Array(rows).fill().map(() => Array(cols).fill(0)));
-    setIsSolvedStatus(false); setAlertMsg(''); setHintInfo(null);
+    setAlertMsg(''); setHintInfo(null);
     setMarkedRowClues({}); setMarkedColClues({});
     setDeductionLevel(0); setBackupGrids([]);
   };
@@ -1366,19 +1408,33 @@ export default function NonogramApp() {
 
           {/* === 4. 本地收藏夹 === */}
           <Accordion title="本地收藏夹" icon={FolderHeart} defaultOpen={false}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="text-xs text-slate-500">保存您喜欢的谜题</div>
-              <button onClick={saveToCollection} className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition-colors border border-indigo-200 flex items-center gap-1"><BookmarkPlus className="w-3 h-3" /> 存入当前</button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={saveToCollection} className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition-colors border border-indigo-200 flex items-center gap-1"><BookmarkPlus className="w-3 h-3" /> 存入当前</button>
+                <button onClick={() => handleExportCollectionJSON(false)} className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center gap-1"><Download className="w-3 h-3" /> 下载全部</button>
+                <button onClick={() => handleExportCollectionJSON(true)} disabled={!selectedCollectionIds.length} className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded text-[10px] font-bold transition-colors border border-sky-200 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"><Download className="w-3 h-3" /> 下载选中</button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
+              <span>{selectedCollectionIds.length}/{puzzleCollection.length} 已选</span>
+              <div className="flex items-center gap-1.5">
+                <button onClick={selectAllCollection} className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">全选</button>
+                <button onClick={clearCollectionSelection} className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">清空</button>
+              </div>
             </div>
             <div className="flex flex-col gap-2 max-h-48 overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100">
               {puzzleCollection.length === 0 ? (
                 <p className="text-[10px] text-slate-400 text-center py-2">暂无收藏的题目</p>
               ) : (
                 puzzleCollection.map(item => (
-                  <div key={item.id} className="flex justify-between items-center bg-white p-1.5 rounded border border-slate-200 shadow-sm group">
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="text-xs font-bold text-slate-700 truncate">{item.name}</span>
-                      <span className="text-[9px] text-slate-400">{item.cols}×{item.rows} - {item.date}</span>
+                  <div key={item.id} className="flex items-center justify-between gap-2 bg-white p-1.5 rounded border border-slate-200 shadow-sm group">
+                    <div className="flex items-center gap-2 overflow-hidden flex-1">
+                      <input type="checkbox" checked={selectedCollectionIds.includes(item.id)} onChange={() => toggleCollectionSelection(item.id)} className="accent-indigo-600 w-3.5 h-3.5 shrink-0" />
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="text-xs font-bold text-slate-700 truncate">{item.name}</span>
+                        <span className="text-[9px] text-slate-400">{item.cols}×{item.rows} - {item.date}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => loadFromCollection(item)} className="p-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded" title="游玩此题"><PlayCircle className="w-3 h-3"/></button>
@@ -1392,17 +1448,23 @@ export default function NonogramApp() {
 
           {/* === 5. 导入与导出 === */}
           <Accordion title="外部导入与导出" icon={FileSymlink} defaultOpen={false}>
-            <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold text-slate-400">外部网站题库解析提取</span>
-                <textarea rows={2} value={importData} onChange={e => setImportData(e.target.value)} placeholder="粘贴目标网站源码..." className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 font-mono" />
-                <button onClick={handleImport} disabled={isImporting} className="py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded transition-colors disabled:bg-indigo-300 flex justify-center items-center gap-1"><Download className="w-3 h-3" /> 解析提取</button>
+            <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-slate-500">外部网站题库解析</span>
+                  <span className="text-[9px] text-slate-400">支持粘贴网页源码后直接解析</span>
+                </div>
+                <textarea rows={2} value={importData} onChange={e => setImportData(e.target.value)} placeholder="粘贴目标网站源码..." className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 font-mono bg-white" />
+                <button onClick={handleImport} disabled={isImporting || !importData.trim()} className="py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"><Download className="w-3 h-3" /> 解析提取</button>
             </div>
 
-            <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2">
-                <span className="text-[10px] font-bold text-slate-400">导出存档或图片</span>
+            <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-slate-500">导出存档或图片</span>
+                  <span className="text-[9px] text-slate-400">当前导出文件名将用于下载命名</span>
+                </div>
                 <div className="flex flex-col gap-1">
-                  <input type="text" value={exportFilename} onChange={e => setExportFilename(e.target.value)} placeholder="导出文件名 (选填)" className="w-full text-[10px] px-2 py-1 rounded border border-slate-300 outline-none focus:border-emerald-500" />
-                  <input type="text" value={exportRemark} onChange={e => setExportRemark(e.target.value)} placeholder="图片底部留言 (选填)" className="w-full text-[10px] px-2 py-1 rounded border border-slate-300 outline-none focus:border-emerald-500" />
+                  <input type="text" value={exportFilename} onChange={e => setExportFilename(e.target.value)} placeholder="导出文件名 (选填)" className="w-full text-[10px] px-2 py-1 rounded border border-slate-300 outline-none focus:border-emerald-500 bg-white" />
+                  <input type="text" value={exportRemark} onChange={e => setExportRemark(e.target.value)} placeholder="图片底部留言 (选填)" className="w-full text-[10px] px-2 py-1 rounded border border-slate-300 outline-none focus:border-emerald-500 bg-white" />
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <button onClick={handleExportCode} className="py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded border border-emerald-200 flex justify-center items-center gap-1"><ClipboardCopy className="w-3 h-3" /> 复制代码</button>
@@ -1412,14 +1474,17 @@ export default function NonogramApp() {
                 </div>
             </div>
             
-            <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2">
-                <span className="text-[10px] font-bold text-slate-400">本地代码 / 文件导入</span>
+            <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-slate-500">本地代码 / 文件导入</span>
+                  <span className="text-[9px] text-slate-400">支持导入本地 JSON 存档</span>
+                </div>
                 <div className="flex gap-1.5">
-                  <input type="text" value={localImportData} onChange={e => setLocalImportData(e.target.value)} placeholder="粘贴代码..." className="flex-1 px-2 py-1 text-[10px] rounded border border-slate-300 outline-none focus:border-emerald-500 font-mono" />
-                  <button onClick={handleLocalImportCode} disabled={!localImportData.trim()} className="px-2 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded transition-colors disabled:bg-emerald-300">导入</button>
+                  <input type="text" value={localImportData} onChange={e => setLocalImportData(e.target.value)} placeholder="粘贴代码..." className="flex-1 px-2 py-1 text-[10px] rounded border border-slate-300 outline-none focus:border-emerald-500 font-mono bg-white" />
+                  <button onClick={handleLocalImportCode} disabled={!localImportData.trim()} className="px-2 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded transition-colors disabled:bg-emerald-300 disabled:cursor-not-allowed">导入</button>
                 </div>
                 <div className="relative">
-                  <input type="file" accept=".json" onChange={handleImportFile} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                  <input type="file" accept=".json,application/json" onChange={handleImportFile} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                   <button className="w-full py-1.5 bg-white text-slate-600 hover:bg-slate-50 text-[10px] font-bold rounded flex justify-center items-center gap-1 border border-slate-300 transition-colors"><UploadCloud className="w-3 h-3" /> 上传 JSON</button>
                 </div>
             </div>
