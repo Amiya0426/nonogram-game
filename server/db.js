@@ -35,6 +35,29 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS puzzles (
+    id TEXT PRIMARY KEY,
+    rows INTEGER NOT NULL,
+    cols INTEGER NOT NULL,
+    row_clues TEXT NOT NULL,
+    col_clues TEXT NOT NULL,
+    grid TEXT,
+    source TEXT NOT NULL DEFAULT 'import',
+    density REAL NOT NULL DEFAULT 0,
+    content_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS user_progress (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    puzzle_id TEXT NOT NULL REFERENCES puzzles(id) ON DELETE CASCADE,
+    completed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, puzzle_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_collections_user ON collections(user_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_hash ON puzzles(content_hash);
+  CREATE INDEX IF NOT EXISTS idx_puzzles_size ON puzzles(rows, cols);
+  CREATE INDEX IF NOT EXISTS idx_progress_user ON user_progress(user_id);
 `);

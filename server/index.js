@@ -5,6 +5,14 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import { db } from './db.js';
 import {
+  normalizePuzzle,
+  validatePuzzle,
+  contentHash,
+  puzzleIdFromHash,
+  countSolutions,
+  gridMatchesClues,
+} from './puzzle-lib.js';
+import {
   requireAuth,
   authRateLimit,
   createSession,
@@ -127,6 +135,169 @@ app.delete('/api/collections/:id', requireAuth, (req, res) => {
     .run(id, req.user.id);
   if (info.changes === 0) return res.status(404).json({ error: '收藏不存在' });
   res.json({ ok: true });
+});
+
+// ---------- 题库 ----------
+
+const puzzleRowToDto = (row) => ({
+  id: row.id,
+  rows: row.rows,
+  cols: row.cols,
+  rowCluesStr: JSON.parse(row.row_clues).map((arr) => arr.join('.')),
+  colCluesStr: JSON.parse(row.col_clues).map((arr) => arr.join('.')),
+  source: row.source,
+  density: row.density,
+});
+
+const numParam = (v) => {
+  const n = Number(v);
+  return Number.isInteger(n) ? n : null;
+};
+
+/** 随机抽题：?rows=&cols= 精确，或 ?minRows=&maxRows=&minCols=&maxCols= 范围 */
+app.get('/api/puzzles/random', (req, res) => {
+  const q = req.query;
+  const rows = numParam(q.rows);
+  const cols = numParam(q.cols);
+  const minRows = numParam(q.minRows);
+  const maxRows = numParam(q.maxRows);
+  const minCols = numParam(q.minCols);
+  const maxCols = numParam(q.maxCols);
+
+  let where = '';
+  const params = [];
+  if (rows !== null && cols !== null) {
+    where = 'WHERE rows = ? AND cols = ?';
+    params.push(rows, cols);
+  } else {
+    const rMin = minRows ?? 3;
+    const rMax = maxRows ?? 80;
+    const cMin = minCols ?? 3;
+    const cMax = maxCols ?? 80;
+    where = 'WHERE rows BETWEEN ? AND ? AND cols BETWEEN ? AND ?';
+    params.push(rMin, rMax, cMin, cMax);
+  }
+
+  const excludeCompleted = q.excludeCompleted === '1' && req.user;
+  const uid = req.user?.id;
+
+  let row = null;
+  if (excludeCompleted) {
+    row = db
+      .prepare(
+        `SELECT * FROM puzzles ${where}
+         AND NOT EXISTS (SELECT 1 FROM user_progress up
+                         WHERE up.puzzle_id = puzzles.id AND up.user_id = ?)
+         ORDER BY RANDOM() LIMIT 1`,
+      )
+      .get(...params, uid);
+    if (!row) {
+      row = db
+        .prepare(`SELECT * FROM puzzles ${where} ORDER BY RANDOM() LIMIT 1`)
+        .get(...params);
+    }
+  } else {
+    row = db
+      .prepare(`SELECT * FROM puzzles ${where} ORDER BY RANDOM() LIMIT 1`)
+      .get(...params);
+  }
+
+  if (!row) return res.status(404).json({ error: '暂无该尺寸范围的题目，请先导入题库' });
+  res.json(puzzleRowToDto(row));
+});
+
+/** 导入题目：{ puzzle } 或 { puzzles: [...] }；校验合法且唯一解后入库（自动去重） */
+app.post('/api/puzzles/import', requireAuth, (req, res) => {
+  const body = req.body || {};
+  const items = Array.isArray(body.puzzles)
+    ? body.puzzles
+    : body.puzzle
+      ? [body.puzzle]
+      : [];
+  if (!items.length) return res.status(400).json({ error: '请提供 puzzle 或 puzzles 数组' });
+  if (items.length > 200) return res.status(400).json({ error: '单次最多导入 200 道题' });
+
+  const results = items.map((raw, i) => {
+    const p = normalizePuzzle(raw);
+    if (!p) return { index: i, ok: false, reason: '题目格式不正确' };
+    const valid = validatePuzzle(p);
+    if (!valid.ok) return { index: i, ok: false, reason: valid.reason };
+
+    const hash = contentHash(p);
+    const existing = db.prepare('SELECT * FROM puzzles WHERE content_hash = ?').get(hash);
+    if (existing) return { index: i, ok: true, created: false, id: existing.id };
+
+    const sol = countSolutions(p, { timeoutMs: 4000, nodeLimit: 200000 });
+    if (sol.timeout) return { index: i, ok: false, reason: '唯一解校验超时，暂无法入库' };
+    if (sol.count === 0) return { index: i, ok: false, reason: '题目无解' };
+    if (sol.count >= 2) return { index: i, ok: false, reason: '题目存在多个解，不符合唯一解要求' };
+
+    const id = puzzleIdFromHash(hash);
+    const blackCells = p.grid ? p.grid.flat().filter(Boolean).length : null;
+    const density =
+      blackCells !== null
+        ? blackCells / (p.rows * p.cols)
+        : (p.rowClues.reduce((a, arr) => a + arr.reduce((x, y) => x + y, 0), 0) +
+            p.colClues.reduce((a, arr) => a + arr.reduce((x, y) => x + y, 0), 0)) /
+          (2 * p.rows * p.cols);
+
+    db.prepare(
+      `INSERT INTO puzzles (id, rows, cols, row_clues, col_clues, grid, source, density, content_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      p.rows,
+      p.cols,
+      JSON.stringify(p.rowClues),
+      JSON.stringify(p.colClues),
+      p.grid ? JSON.stringify(p.grid) : null,
+      raw.source || 'import',
+      Math.round(density * 1000) / 1000,
+      hash,
+    );
+    return { index: i, ok: true, created: true, id };
+  });
+
+  const okCount = results.filter((r) => r.ok).length;
+  res.json({ results, imported: okCount });
+});
+
+/** 标记题目已完成（可选提交盘面，服务器用答案校验） */
+app.post('/api/puzzles/:id/complete', requireAuth, (req, res) => {
+  const id = String(req.params.id || '');
+  const row = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ error: '题目不存在' });
+
+  const grid = req.body?.grid;
+  if (grid) {
+    const p = normalizePuzzle({
+      rows: row.rows,
+      cols: row.cols,
+      rowClues: JSON.parse(row.row_clues),
+      colClues: JSON.parse(row.col_clues),
+      grid,
+    });
+    const stored = p ? gridMatchesClues(p) : false;
+    const answer = row.grid ? JSON.parse(row.grid) : null;
+    const matchesAnswer = answer ? JSON.stringify(answer) === JSON.stringify(grid) : false;
+    if (!stored && !matchesAnswer) {
+      return res.status(400).json({ error: '盘面与答案不一致' });
+    }
+  }
+
+  db.prepare(
+    `INSERT INTO user_progress (user_id, puzzle_id) VALUES (?, ?)
+     ON CONFLICT(user_id, puzzle_id) DO NOTHING`,
+  ).run(req.user.id, id);
+  res.json({ ok: true, id });
+});
+
+/** 当前用户已完成题目 ID 列表 */
+app.get('/api/user/progress', requireAuth, (req, res) => {
+  const rows = db
+    .prepare('SELECT puzzle_id FROM user_progress WHERE user_id = ? ORDER BY completed_at DESC')
+    .all(req.user.id);
+  res.json(rows.map((r) => r.puzzle_id));
 });
 
 app.get('/api/health', (req, res) => {

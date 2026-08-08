@@ -34,4 +34,24 @@ export const api = {
   updateCollection: (id, patch) =>
     request(`/api/collections/${id}`, { method: 'PUT', body: patch }),
   deleteCollection: (id) => request(`/api/collections/${id}`, { method: 'DELETE' }),
+
+  // 题库
+  randomPuzzle: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+    });
+    return request(`/api/puzzles/random${qs.toString() ? `?${qs}` : ''}`);
+  },
+  importPuzzles: (puzzles) =>
+    request('/api/puzzles/import', {
+      method: 'POST',
+      body: { puzzles },
+    }),
+  completePuzzle: (id, grid) =>
+    request(`/api/puzzles/${id}/complete`, {
+      method: 'POST',
+      body: grid ? { grid } : {},
+    }),
+  userProgress: () => request('/api/user/progress'),
 };

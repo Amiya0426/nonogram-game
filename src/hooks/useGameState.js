@@ -144,6 +144,9 @@ export default function useGameState() {
   const [lastCorrectSnapshot, setLastCorrectSnapshot] = useState(
     savedState?.lastCorrectSnapshot || null,
   );
+  const [currentPuzzleId, setCurrentPuzzleId] = useState(
+    typeof savedState?.currentPuzzleId === 'string' ? savedState.currentPuzzleId : null,
+  );
 
   // 自动存档：游玩设置 + 棋盘进度防抖写入 localStorage（刷新后恢复）
   useEffect(() => {
@@ -166,6 +169,7 @@ export default function useGameState() {
         markedColClues,
         lastCorrectSnapshot,
         randomDifficulty,
+        currentPuzzleId,
       });
     }, 500);
     return () => clearTimeout(timer);
@@ -187,6 +191,7 @@ export default function useGameState() {
     markedColClues,
     lastCorrectSnapshot,
     randomDifficulty,
+    currentPuzzleId,
   ]);
 
   const hoverPosRef = useRef({ r: -1, c: -1 });
@@ -320,6 +325,23 @@ export default function useGameState() {
     return true;
   }, [mode, rows, cols, lineAnalysis]);
 
+  // 完成服务器题库题目时记录进度（黑格=1，叉/空=0 提交服务器校验）
+  const completedRef = useRef(null);
+  useEffect(() => {
+    if (isSolvedStatus && user && currentPuzzleId) {
+      if (completedRef.current === currentPuzzleId) return;
+      completedRef.current = currentPuzzleId;
+      const binaryGrid = grid.map((row) =>
+        row.map((v) => (typeof v === 'number' && v % 2 === 1 ? 1 : 0)),
+      );
+      api.completePuzzle(currentPuzzleId, binaryGrid).catch(() => {
+        completedRef.current = null;
+      });
+    } else if (!isSolvedStatus) {
+      completedRef.current = null;
+    }
+  }, [isSolvedStatus, user, currentPuzzleId, grid]);
+
   /** 游玩进度：已完成行+列占全部行+列的百分比（用于导出文件名） */
   const progressPercent = useMemo(() => {
     if (mode !== 'play' || rows + cols === 0) return 0;
@@ -401,6 +423,7 @@ export default function useGameState() {
     setDeductionLevel(0);
     setBackupGrids([]);
     setLastCorrectSnapshot(null);
+    setCurrentPuzzleId(null);
   }, []);
 
   const clearBoard = useCallback(() => {
@@ -426,7 +449,31 @@ export default function useGameState() {
     setLastCorrectSnapshot(null);
   }, [rows, cols]);
 
-  const generateRandom = useCallback(() => {
+  const generateRandom = useCallback(async () => {
+    // 优先从服务器题库抽题（编辑-画盘面模式下仍使用本地随机图案）
+    if (!(mode === 'edit' && editInputMode === 'pattern')) {
+      try {
+        const serverPuzzle = await api.randomPuzzle({
+          rows,
+          cols,
+          excludeCompleted: user ? '1' : undefined,
+        });
+        initBoard(
+          serverPuzzle.rows,
+          serverPuzzle.cols,
+          serverPuzzle.rowCluesStr.map((s) => s.split('.').map(Number)),
+          serverPuzzle.colCluesStr.map((s) => s.split('.').map(Number)),
+        );
+        setCurrentPuzzleId(serverPuzzle.id);
+        setAlertMsg(`✅ 已从服务器题库抽取 ${serverPuzzle.rows} × ${serverPuzzle.cols} 题目`);
+        return;
+      } catch {
+        // 服务器不可用 / 题库为空时回退本地随机生成
+        setCurrentPuzzleId(null);
+      }
+    } else {
+      setCurrentPuzzleId(null);
+    }
     let prob = 0.55;
     if (randomDifficulty === 'easy') prob = 0.65;
     if (randomDifficulty === 'hard') prob = 0.4;
@@ -489,7 +536,7 @@ export default function useGameState() {
     }
     initBoard(rows, cols, newRowClues, newColClues);
     setGrid(createGrid(rows, cols));
-  }, [rows, cols, randomDifficulty, initBoard, mode, editInputMode]);
+  }, [rows, cols, randomDifficulty, initBoard, mode, editInputMode, user]);
 
   const toggleMarkedRow = useCallback((r, idx) => {
     if (mode === 'play') {
@@ -971,6 +1018,42 @@ export default function useGameState() {
     }
   }, []);
 
+  /** 登录用户导入题目时提交服务器题库：校验合法且唯一解后入库 */
+  const submitToLibrary = useCallback(
+    (data) => {
+      if (!user || !data) return;
+      const submit = {
+        rows: data.rows,
+        cols: data.cols,
+        rowCluesStr: data.rowCluesStr,
+        colCluesStr: data.colCluesStr,
+        grid: data.grid
+          ? data.grid.map((row) =>
+              row.map((v) => (typeof v === 'number' && v % 2 === 1 ? 1 : 0)),
+            )
+          : null,
+        source: 'user-import',
+      };
+      api
+        .importPuzzles([submit])
+        .then((r) => {
+          const okItem = r.results.find((x) => x.ok);
+          if (okItem) {
+            setCurrentPuzzleId(okItem.id);
+            setAlertMsg(
+              okItem.created
+                ? '✅ 题目已校验唯一解并加入服务器题库'
+                : '✅ 题目已在服务器题库中（重复导入）',
+            );
+          } else if (r.results[0]) {
+            setAlertMsg(`⚠️ 题目已载入游玩，但未能入库：${r.results[0].reason}`);
+          }
+        })
+        .catch(() => {});
+    },
+    [user],
+  );
+
   /** 把本地收藏（localStorage）合并上传到云端，按 名称+尺寸 去重 */
   const mergeLocalToCloud = useCallback(async () => {
     const cloud = await api.listCollections();
@@ -1101,7 +1184,7 @@ export default function useGameState() {
       applyImportedData(item);
       setExportFilename(item.name);
     },
-    [applyImportedData],
+    [applyImportedData, submitToLibrary],
   );
 
   const toggleCollectionSelection = useCallback((id) => {
@@ -1419,9 +1502,11 @@ export default function useGameState() {
   const importFromCode = useCallback(
     (code) => {
       const jsonStr = decodeURIComponent(atob(code.trim()));
-      applyImportedData(JSON.parse(jsonStr));
+      const data = JSON.parse(jsonStr);
+      applyImportedData(data);
+      submitToLibrary(data);
     },
-    [applyImportedData],
+    [applyImportedData, submitToLibrary],
   );
 
   /**
@@ -1459,7 +1544,9 @@ export default function useGameState() {
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          applyImportedData(normalizePuzzleData(JSON.parse(event.target.result)));
+          const data = normalizePuzzleData(JSON.parse(event.target.result));
+          applyImportedData(data);
+          submitToLibrary(data);
         } catch {
           setAlertMsg('❌ 导入失败，文件格式错误或已损坏！');
         }
@@ -1516,10 +1603,24 @@ export default function useGameState() {
         }
         const puzzle = extractPuzzleFromHtml(html);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
+        submitToLibrary({
+          rows: puzzle.rows,
+          cols: puzzle.cols,
+          rowCluesStr: puzzle.rowClues.map((arr) => arr.join('.')),
+          colCluesStr: puzzle.colClues.map((arr) => arr.join('.')),
+          grid: null,
+        });
         setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题。`);
       } else {
         const puzzle = extractPuzzleFromHtml(data);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
+        submitToLibrary({
+          rows: puzzle.rows,
+          cols: puzzle.cols,
+          rowCluesStr: puzzle.rowClues.map((arr) => arr.join('.')),
+          colCluesStr: puzzle.colClues.map((arr) => arr.join('.')),
+          grid: null,
+        });
         setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题。`);
       }
       setImportData('');
@@ -1529,7 +1630,7 @@ export default function useGameState() {
     } finally {
       setIsImporting(false);
     }
-  }, [importData, initBoard]);
+  }, [importData, initBoard, submitToLibrary]);
 
   const handleModeChange = useCallback((m) => {
     setMode(m);

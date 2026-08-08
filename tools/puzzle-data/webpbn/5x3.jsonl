@@ -1,0 +1,1 @@
+{"name": "webpbn #4163 fly!", "date": "2026/08/08 16:37:32", "rows": 3, "cols": 5, "rowCluesStr": ["1.2", "4", "1.1"], "colCluesStr": ["1", "2", "2", "3", "1"], "grid": [[1, 0, 1, 1, 0], [0, 1, 1, 1, 1], [0, 1, 0, 1, 0]], "markedRowClues": {}, "markedColClues": {}, "isSolvedStatus": false, "deductionLevel": 0, "backupGrids": [], "source": "webpbn#4163"}
