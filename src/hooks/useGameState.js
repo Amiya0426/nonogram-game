@@ -355,10 +355,34 @@ export default function useGameState() {
 
   const recordMove = useCallback((type, cells) => {
     if (!cells || cells.length === 0) return;
-    setMoveHistory((prev) => [
-      ...prev,
-      { type, at: Date.now(), cells },
-    ]);
+    // 压缩本次记录中同一格子的重复操作（拖拽/画笔划过同格时取最后值）
+    const dedup = [];
+    for (const cell of cells) {
+      const idx = dedup.findIndex((x) => x.r === cell.r && x.c === cell.c);
+      if (idx >= 0) dedup[idx] = cell;
+      else dedup.push(cell);
+    }
+    if (dedup.length === 0) return;
+
+    setMoveHistory((prev) => {
+      const last = prev[prev.length - 1];
+      // 轮换模式合并：上一条是单格 fill 且与本次同格时，合并为一条（取本次最终值）
+      // 例如打叉的 空→黑→叉 路径只记录"叉"，复盘时一步到位，不出现中间黑块
+      if (
+        type === 'fill' &&
+        last &&
+        last.type === 'fill' &&
+        last.cells.length === 1 &&
+        dedup.length === 1 &&
+        last.cells[0].r === dedup[0].r &&
+        last.cells[0].c === dedup[0].c
+      ) {
+        const merged = [...prev];
+        merged[merged.length - 1] = { ...last, cells: [{ ...dedup[0] }] };
+        return merged;
+      }
+      return [...prev, { type, at: Date.now(), cells: dedup }];
+    });
   }, []);
 
   /** 正常填入：合并同一次拖拽/画笔的连续操作 */
@@ -530,7 +554,9 @@ export default function useGameState() {
     setHoverPos({ r: -1, c: -1 });
     measureStartRef.current = null;
     setMeasureStart(null);
-  }, []);
+    setDragAction(null);
+    flushDragBatch();
+  }, [flushDragBatch]);
 
   // ==========================================
   // 4. 盘面操作
@@ -748,7 +774,6 @@ export default function useGameState() {
       e.preventDefault();
       if (mode === 'play') {
         flushDragBatch();
-        dragBatchRef.current = { cells: [] };
       }
       let newAction = computeCellAction(r, c);
       const CX = deductionLevel * 2 + 2;
@@ -771,9 +796,14 @@ export default function useGameState() {
   const handleCellMouseEnter = useCallback(
     (e, r, c) => {
       const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
-      if (dragAction !== null && e.buttons === 0) setDragAction(null);
+      if (dragAction !== null && e.buttons === 0) {
+        setDragAction(null);
+        flushDragBatch();
+      }
       scheduleHover(r, c);
       if (!editable || dragAction === null || e.buttons === 0) return;
+      // 拖拽：首次进入时开启批量记录，后续格合并为一条操作
+      if (!dragBatchRef.current) dragBatchRef.current = { cells: [] };
       updateCellValue(r, c, dragAction);
     },
     [dragAction, mode, editInputMode, scheduleHover, updateCellValue],
@@ -788,7 +818,6 @@ export default function useGameState() {
       const action = computeCellAction(r, c);
       if (mode === 'play') {
         flushTouchBatch();
-        touchBatchRef.current = { cells: [] };
       }
       touchPaintActionRef.current = action;
       updateCellValue(r, c, action);
@@ -798,6 +827,8 @@ export default function useGameState() {
   const continueTouchPaint = useCallback(
     (r, c) => {
       if (touchPaintActionRef.current != null) {
+        // 长按拖动：后续格合并为一条批量记录
+        if (!touchBatchRef.current) touchBatchRef.current = { cells: [] };
         updateCellValue(r, c, touchPaintActionRef.current);
       }
     },
