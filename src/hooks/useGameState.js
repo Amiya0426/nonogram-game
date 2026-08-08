@@ -148,7 +148,7 @@ export default function useGameState() {
     Number.isInteger(savedState?.timerSeconds) ? savedState.timerSeconds : 0,
   );
   const [timerRunning, setTimerRunning] = useState(
-    savedState ? savedState.timerRunning === true : true,
+    savedState ? savedState.timerRunning === true : false,
   );
   const [moveHistory, setMoveHistory] = useState(
     Array.isArray(savedState?.moveHistory) ? savedState.moveHistory : [],
@@ -497,9 +497,10 @@ export default function useGameState() {
     if (isSolvedStatus || mode !== 'play') setTimerRunning(false);
   }, [isSolvedStatus, mode]);
 
-  const resetAndStartTimer = useCallback(() => {
+  /** 新盘重置计时：清零但不启动，等待玩家第一次点击格子 */
+  const resetTimer = useCallback(() => {
     setTimerSeconds(0);
-    setTimerRunning(true);
+    setTimerRunning(false);
   }, []);
 
   const togglePauseTimer = useCallback(() => {
@@ -578,8 +579,8 @@ export default function useGameState() {
     setLastCorrectSnapshot(null);
     setCurrentPuzzleId(null);
     setMoveHistory([]);
-    resetAndStartTimer();
-  }, [resetAndStartTimer]);
+    resetTimer();
+  }, [resetTimer]);
 
   const clearBoard = useCallback(() => {
     setGrid(createGrid(rows, cols));
@@ -730,6 +731,10 @@ export default function useGameState() {
       }
     }
     setGrid((prev) => updateCell(prev, r, c, val));
+    // 玩家第一次点击格子时启动计时（新盘从首击开始计时）
+    if (mode === 'play' && !isSolvedStatus && timerSeconds === 0 && !timerRunning) {
+      setTimerRunning(true);
+    }
     // 记录操作（仅游玩模式且未完成时）
     if (mode === 'play' && !isSolvedStatus) {
       if (dragBatchRef.current) {
@@ -740,7 +745,7 @@ export default function useGameState() {
         recordMove('fill', [{ r, c, val }]);
       }
     }
-  }, [hintInfo, mode, isSolvedStatus, recordMove]);
+  }, [hintInfo, mode, isSolvedStatus, recordMove, timerSeconds, timerRunning]);
 
   /** 计算某个格子的操作值（轮切/画笔，游玩与画盘面模式共用） */
   const computeCellAction = useCallback(
@@ -1215,13 +1220,13 @@ export default function useGameState() {
       if (data.gameSettings) setGameSettings(data.gameSettings);
       setLastCorrectSnapshot(null);
       setMoveHistory([]);
-      resetAndStartTimer();
+    resetTimer();
       setAlertMsg('✅ 存档导入成功！已恢复进度。');
       setMode('play');
     } else {
       throw new Error('格式不完整');
     }
-  }, [resetAndStartTimer]);
+  }, [resetTimer]);
 
   /** 登录用户导入题目时提交服务器题库：校验合法且唯一解后入库 */
   const submitToLibrary = useCallback(

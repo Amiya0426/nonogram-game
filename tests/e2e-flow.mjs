@@ -30,26 +30,34 @@ check('页面渲染', rootLen > 100, `root=${rootLen}`);
 const timer = page.locator('.font-mono').first();
 check('计时器存在', await timer.isVisible());
 const t1 = (await timer.innerText()).trim();
-check('计时器格式', /^\d{1,3}:\d{2}$/.test(t1), t1);
+check('新盘初始 00:00', t1 === '00:00', t1);
 
-// 3) 计时走动
+// 3) 未点击格子前不走秒
 await page.waitForTimeout(2200);
 const t2 = (await timer.innerText()).trim();
-check('计时器走秒', t1 !== t2, `${t1} -> ${t2}`);
+check('未点击不走秒', t1 === t2, `${t1} == ${t2}`);
 
-// 4) 暂停/继续
+// 4) 点击第一个格子后开始计时
+const cell = page.locator('[data-cell][data-r="0"][data-c="0"]').first();
+const box = await cell.boundingBox();
+await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+await page.waitForTimeout(2200);
+const t3 = (await timer.innerText()).trim();
+check('首击后开始计时', /^00:0[1-9]$/.test(t3), t3);
+
+// 5) 暂停/继续
 const pauseBtn = page.getByTitle('暂停计时');
 check('暂停按钮存在', await pauseBtn.isVisible());
 await pauseBtn.click();
 await page.waitForTimeout(200);
 check('暂停后出现继续', await page.getByTitle('继续计时').isVisible());
-const t3 = (await timer.innerText()).trim();
-await page.waitForTimeout(1500);
 const t4 = (await timer.innerText()).trim();
-check('暂停不走秒', t3 === t4, `${t3} == ${t4}`);
+await page.waitForTimeout(1500);
+const t5 = (await timer.innerText()).trim();
+check('暂停不走秒', t4 === t5, `${t4} == ${t5}`);
 await page.getByTitle('继续计时').click();
 
-// 5) 随机抽题（展开"视图与棋盘设置"，点随机按钮）
+// 6) 随机抽题（展开"视图与棋盘设置"，点随机按钮）
 const viewAcc = page.locator('button', { hasText: '视图与棋盘设置' }).first();
 if (await viewAcc.isVisible()) {
   await viewAcc.click();
@@ -60,13 +68,13 @@ check('随机按钮存在', await randomBtn.isVisible());
 await randomBtn.click();
 await page.waitForTimeout(1200);
 const timerAfterRandom = (await timer.innerText()).trim();
-check('抽题后计时重置', /^0\d:\d{2}$/.test(timerAfterRandom), timerAfterRandom);
+check('抽题后重置为 00:00 且不启动', timerAfterRandom === '00:00', timerAfterRandom);
 
-// 6) 注册/登录表单存在（未登录时）
+// 7) 注册/登录表单存在（未登录时）
 const hasLoginForm = await page.getByPlaceholder('用户名').isVisible().catch(() => false);
 check('登录表单可见', hasLoginForm);
 
-// 7) 手机端底部导航（缩小视口）
+// 8) 手机端底部导航（缩小视口）
 await page.setViewportSize({ width: 420, height: 800 });
 await page.waitForTimeout(500);
 const mobileNav = await page.locator('button', { hasText: '导入' }).count();

@@ -52,18 +52,12 @@ const readCellGrid = (r, c) =>
     return s.grid?.[rr]?.[cc];
   }, [r, c]);
 
-// 可靠点击：mouse 事件 + 等待存档更新 + 若未生效自动重试
-async function robustClick(r, c, expectVal) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await page.mouse.click(0, 0); // 先离开棋盘，避免悬停状态
-    const el = page.locator(`[data-cell][data-r="${r}"][data-c="${c}"]`).first();
-    const box = await el.boundingBox();
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForTimeout(700);
-    const v = await readCellGrid(r, c);
-    if (v === expectVal) return true;
-  }
-  return false;
+// 点击格子（Playwright 原生 click），返回点击后该格存档值
+async function clickCell(r, c) {
+  const el = page.locator(`[data-cell][data-r="${r}"][data-c="${c}"]`).first();
+  await el.click();
+  await page.waitForTimeout(700);
+  return readCellGrid(r, c);
 }
 
 const readMoves = () =>
@@ -78,11 +72,10 @@ const readAll = () =>
   });
 
 // 第一次点击：空 -> 黑
-await robustClick(0, 0, 1);
-await page.waitForTimeout(2000);
-console.log('点1后(2s):', JSON.stringify(await readAll()));
+const v1 = await clickCell(0, 0);
+await page.waitForTimeout(800);
 // 第二次点击：黑 -> 叉（轮换模式）
-await robustClick(0, 0, 2);
+const v2 = await clickCell(0, 0);
 await page.waitForTimeout(800); // 等自动存档
 
 let state = await readMoves();
@@ -93,7 +86,7 @@ check('记录值为叉(2)', moves[0]?.cells[0]?.val === 2,
   `val=${moves[0]?.cells[0]?.val}`);
 
 // 第三次点击：叉 -> 空（清空，应合并更新为 0）
-await robustClick(0, 0, 0);
+const v3 = await clickCell(0, 0);
 await page.waitForTimeout(800);
 state = await readMoves();
 console.log('点3后:', JSON.stringify(state));
@@ -102,7 +95,7 @@ check('清空后仍一条记录且值为0', moves.length === 1 && moves[0]?.cell
   JSON.stringify(moves));
 
 // 不同格子操作应各自独立记录
-await robustClick(1, 1, 1);
+await clickCell(1, 1);
 await page.waitForTimeout(800);
 state = await readMoves();
 console.log('点4后:', JSON.stringify(state));
