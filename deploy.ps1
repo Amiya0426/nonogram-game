@@ -3,6 +3,7 @@
 )
 
 $ErrorActionPreference = 'Stop'
+$env:GIT_TERMINAL_PROMPT = '0'
 $SERVER = 'YOUR_SERVER_IP'
 $REMOTE = "root@$SERVER"
 $APP = '/opt/nonogram'
@@ -34,9 +35,20 @@ $hasChanges = ($LASTEXITCODE -ne 0)
 if ($hasChanges) {
   if ([string]::IsNullOrWhiteSpace($Message)) { $Message = "deploy: $ts 自动部署" }
   git commit -m $Message
-  # 绕过本地代理直连 GitHub（代理对 github.com 握手不稳定）
-  git -c http.proxy= -c https.proxy= push origin main
-  if ($LASTEXITCODE -ne 0) { Write-Host "GitHub 推送失败：请检查网络或代理后手动执行 git push" -ForegroundColor Yellow }
+  # GitHub 网络不稳定：直连与本地代理交替重试
+  $pushed = $false
+  for ($i = 1; $i -le 6 -and -not $pushed; $i++) {
+    if ($i % 2 -eq 1) {
+      Write-Host "推送 GitHub（直连，第 $([math]::Ceiling($i / 2)) 次）..." -ForegroundColor DarkGray
+      git -c http.proxy= -c https.proxy= push origin main
+    } else {
+      Write-Host "推送 GitHub（本地代理，第 $($i / 2) 次）..." -ForegroundColor DarkGray
+      git push origin main
+    }
+    if ($LASTEXITCODE -eq 0) { $pushed = $true }
+    else { Start-Sleep -Seconds 3 }
+  }
+  if (-not $pushed) { Write-Host "GitHub 推送失败：请检查网络或代理后手动执行 git push" -ForegroundColor Yellow }
 } else {
   Write-Host "没有需要提交的变更，跳过 commit/push" -ForegroundColor Yellow
 }
