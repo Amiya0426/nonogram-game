@@ -73,7 +73,7 @@ export default function useGameState() {
   const [importData, setImportData] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [localImportData, setLocalImportData] = useState('');
-  const [exportFilename, setExportFilename] = useState('nonogram-save');
+  const [exportFilename, setExportFilename] = useState('');
   const [exportRemark, setExportRemark] = useState('');
 
   const [puzzleCollection, setPuzzleCollection] = useState(() =>
@@ -1106,8 +1106,8 @@ export default function useGameState() {
         setAlertMsg('❌ 当前没有选中任何收藏题目，无法下载。');
         return;
       }
-      // 多选：逐个下载为独立 JSON 文件（修复之前只下一个文件的问题）
-      if (selectedOnly && exportItems.length > 1) {
+      // 选中（单个或多个）：逐个下载为独立 JSON 文件（修复之前只下一个文件的问题）
+      if (selectedOnly) {
         downloadItemsAsFiles(exportItems, (item) => buildCollectionItemName(item));
         setAlertMsg(
           `✅ 已逐个下载 ${exportItems.length} 个所选收藏。若浏览器拦截多个下载，请改用「选中 ZIP」。`,
@@ -1262,19 +1262,46 @@ export default function useGameState() {
     ],
   );
 
-  const handleLocalImportCode = useCallback(() => {
-    try {
-      const jsonStr = decodeURIComponent(atob(localImportData.trim()));
+  /** 从存档代码导入（base64 → JSON → 应用到盘面） */
+  const importFromCode = useCallback(
+    (code) => {
+      const jsonStr = decodeURIComponent(atob(code.trim()));
       applyImportedData(JSON.parse(jsonStr));
+    },
+    [applyImportedData],
+  );
+
+  /**
+   * 代码导入：输入框有内容直接用；
+   * 为空时一键读取剪贴板（需 HTTPS 或浏览器授权），自动填入并导入。
+   */
+  const handleLocalImportCode = useCallback(async () => {
+    let code = localImportData.trim();
+    if (!code) {
+      try {
+        if (!navigator.clipboard?.readText) throw new Error('unsupported');
+        code = (await navigator.clipboard.readText()).trim();
+        if (!code) {
+          setAlertMsg('剪贴板为空，请先复制存档代码');
+          return;
+        }
+        setLocalImportData(code);
+      } catch {
+        setAlertMsg('无法自动读取剪贴板（需要 HTTPS 或浏览器授权），请手动粘贴后点击导入');
+        return;
+      }
+    }
+    try {
+      importFromCode(code);
       setLocalImportData('');
     } catch {
       setAlertMsg('❌ 导入失败，存档代码格式错误或已损坏！');
     }
-  }, [localImportData, applyImportedData]);
+  }, [localImportData, importFromCode]);
 
+  /** 文件导入：直接接收 File 对象（文件选择与拖拽共用） */
   const handleImportFile = useCallback(
-    (e) => {
-      const file = e.target.files[0];
+    (file) => {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -1285,7 +1312,6 @@ export default function useGameState() {
         }
       };
       reader.readAsText(file);
-      e.target.value = null;
     },
     [applyImportedData],
   );

@@ -1,4 +1,5 @@
 // 导出：存档代码 / JSON 文件 / 图片
+import { parseClue, getLineClue, arraysEqual } from './clues.js';
 
 /** 本地时间格式化为 YYYY-MM-DD_HH-mm */
 export const formatTimestamp = (d = new Date()) => {
@@ -12,7 +13,24 @@ export const buildPuzzleExportName = ({ rows, cols, progressPercent }) =>
 
 /** 收藏夹导出默认文件名：收藏夹_2026-08-08_14-30_12题 */
 export const buildCollectionExportName = ({ count }) =>
-  `收藏夹_${formatTimestamp()}_${count}题`;
+  `${formatTimestamp()}_收藏夹_${count}题`;
+
+/** 根据收藏条目计算游玩进度百分比（已完成行+列 / 总行+列） */
+export const computePuzzleProgress = (item) => {
+  const { rows, cols, grid, rowCluesStr, colCluesStr } = item || {};
+  if (!rows || !cols || !grid || !rowCluesStr || !colCluesStr) return 0;
+  let done = 0;
+  const total = rows + cols;
+  for (let r = 0; r < rows; r++) {
+    if (arraysEqual(parseClue(rowCluesStr[r]), getLineClue(grid[r]))) done++;
+  }
+  for (let c = 0; c < cols; c++) {
+    const line = new Array(rows);
+    for (let r = 0; r < rows; r++) line[r] = grid[r][c];
+    if (arraysEqual(parseClue(colCluesStr[c]), getLineClue(line))) done++;
+  }
+  return Math.round((done / total) * 100);
+};
 
 /** 清洗文件名中的非法字符 */
 export const sanitizeFilename = (name) =>
@@ -56,9 +74,9 @@ export const downloadItemsAsZip = async (items, zipName, buildName) => {
   URL.revokeObjectURL(url);
 };
 
-/** 收藏条目导出文件名：题目名_列x行（清洗非法字符） */
+/** 收藏条目导出文件名：题目名_时间_列x行_完成度（保证 ZIP 内不重名） */
 export const buildCollectionItemName = (item) =>
-  `${sanitizeFilename(item.name)}_${item.cols}x${item.rows}`;
+  `${sanitizeFilename(item.name)}_${formatTimestamp()}_${item.cols}x${item.rows}_${computePuzzleProgress(item)}%`;
 
 export const buildExportData = (state, remark) => ({
   rows: state.rows,

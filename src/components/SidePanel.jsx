@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Check,
   RefreshCw,
@@ -41,8 +41,10 @@ import {
   LogOut,
   FolderInput,
   FileArchive,
+  ClipboardPaste,
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
+import FileDropZone from './FileDropZone.jsx';
 
 /** 左侧控制面板：所有折叠区与按钮 */
 const SidePanel = ({
@@ -120,6 +122,7 @@ const SidePanel = ({
   const [ioTab, setIoTab] = useState('import');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const batchImportInputRef = useRef(null);
   return (
     <>
     {!isPanelPinned && !isPanelHovered && (
@@ -670,19 +673,24 @@ const SidePanel = ({
               >
                 <BookmarkPlus className="w-3 h-3" /> 存入当前
               </button>
-              <label
+              <button
+                onClick={() => batchImportInputRef.current?.click()}
                 className="flex-1 px-2 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded text-[10px] font-bold transition-colors border border-sky-200 flex items-center justify-center gap-1 cursor-pointer"
                 title="支持多选 JSON 文件或 ZIP 压缩包"
               >
-                <input
-                  type="file"
-                  multiple
-                  accept=".json,.zip,application/zip,application/x-zip-compressed"
-                  onChange={onImportCollectionFiles}
-                  className="sr-only"
-                />
                 <FolderInput className="w-3 h-3" /> 批量导入
-              </label>
+              </button>
+              <input
+                ref={batchImportInputRef}
+                type="file"
+                multiple
+                accept=".json,.zip,application/zip,application/x-zip-compressed"
+                className="hidden"
+                onChange={(e) => {
+                  onImportCollectionFiles(e.target.files);
+                  e.target.value = null;
+                }}
+              />
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -841,7 +849,7 @@ const SidePanel = ({
                   </span>
                   <div className="min-w-0">
                     <div className="text-xs font-bold text-slate-700">恢复存档</div>
-                    <div className="text-[9px] text-slate-400 truncate">粘贴存档代码或上传 JSON 文件</div>
+                    <div className="text-[9px] text-slate-400 truncate">代码一键导入，或拖拽 JSON 文件</div>
                   </div>
                 </div>
                 <div className="flex gap-1.5">
@@ -854,23 +862,18 @@ const SidePanel = ({
                   />
                   <button
                     onClick={onLocalImport}
-                    disabled={!localImportData.trim()}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-emerald-300 disabled:cursor-not-allowed flex items-center gap-1"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                    title="输入框为空时，自动读取剪贴板中的存档代码并导入"
                   >
-                    <Braces className="w-3.5 h-3.5" /> 导入
+                    <ClipboardPaste className="w-3.5 h-3.5" /> 导入
                   </button>
                 </div>
-                <label className="flex flex-col items-center justify-center gap-1 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-white cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors text-center">
-                  <input
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={onImportFile}
-                    className="sr-only"
-                  />
-                  <FileUp className="w-4 h-4 text-emerald-500" />
-                  <span className="text-[10px] font-bold text-slate-600">点击选择 JSON 文件</span>
-                  <span className="text-[9px] text-slate-400">支持 .json 格式存档</span>
-                </label>
+                <FileDropZone
+                  onFiles={(files) => onImportFile(files[0])}
+                  icon={FileUp}
+                  buttonText="点击选择或拖拽 JSON 文件到此处"
+                  hint="支持 .json 格式存档，松手即导入"
+                />
               </div>
             </>
           ) : (
