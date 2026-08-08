@@ -126,10 +126,6 @@ export default function useGameState() {
   );
   const [selectedCollectionIds, setSelectedCollectionIds] = useState([]);
 
-  const [randomDifficulty, setRandomDifficulty] = useState(
-    savedState?.randomDifficulty || 'medium',
-  );
-
   const [gameSettings, setGameSettings] = useState({
     ...DEFAULT_SETTINGS,
     ...(savedState?.gameSettings || {}),
@@ -189,7 +185,6 @@ export default function useGameState() {
         markedRowClues,
         markedColClues,
         lastCorrectSnapshot,
-        randomDifficulty,
         currentPuzzleId,
         timerSeconds,
         timerRunning,
@@ -214,7 +209,6 @@ export default function useGameState() {
     markedRowClues,
     markedColClues,
     lastCorrectSnapshot,
-    randomDifficulty,
     currentPuzzleId,
     timerSeconds,
     timerRunning,
@@ -609,14 +603,12 @@ export default function useGameState() {
     } else {
       setCurrentPuzzleId(null);
     }
-    let prob = 0.55;
-    if (randomDifficulty === 'easy') prob = 0.65;
-    if (randomDifficulty === 'hard') prob = 0.4;
+    const prob = 0.55;
 
     const randomGrid = Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => (Math.random() < prob ? 1 : 0)),
     );
-    if (randomDifficulty !== 'easy' && rows > 2 && cols > 2) {
+    if (rows > 2 && cols > 2) {
       let changed = true;
       let loops = 0;
       while (changed && loops < 10) {
@@ -671,7 +663,7 @@ export default function useGameState() {
     }
     initBoard(rows, cols, newRowClues, newColClues);
     setGrid(createGrid(rows, cols));
-  }, [rows, cols, randomDifficulty, initBoard, mode, editInputMode, user]);
+  }, [rows, cols, initBoard, mode, editInputMode, user]);
 
   const toggleMarkedRow = useCallback((r, idx) => {
     if (mode === 'play') {
@@ -1166,12 +1158,14 @@ export default function useGameState() {
     finalGrid.forEach((row, rr) => row.forEach((v, cc) => cells.push({ r: rr, c: cc, val: v })));
     if (mode === 'play') recordMove('auto', cells);
     setGrid(finalGrid);
+    // 一键解题不计入解题记录：标记为已处理，避免完成状态触发服务器上报
+    if (currentPuzzleId) completedRef.current = currentPuzzleId;
     if (solvedBoard.some((row) => row.includes(-1))) {
       setAlertMsg('逻辑推导已完成。剩余部分存在多解或需要深度试错。');
     }
     setDeductionLevel(0);
     setBackupGrids([]);
-  }, [rowCluesStr, colCluesStr, rows, cols, mode, recordMove]);
+  }, [rowCluesStr, colCluesStr, rows, cols, mode, recordMove, currentPuzzleId]);
 
   // ==========================================
   // 8. 收藏夹
@@ -1984,7 +1978,6 @@ export default function useGameState() {
     exportRemark,
     puzzleCollection,
     selectedCollectionIds,
-    randomDifficulty,
     gameSettings,
     hoverPos,
     measureStart,
@@ -2008,7 +2001,6 @@ export default function useGameState() {
     setCellSize,
     setGameSettings,
     setEditInputMode,
-    setRandomDifficulty,
     setImportData,
     setLocalImportData,
     setExportFilename,

@@ -90,8 +90,6 @@ const SidePanel = ({
   rows,
   cols,
   onInitBoard,
-  randomDifficulty,
-  setRandomDifficulty,
   onGenerateRandom,
   onClearClues,
   cellSize,
@@ -800,15 +798,6 @@ const SidePanel = ({
               </div>
             </div>
             <div className="flex ml-auto gap-1">
-              <select
-                value={randomDifficulty}
-                onChange={(e) => setRandomDifficulty(e.target.value)}
-                className="px-1 py-1 text-xs rounded border border-slate-300 outline-none focus:border-emerald-500 bg-white"
-              >
-                <option value="easy">简单</option>
-                <option value="medium">中等</option>
-                <option value="hard">困难</option>
-              </select>
               <button
                 onClick={onGenerateRandom}
                 className="p-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded transition-colors"

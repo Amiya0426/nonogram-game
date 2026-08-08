@@ -101,8 +101,6 @@ export default function NonogramApp() {
         rows={g.rows}
         cols={g.cols}
         onInitBoard={g.initBoard}
-        randomDifficulty={g.randomDifficulty}
-        setRandomDifficulty={g.setRandomDifficulty}
         onGenerateRandom={g.generateRandom}
         onClearClues={g.clearClues}
         cellSize={g.cellSize}

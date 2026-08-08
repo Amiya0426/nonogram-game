@@ -10,7 +10,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "lint": "eslint .",
-    "test:e2e": "node tests/e2e-load.mjs && node tests/e2e-flow.mjs && node tests/e2e-gif.mjs",
+    "test:e2e": "node tests/e2e-load.mjs && node tests/e2e-flow.mjs && node tests/e2e-gif.mjs && node tests/e2e-autosolve.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
