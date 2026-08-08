@@ -2,7 +2,7 @@
 
 一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、云端收藏、用户体系、题库系统与 GIF 复盘。
 
-> 在线地址：*待部署后填写*
+> 在线地址：<https://nonogram.haiyanghu.top>
 
 ## 功能特性
 
@@ -66,7 +66,7 @@ nonogram-game/
 │   ├── e2e-autosolve.mjs    # 一键解题不计入解题记录
 │   └── e2e-turn.mjs         # 轮换打叉操作记录合并
 ├── deploy/                  # 服务器部署辅助
-│   ├── nginx.conf           # Nginx 反代配置示例
+│   ├── nonogram.conf        # Nginx 配置（HTTP→HTTPS 跳转 / 反向代理 / SPA）
 │   └── setup-server.sh      # 服务器初始化脚本
 ├── deploy.ps1               # 一键部署脚本（需 NONOGRAM_SERVER 环境变量）
 └── package.json
@@ -157,14 +157,37 @@ pm2 start index.js --name nonogram-api
 pm2 save && pm2 startup
 ```
 
-`deploy/nginx.conf` 将 `/api` 反向代理到 3000 端口并托管静态文件：
+`deploy/nonogram.conf` 将 `/api` 反向代理到 3000 端口并托管静态文件：
 
 ```bash
-cp deploy/nginx.conf /etc/nginx/conf.d/nonogram.conf
+cp deploy/nonogram.conf /etc/nginx/conf.d/nonogram.conf
 nginx -t && systemctl reload nginx
 ```
 
-### 5. 一键部署（可选）
+### 5. HTTPS 证书（Let's Encrypt 自动续期）
+
+使用 [acme.sh](https://github.com/acmesh-official/acme.sh) 签发并自动续期证书：
+
+```bash
+# 安装 acme.sh（国内服务器可从 gitee 镜像下载）
+curl -sL https://gitee.com/neilpang/acme.sh/raw/master/acme.sh -o /root/.acme.sh/acme.sh
+chmod +x /root/.acme.sh/acme.sh
+cd /root/.acme.sh && ./acme.sh --install -m admin@your-domain.com
+
+# 签发（HTTP-01 挑战，需 80 端口可达；DNS 代理模式下经 CDN 转发同样可行）
+/root/.acme.sh/acme.sh --issue -d your-domain.com --webroot /opt/nonogram/dist --server letsencrypt
+
+# 安装到标准路径，续期后自动 reload nginx
+mkdir -p /etc/letsencrypt/live/your-domain.com
+/root/.acme.sh/acme.sh --install-cert -d your-domain.com --ecc \
+  --fullchain-file /etc/letsencrypt/live/your-domain.com/fullchain.pem \
+  --key-file /etc/letsencrypt/live/your-domain.com/privkey.pem \
+  --reloadcmd "systemctl reload nginx"
+```
+
+acme.sh 安装时会自动配置 cron（每天检查续期），无需手动维护。若使用 CDN 代理（如 Cloudflare），建议将 SSL 模式设为 **Full (strict)**。
+
+### 6. 一键部署（可选）
 
 本机已配置 SSH 免密登录后，可用 `deploy.ps1` 自动完成 lint → build → 上传 → PM2 重启 → 提交 GitHub：
 
@@ -173,7 +196,7 @@ $env:NONOGRAM_SERVER="YOUR_SERVER_IP"   # 必填，服务器地址不写入仓�
 powershell -File deploy.ps1 "部署说明"
 ```
 
-### 6. 安全建议
+### 7. 安全建议
 
 - 使用 SSH 密钥登录，关闭 root 密码登录；
 - 配置 HTTPS（Let's Encrypt 等）后设置环境变量 `SECURE_COOKIE=1`；
