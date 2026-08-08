@@ -137,6 +137,13 @@ export default function NonogramApp() {
         onImportFile={g.handleImportFile}
         onClearBoard={g.clearBoard}
         onAutoSolve={g.autoSolve}
+        isSolvedStatus={g.isSolvedStatus}
+        timerSeconds={g.timerSeconds}
+        timerRunning={g.timerRunning}
+        togglePauseTimer={g.togglePauseTimer}
+        userProgress={g.userProgress}
+        isGeneratingGif={g.isGeneratingGif}
+        generateReplayGif={g.generateReplayGif}
       />
 
       {/* 棋盘区域 */}

@@ -295,9 +295,14 @@ app.post('/api/puzzles/:id/complete', requireAuth, (req, res) => {
 /** 当前用户已完成题目 ID 列表 */
 app.get('/api/user/progress', requireAuth, (req, res) => {
   const rows = db
-    .prepare('SELECT puzzle_id FROM user_progress WHERE user_id = ? ORDER BY completed_at DESC')
+    .prepare(
+      `SELECT up.puzzle_id AS id, p.rows, p.cols, up.completed_at AS completedAt
+       FROM user_progress up LEFT JOIN puzzles p ON p.id = up.puzzle_id
+       WHERE up.user_id = ?
+       ORDER BY up.completed_at DESC`,
+    )
     .all(req.user.id);
-  res.json(rows.map((r) => r.puzzle_id));
+  res.json(rows);
 });
 
 app.get('/api/health', (req, res) => {

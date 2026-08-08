@@ -19,6 +19,7 @@ import {
 import { createGrid, cloneGrid, updateCell } from '../logic/board.js';
 import { loadJSON, saveJSON } from '../logic/storage.js';
 import { solveBoardLogic, solveLineFast } from '../logic/solver.js';
+import { generateReplayGif as buildReplayGif, downloadGif } from '../logic/gifReplay.js';
 import {
   extractPuzzleFromHtml,
   parseCollectionItem,
@@ -147,6 +148,26 @@ export default function useGameState() {
   const [currentPuzzleId, setCurrentPuzzleId] = useState(
     typeof savedState?.currentPuzzleId === 'string' ? savedState.currentPuzzleId : null,
   );
+  const [timerSeconds, setTimerSeconds] = useState(
+    Number.isInteger(savedState?.timerSeconds) ? savedState.timerSeconds : 0,
+  );
+  const [timerRunning, setTimerRunning] = useState(
+    savedState ? savedState.timerRunning === true : true,
+  );
+  const [moveHistory, setMoveHistory] = useState(
+    Array.isArray(savedState?.moveHistory) ? savedState.moveHistory : [],
+  );
+  const [userProgress, setUserProgress] = useState([]);
+
+  /** 拉取当前用户已完成题目列表 */
+  const refreshUserProgress = useCallback(async () => {
+    try {
+      const list = await api.userProgress();
+      setUserProgress(Array.isArray(list) ? list : []);
+    } catch {
+      // 未登录或接口不可用时忽略
+    }
+  }, []);
 
   // 自动存档：游玩设置 + 棋盘进度防抖写入 localStorage（刷新后恢复）
   useEffect(() => {
@@ -170,6 +191,9 @@ export default function useGameState() {
         lastCorrectSnapshot,
         randomDifficulty,
         currentPuzzleId,
+        timerSeconds,
+        timerRunning,
+        moveHistory,
       });
     }, 500);
     return () => clearTimeout(timer);
@@ -192,6 +216,9 @@ export default function useGameState() {
     lastCorrectSnapshot,
     randomDifficulty,
     currentPuzzleId,
+    timerSeconds,
+    timerRunning,
+    moveHistory,
   ]);
 
   const hoverPosRef = useRef({ r: -1, c: -1 });
@@ -216,6 +243,7 @@ export default function useGameState() {
         const me = await api.me();
         if (cancelled) return;
         setUser(me);
+        refreshUserProgress();
         const cloud = await api.listCollections();
         if (cancelled) return;
         const local = loadJSON(COLLECTION_KEY, []);
@@ -325,22 +353,49 @@ export default function useGameState() {
     return true;
   }, [mode, rows, cols, lineAnalysis]);
 
-  // 完成服务器题库题目时记录进度（黑格=1，叉/空=0 提交服务器校验）
-  const completedRef = useRef(null);
-  useEffect(() => {
-    if (isSolvedStatus && user && currentPuzzleId) {
-      if (completedRef.current === currentPuzzleId) return;
-      completedRef.current = currentPuzzleId;
-      const binaryGrid = grid.map((row) =>
-        row.map((v) => (typeof v === 'number' && v % 2 === 1 ? 1 : 0)),
-      );
-      api.completePuzzle(currentPuzzleId, binaryGrid).catch(() => {
-        completedRef.current = null;
-      });
-    } else if (!isSolvedStatus) {
-      completedRef.current = null;
+  // ==========================================
+  // 操作记录（GIF 复盘数据源）
+  // ==========================================
+  const dragBatchRef = useRef(null);
+  const touchBatchRef = useRef(null);
+
+  const recordMove = useCallback((type, cells) => {
+    if (!cells || cells.length === 0) return;
+    setMoveHistory((prev) => [
+      ...prev,
+      { type, at: Date.now(), cells },
+    ]);
+  }, []);
+
+  /** 正常填入：合并同一次拖拽/画笔的连续操作 */
+  const recordFill = useCallback(
+    (r, c, val, batchRef) => {
+      if (batchRef?.current) {
+        batchRef.current.cells.push({ r, c, val });
+        return;
+      }
+      recordMove('fill', [{ r, c, val }]);
+    },
+    [recordMove],
+  );
+
+  const flushDragBatch = useCallback(() => {
+    if (dragBatchRef.current) {
+      if (dragBatchRef.current.cells.length) {
+        recordMove('fill', dragBatchRef.current.cells);
+      }
+      dragBatchRef.current = null;
     }
-  }, [isSolvedStatus, user, currentPuzzleId, grid]);
+  }, [recordMove]);
+
+  const flushTouchBatch = useCallback(() => {
+    if (touchBatchRef.current) {
+      if (touchBatchRef.current.cells.length) {
+        recordMove('fill', touchBatchRef.current.cells);
+      }
+      touchBatchRef.current = null;
+    }
+  }, [recordMove]);
 
   /** 游玩进度：已完成行+列占全部行+列的百分比（用于导出文件名） */
   const progressPercent = useMemo(() => {
@@ -354,6 +409,84 @@ export default function useGameState() {
     }
     return Math.round((done / (rows + cols)) * 100);
   }, [mode, rows, cols, lineAnalysis]);
+
+  const [isGeneratingGif, setIsGeneratingGif] = useState(false);
+  const generateReplayGif = useCallback(async () => {
+    if (!moveHistory.length) {
+      setAlertMsg('当前这盘还没有操作记录，无法生成复盘 GIF');
+      return;
+    }
+    setIsGeneratingGif(true);
+    setAlertMsg('正在生成复盘 GIF，请稍候...');
+    try {
+      const { bytes } = await buildReplayGif({
+        rows,
+        cols,
+        rowCluesStr,
+        colCluesStr,
+        moveHistory,
+      });
+      downloadGif(bytes, `${buildPuzzleExportName({ rows, cols, progressPercent })}_replay`);
+      setAlertMsg(`✅ 复盘 GIF 已生成（${moveHistory.length + 2} 帧）`);
+    } catch (e) {
+      setAlertMsg(`❌ GIF 生成失败：${e.message}`);
+    } finally {
+      setIsGeneratingGif(false);
+    }
+  }, [rows, cols, rowCluesStr, colCluesStr, moveHistory, progressPercent]);
+
+
+
+  // 完成服务器题库题目时记录进度（黑格=1，叉/空=0 提交服务器校验）
+  const completedRef = useRef(null);
+  useEffect(() => {
+    if (isSolvedStatus && user && currentPuzzleId) {
+      if (completedRef.current === currentPuzzleId) return;
+      completedRef.current = currentPuzzleId;
+      const binaryGrid = grid.map((row) =>
+        row.map((v) => (typeof v === 'number' && v % 2 === 1 ? 1 : 0)),
+      );
+      api
+        .completePuzzle(currentPuzzleId, binaryGrid)
+        .then(() => {
+          setUserProgress((prev) =>
+            prev.some((p) => (typeof p === 'string' ? p : p.id) === currentPuzzleId)
+              ? prev
+              : [...prev, { id: currentPuzzleId, rows, cols }],
+          );
+        })
+        .catch(() => {
+          completedRef.current = null;
+        });
+    } else if (!isSolvedStatus) {
+      completedRef.current = null;
+    }
+  }, [isSolvedStatus, user, currentPuzzleId, grid]);
+
+  // ==========================================
+  // 计时：每盘开始计时，可暂停；完成后停止
+  // ==========================================
+  useEffect(() => {
+    if (!timerRunning) return;
+    const iv = setInterval(() => {
+      setTimerSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [timerRunning]);
+
+  // 完成或切换模式时自动暂停
+  useEffect(() => {
+    if (isSolvedStatus || mode !== 'play') setTimerRunning(false);
+  }, [isSolvedStatus, mode]);
+
+  const resetAndStartTimer = useCallback(() => {
+    setTimerSeconds(0);
+    setTimerRunning(true);
+  }, []);
+
+  const togglePauseTimer = useCallback(() => {
+    setTimerRunning((r) => !r);
+  }, []);
 
   const getClueTextSize = useCallback(() => {
     if (cellSize < 20) return 'text-[11px]';
@@ -424,7 +557,9 @@ export default function useGameState() {
     setBackupGrids([]);
     setLastCorrectSnapshot(null);
     setCurrentPuzzleId(null);
-  }, []);
+    setMoveHistory([]);
+    resetAndStartTimer();
+  }, [resetAndStartTimer]);
 
   const clearBoard = useCallback(() => {
     setGrid(createGrid(rows, cols));
@@ -577,7 +712,17 @@ export default function useGameState() {
       }
     }
     setGrid((prev) => updateCell(prev, r, c, val));
-  }, [hintInfo]);
+    // 记录操作（仅游玩模式且未完成时）
+    if (mode === 'play' && !isSolvedStatus) {
+      if (dragBatchRef.current) {
+        dragBatchRef.current.cells.push({ r, c, val });
+      } else if (touchBatchRef.current) {
+        touchBatchRef.current.cells.push({ r, c, val });
+      } else {
+        recordMove('fill', [{ r, c, val }]);
+      }
+    }
+  }, [hintInfo, mode, isSolvedStatus, recordMove]);
 
   /** 计算某个格子的操作值（轮切/画笔，游玩与画盘面模式共用） */
   const computeCellAction = useCallback(
@@ -609,6 +754,10 @@ export default function useGameState() {
       const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
       if (!editable) return;
       e.preventDefault();
+      if (mode === 'play') {
+        flushDragBatch();
+        dragBatchRef.current = { cells: [] };
+      }
       let newAction = computeCellAction(r, c);
       const CX = deductionLevel * 2 + 2;
       if (e.button === 2) {
@@ -624,7 +773,7 @@ export default function useGameState() {
       setDragAction(newAction);
       updateCellValue(r, c, newAction);
     },
-    [mode, editInputMode, computeCellAction, grid, deductionLevel, updateCellValue],
+    [mode, editInputMode, computeCellAction, grid, deductionLevel, updateCellValue, flushDragBatch],
   );
 
   const handleCellMouseEnter = useCallback(
@@ -645,10 +794,14 @@ export default function useGameState() {
       const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
       if (!editable) return;
       const action = computeCellAction(r, c);
+      if (mode === 'play') {
+        flushTouchBatch();
+        touchBatchRef.current = { cells: [] };
+      }
       touchPaintActionRef.current = action;
       updateCellValue(r, c, action);
     },
-    [mode, editInputMode, computeCellAction, updateCellValue],
+    [mode, editInputMode, computeCellAction, updateCellValue, flushTouchBatch],
   );
   const continueTouchPaint = useCallback(
     (r, c) => {
@@ -660,7 +813,8 @@ export default function useGameState() {
   );
   const endTouchPaint = useCallback(() => {
     touchPaintActionRef.current = null;
-  }, []);
+    flushTouchBatch();
+  }, [flushTouchBatch]);
 
   // ==========================================
   // 5. 自动打叉（防抖，1.5s）
@@ -793,16 +947,26 @@ export default function useGameState() {
       const currentCX = deductionLevel * 2 + 2;
       const targetCF = (deductionLevel - 1) * 2 + 1;
       const targetCX = (deductionLevel - 1) * 2 + 2;
+      const cells = [];
+      grid.forEach((row, rr) =>
+        row.forEach((v, cc) => {
+          if (v === currentCF) cells.push({ r: rr, c: cc, val: targetCF });
+          else if (v === currentCX) cells.push({ r: rr, c: cc, val: targetCX });
+        }),
+      );
       setGrid((g) =>
         g.map((row) =>
           row.map((v) => (v === currentCF ? targetCF : v === currentCX ? targetCX : v)),
         ),
       );
+      if (mode === 'play' && !isSolvedStatus && cells.length) {
+        recordMove('deduct', cells);
+      }
       setBackupGrids((prev) => prev.slice(0, -1));
       setDeductionLevel((prev) => prev - 1);
       setAlertMsg(`✅ 成功将 ${deductionLevel} 级推演应用到上级盘面。`);
     }
-  }, [deductionLevel]);
+  }, [deductionLevel, grid, mode, isSolvedStatus, recordMove]);
 
   const cancelDeduction = useCallback(() => {
     if (deductionLevel > 0) {
@@ -873,12 +1037,23 @@ export default function useGameState() {
   const restoreLastCorrect = useCallback(() => {
     if (lastCorrectSnapshot) {
       setGrid(cloneGrid(lastCorrectSnapshot));
+      const cells = [];
+      for (let rr = 0; rr < rows; rr++) {
+        for (let cc = 0; cc < cols; cc++) {
+          if (grid[rr][cc] !== lastCorrectSnapshot[rr][cc]) {
+            cells.push({ r: rr, c: cc, val: lastCorrectSnapshot[rr][cc] });
+          }
+        }
+      }
+      if (mode === 'play' && !isSolvedStatus && cells.length) {
+        recordMove('restore', cells);
+      }
       setHintInfo(null);
       setAlertMsg('🔙 已成功回溯到上一次【检查无误】的进度点！');
     } else {
       setAlertMsg('您还未在无错时执行过【检查错误】，没有可回溯的记录。');
     }
-  }, [lastCorrectSnapshot]);
+  }, [lastCorrectSnapshot, grid, rows, cols, mode, isSolvedStatus, recordMove]);
 
   const provideHint = useCallback(() => {
     setHintInfo(null);
@@ -987,13 +1162,16 @@ export default function useGameState() {
     const finalGrid = solvedBoard.map((row) =>
       row.map((cell) => (cell === 1 ? 1 : cell === 0 ? 2 : 0)),
     );
+    const cells = [];
+    finalGrid.forEach((row, rr) => row.forEach((v, cc) => cells.push({ r: rr, c: cc, val: v })));
+    if (mode === 'play') recordMove('auto', cells);
     setGrid(finalGrid);
     if (solvedBoard.some((row) => row.includes(-1))) {
       setAlertMsg('逻辑推导已完成。剩余部分存在多解或需要深度试错。');
     }
     setDeductionLevel(0);
     setBackupGrids([]);
-  }, [rowCluesStr, colCluesStr, rows, cols]);
+  }, [rowCluesStr, colCluesStr, rows, cols, mode, recordMove]);
 
   // ==========================================
   // 8. 收藏夹
@@ -1011,12 +1189,14 @@ export default function useGameState() {
       setBackupGrids(data.backupGrids || []);
       if (data.gameSettings) setGameSettings(data.gameSettings);
       setLastCorrectSnapshot(null);
+      setMoveHistory([]);
+      resetAndStartTimer();
       setAlertMsg('✅ 存档导入成功！已恢复进度。');
       setMode('play');
     } else {
       throw new Error('格式不完整');
     }
-  }, []);
+  }, [resetAndStartTimer]);
 
   /** 登录用户导入题目时提交服务器题库：校验合法且唯一解后入库 */
   const submitToLibrary = useCallback(
@@ -1082,6 +1262,7 @@ export default function useGameState() {
     try {
       const me = await api.login(username, password);
       setUser(me);
+      refreshUserProgress();
       const { uploaded } = await mergeLocalToCloud();
       setAlertMsg(
         uploaded > 0
@@ -1093,13 +1274,14 @@ export default function useGameState() {
     } finally {
       setAuthBusy(false);
     }
-  }, [mergeLocalToCloud]);
+  }, [mergeLocalToCloud, refreshUserProgress]);
 
   const register = useCallback(async (username, password) => {
     setAuthBusy(true);
     try {
       const me = await api.register(username, password);
       setUser(me);
+      refreshUserProgress();
       const { uploaded } = await mergeLocalToCloud();
       setAlertMsg(
         uploaded > 0
@@ -1111,7 +1293,7 @@ export default function useGameState() {
     } finally {
       setAuthBusy(false);
     }
-  }, [mergeLocalToCloud]);
+  }, [mergeLocalToCloud, refreshUserProgress]);
 
   const logout = useCallback(async () => {
     try {
@@ -1120,6 +1302,7 @@ export default function useGameState() {
       // 忽略登出接口错误
     }
     setUser(null);
+    setUserProgress([]);
     setPuzzleCollection(loadJSON(COLLECTION_KEY, []));
     setSelectedCollectionIds([]);
     setAlertMsg('已退出登录，云端收藏已保留，随时可再登录。');
@@ -1834,6 +2017,14 @@ export default function useGameState() {
     clearBoard,
     clearClues,
     generateRandom,
+    timerSeconds,
+    timerRunning,
+    togglePauseTimer,
+    moveHistory,
+    userProgress,
+    refreshUserProgress,
+    isGeneratingGif,
+    generateReplayGif,
     toggleMarkedRow,
     toggleMarkedCol,
     editRowClue,
