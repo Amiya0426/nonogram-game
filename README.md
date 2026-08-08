@@ -47,6 +47,25 @@ npm run build    # 生产构建
 npm run lint     # ESLint 检查
 ```
 
+## 一键部署（推荐）
+
+双击根目录 `deploy.bat`（或命令行执行 `powershell -File deploy.ps1 "提交说明"`），
+自动完成：
+
+1. lint + build
+2. 打包上传 `dist` 与后端文件到阿里云服务器
+3. 服务器安装依赖并 `pm2 restart`（自动做健康检查）
+4. git commit + push 到 GitHub（直连/本地代理自动重试）
+
+前置条件：本机已配置 SSH 密钥免密登录服务器（`ssh root@YOUR_SERVER_IP` 无需密码）。
+
+## 导出与收藏夹
+
+- 导出文件名自动生成：`日期_时间_列x行_进度%`，例如 `2026-08-08_14-30_30x30_100%.json`；
+  手动填写的"导出文件名"会覆盖自动命名。
+- 收藏夹支持**批量导入**：多选 JSON 文件或 ZIP 压缩包（按 名称+尺寸 去重）。
+- 收藏夹**下载选中**会逐个下载为独立 JSON；**选中 ZIP** 可打包为一个压缩包。
+
 ## 服务器部署（阿里云 ECS）
 
 后端位于 `server/`（Express + Node 内置 SQLite，零原生依赖），前端构建产物由 Nginx 托管，
