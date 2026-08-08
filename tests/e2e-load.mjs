@@ -2,7 +2,7 @@
 // 用法：先运行 npm run build 和 vite preview，再执行 node tests/e2e-load.mjs
 import { chromium } from 'playwright';
 
-const BASE = process.env.TEST_BASE || 'http://YOUR_SERVER_IP';
+const BASE = process.env.TEST_BASE || 'http://localhost:4173';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const page = await browser.newPage();
 

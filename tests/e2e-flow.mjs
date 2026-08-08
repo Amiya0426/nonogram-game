@@ -2,7 +2,7 @@
 // 用法：node tests/e2e-flow.mjs [BASE_URL]
 import { chromium } from 'playwright';
 
-const BASE = process.argv[2] || process.env.TEST_BASE || 'http://YOUR_SERVER_IP';
+const BASE = process.argv[2] || process.env.TEST_BASE || 'http://localhost:4173';
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 

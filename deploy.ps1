@@ -4,7 +4,11 @@
 
 $ErrorActionPreference = 'Stop'
 $env:GIT_TERMINAL_PROMPT = '0'
-$SERVER = 'YOUR_SERVER_IP'
+# 服务器地址从环境变量读取，避免在仓库中硬编码
+$SERVER = $env:NONOGRAM_SERVER
+if ([string]::IsNullOrWhiteSpace($SERVER)) {
+  throw '未指定服务器地址：请先设置环境变量 NONOGRAM_SERVER（例如 $env:NONOGRAM_SERVER="your.server.ip"）'
+}
 $REMOTE = "root@$SERVER"
 $APP = '/opt/nonogram'
 $ts = Get-Date -Format 'yyyy-MM-dd HH:mm'

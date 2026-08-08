@@ -1,94 +1,195 @@
-# 数织解谜 (Nonogram)
+# 数织（Nonogram）
 
-在线地址：<https://amiya0426.github.io/nonogram-game/>
+一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、云端收藏、用户体系、题库系统与 GIF 复盘。
+
+> 在线地址：*待部署后填写*
+
+## 功能特性
+
+- **游玩与推演**：经典数织玩法，支持轮换/画笔模式、多级推演、检查错误、恢复检查点、智能提示、自动解题。
+- **自定义题目**：画盘面自动生成线索，或手动输入行列线索；可导出存档/图片/代码与他人分享。
+- **用户系统**：注册 / 登录 / 退出；收藏夹云端同步，跨设备保存；统计已解题数与尺寸分布。
+- **服务器题库**：内置 9000+ 道唯一解题目（5×5 ~ 80×80），随机抽题支持精确尺寸与尺寸范围，同尺寸自动去重。
+- **题目导入**：文件 / 代码 / 网页源码导入，服务端校验合法性与唯一解后自动入库。
+- **计时与复盘**：从玩家首次落子开始计时，可暂停；完成后一键生成按操作顺序重放的 GIF 复盘。
+- **响应式**：桌面端侧边栏 + 手风琴，手机端全屏抽屉 + 底部标签导航。
+
+## 技术栈
+
+| 层 | 技术 |
+| --- | --- |
+| 前端 | React 19、Vite 8、Tailwind CSS、lucide-react |
+| 后端 | Express 5、Node 内置 `node:sqlite`（零原生依赖） |
+| 数据库 | SQLite（`server/data/app.db`，自动建表） |
+| GIF 生成 | gifenc（纯前端编码，无网络依赖） |
+| 测试 | Playwright + 系统 Edge（无头端到端测试） |
 
 ## 项目结构
 
 ```
-src/
-  main.jsx                 # 入口
-  App.jsx                  # 组合层：布局 + 组件装配（不再承载业务逻辑）
-  App.css                  # 自定义样式（CSS 叉子等）
-  constants.js             # 主题、预设题目、棋盘上限、推演等级等常量
-  hooks/
-    useGameState.js        # 全部状态与业务逻辑（单一数据源）
-  logic/                   # 纯函数逻辑（无 React 依赖，可独立测试）
-    clues.js               # 线索解析 / 完成判定 / 自动高亮 / 插入位置
-    board.js               # 棋盘数据工具（稀疏不可变更新）
-    solver.js              # 数织求解器（单行推导 + 整盘迭代）
-    importer.js            # 外部网页源码解析
-    exporter.js            # 存档代码 / JSON / 图片导出
-    storage.js             # localStorage 封装
-    theme.js               # 推演模式样式辅助
-  components/
-    Board.jsx              # 棋盘（事件委托 + memo 化子组件）
-    GridCell.jsx           # 单个格子（memo）
-    RowClueBar.jsx         # 行线索条（memo）
-    ColClueBar.jsx         # 列线索条（memo）
-    MeasureTooltip.jsx     # 测量 / 悬浮线索提示
-    SidePanel.jsx          # 左侧控制面板
-    Accordion.jsx          # 折叠面板
+nonogram-game/
+├── index.html               # 入口 HTML
+├── src/                     # 前端源码
+│   ├── main.jsx             # React 挂载入口
+│   ├── App.jsx              # 布局与组件装配
+│   ├── constants.js         # 主题、预设题目、棋盘上限等常量
+│   ├── api.js               # 后端 API 封装
+│   ├── hooks/
+│   │   └── useGameState.js  # 全局状态与业务逻辑
+│   ├── logic/               # 纯函数逻辑（无 React 依赖）
+│   │   ├── board.js         # 棋盘数据工具
+│   │   ├── clues.js         # 线索解析 / 完成判定 / 自动高亮
+│   │   ├── solver.js        # 数织求解器（单行推导 + 全盘迭代）
+│   │   ├── importer.js      # 外部网页源码解析
+│   │   ├── exporter.js      # 存档 / JSON / 图片导出
+│   │   ├── gifReplay.js     # GIF 复盘生成
+│   │   ├── storage.js       # localStorage 封装
+│   │   └── theme.js         # 推演模式样式辅助
+│   └── components/          # 棋盘、侧边栏、线索条等组件
+├── server/                  # 后端（Express + SQLite）
+│   ├── index.js             # API 路由（题库 / 收藏 / 用户 / 进度）
+│   ├── auth.js              # 会话与密码哈希
+│   ├── db.js                # SQLite schema 与连接
+│   ├── puzzle-lib.js        # 题目校验 / 唯一解判定 / 数字 ID
+│   ├── import-puzzles.mjs   # 批量导入题库脚本
+│   └── data/                # SQLite 数据文件（运行时生成，不入库）
+├── tools/                   # 题库采集与构建脚本
+│   ├── fetch-webpbn.py      # webpbn 题库下载
+│   ├── convert-puzzlekit.py # puzzlekit 数据集转换
+│   ├── merge-puzzle-data.py # 多来源合并按尺寸分类
+│   ├── build-puzzle-db.mjs  # 校验唯一解并生成导入文件
+│   └── puzzle-data/         # 题库数据（JSONL）
+├── tests/                   # Playwright 端到端测试
+│   ├── e2e-load.mjs         # 页面加载零错误
+│   ├── e2e-flow.mjs         # 计时 / 随机抽题 / 暂停等交互
+│   ├── e2e-gif.mjs          # 完成状态与 GIF 下载
+│   ├── e2e-autosolve.mjs    # 一键解题不计入解题记录
+│   └── e2e-turn.mjs         # 轮换打叉操作记录合并
+├── deploy/                  # 服务器部署辅助
+│   ├── nginx.conf           # Nginx 反代配置示例
+│   └── setup-server.sh      # 服务器初始化脚本
+├── deploy.ps1               # 一键部署脚本（需 NONOGRAM_SERVER 环境变量）
+└── package.json
 ```
 
-## 模式说明
+## 本地开发
 
-- **游玩模式（默认）**：主界面，用于解谜与推演。
-- **自定义题目**：从游玩模式进入的独立编辑视图。默认"画盘面"：直接在棋盘上点击/拖拽
-  画出图案，两侧线索实时自动生成，完成后棋盘清空供从头解谜；也可切换到"手动输入"
-  直接填写行列线索。"取消"可还原进入编辑前的盘面。
-- **账号与收藏**：未登录时收藏保存在浏览器本地；登录后自动把本地收藏合并到云端
-  （按 名称+尺寸 去重），之后收藏随账号跨设备保存。
-
-## 开发命令
+前置要求：Node.js **24+**（后端使用 `node:sqlite` 内置模块）。
 
 ```bash
-npm run dev      # 本地开发（/api 自动代理到 localhost:3000）
-npm run build    # 生产构建
-npm run lint     # ESLint 检查
+npm install        # 安装依赖
+npm run dev        # 启动 Vite 开发服务器（/api 代理到 localhost:3000）
 ```
 
-## 一键部署（推荐）
-
-双击根目录 `deploy.bat`（或命令行执行 `powershell -File deploy.ps1 "提交说明"`），
-自动完成：
-
-1. lint + build
-2. 打包上传 `dist` 与后端文件到阿里云服务器
-3. 服务器安装依赖并 `pm2 restart`（自动做健康检查）
-4. git commit + push 到 GitHub（直连/本地代理自动重试）
-
-前置条件：本机已配置 SSH 密钥免密登录服务器（`ssh root@YOUR_SERVER_IP` 无需密码）。
-
-## 导出与收藏夹
-
-- 导出文件名自动生成：`日期_时间_列x行_进度%`，例如 `2026-08-08_14-30_30x30_100%.json`；
-  手动填写的"导出文件名"会覆盖自动命名。
-- 收藏夹支持**批量导入**：多选 JSON 文件或 ZIP 压缩包（按 名称+尺寸 去重）。
-- 收藏夹**下载选中**会逐个下载为独立 JSON；**选中 ZIP** 可打包为一个压缩包。
-
-## 服务器部署（阿里云 ECS）
-
-后端位于 `server/`（Express + Node 内置 SQLite，零原生依赖），前端构建产物由 Nginx 托管，
-`/api` 反向代理到 Node 服务：
+同时需要启动后端（另开一个终端）：
 
 ```bash
-# 本地构建
+cd server
+npm install
+npm start          # 监听 3000 端口，自动创建 data/app.db 并建表
+```
+
+## 构建与测试
+
+```bash
+npm run build      # 生产构建，输出 dist/
+npm run lint       # ESLint 检查
+npm run test:e2e   # 端到端测试（需先部署或设置 TEST_BASE）
+```
+
+端到端测试默认指向本地 `http://localhost:4173`（`vite preview`）。测试其他环境时通过环境变量指定：
+
+```bash
+$env:TEST_BASE="https://your.domain"   # PowerShell
+TEST_BASE=https://your.domain npm run test:e2e   # Linux/macOS
+```
+
+## 部署说明
+
+### 1. 服务器准备
+
+以阿里云 ECS（推荐 2 核 2G，系统 Ubuntu/Debian/CentOS 均可）为例：
+
+```bash
+# 安装 Node.js 24+（以 NodeSource 为例）
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+apt-get install -y nodejs nginx
+npm install -g pm2
+```
+
+将 `deploy/setup-server.sh` 上传到服务器 `/opt/nonogram/` 后执行，脚本会安装后端依赖、配置 Nginx、启动 PM2 并开放防火墙端口。
+
+### 2. 构建与上传
+
+在本机：
+
+```bash
 npm run build
+```
 
-# 上传 dist 与 server 到服务器的 /opt/nonogram/ 后，在服务器上执行：
+将 `dist/` 与 `server/` 上传到服务器 `/opt/nonogram/`（示例）：
+
+```bash
+scp -r dist/* root@YOUR_SERVER:/opt/nonogram/dist/
+scp server/* root@YOUR_SERVER:/opt/nonogram/server/
+```
+
+### 3. 初始化题库（可选，推荐）
+
+题库数据在 `tools/puzzle-data/import.jsonl`（约 9000+ 道唯一解题目）。上传后导入：
+
+```bash
 cd /opt/nonogram/server
-npm install --omit=dev
+node import-puzzles.mjs /path/to/import.jsonl
+```
+
+如想从原始数据重新构建题库：
+
+```bash
+node tools/build-puzzle-db.mjs   # 校验唯一解并生成 tools/puzzle-data/import.jsonl
+```
+
+### 4. 启动与 Nginx
+
+```bash
+cd /opt/nonogram/server
 pm2 start index.js --name nonogram-api
 pm2 save && pm2 startup
+```
 
-# Nginx 配置（见 deploy/nginx.conf）
+`deploy/nginx.conf` 将 `/api` 反向代理到 3000 端口并托管静态文件：
+
+```bash
 cp deploy/nginx.conf /etc/nginx/conf.d/nonogram.conf
 nginx -t && systemctl reload nginx
 ```
 
-注意事项：
+### 5. 一键部署（可选）
 
-- 数据库文件为 `server/data/app.db`，请用 cron 定时备份。
-- 登录会话使用 httpOnly Cookie；配置 HTTPS 后设置环境变量 `SECURE_COOKIE=1`。
-- 若仍要发布 GitHub Pages 子路径，构建时设置 `BASE_PATH=/nonogram-game/`。
-- 大陆服务器对外提供 Web 服务需完成 ICP 备案，并建议配置 HTTPS。
+本机已配置 SSH 免密登录后，可用 `deploy.ps1` 自动完成 lint → build → 上传 → PM2 重启 → 提交 GitHub：
+
+```powershell
+$env:NONOGRAM_SERVER="YOUR_SERVER_IP"   # 必填，服务器地址不写入仓库
+powershell -File deploy.ps1 "部署说明"
+```
+
+### 6. 安全建议
+
+- 使用 SSH 密钥登录，关闭 root 密码登录；
+- 配置 HTTPS（Let's Encrypt 等）后设置环境变量 `SECURE_COOKIE=1`；
+- 定期备份数据库文件 `server/data/app.db`（建议 cron）；
+- 服务器对公网提供服务请完成 ICP 备案，并配置防火墙仅开放 80/443。
+
+## 环境变量
+
+| 变量 | 用途 | 默认值 |
+| --- | --- | --- |
+| `PORT` | 后端监听端口 | `3000` |
+| `DATA_DIR` | SQLite 数据目录 | `server/data` |
+| `SECURE_COOKIE` | 开启后会话 Cookie 仅 HTTPS 传输 | 空 |
+| `NONOGRAM_SERVER` | deploy.ps1 部署目标服务器地址 | 必填 |
+| `TEST_BASE` | 端到端测试目标地址 | `http://localhost:4173` |
+
+## 许可证
+
+MIT
