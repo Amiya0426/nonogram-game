@@ -19,7 +19,11 @@ import {
 import { createGrid, cloneGrid, updateCell } from '../logic/board.js';
 import { loadJSON, saveJSON } from '../logic/storage.js';
 import { solveBoardLogic, solveLineFast } from '../logic/solver.js';
-import { extractPuzzleFromHtml, parseCollectionItem } from '../logic/importer.js';
+import {
+  extractPuzzleFromHtml,
+  parseCollectionItem,
+  normalizePuzzleData,
+} from '../logic/importer.js';
 import { api } from '../api.js';
 import {
   downloadJSON,
@@ -1306,7 +1310,7 @@ export default function useGameState() {
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          applyImportedData(JSON.parse(event.target.result));
+          applyImportedData(normalizePuzzleData(JSON.parse(event.target.result)));
         } catch {
           setAlertMsg('❌ 导入失败，文件格式错误或已损坏！');
         }

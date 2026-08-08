@@ -139,12 +139,28 @@ export const extractPuzzleFromHtml = (html) => {
 };
 
 /**
+ * 兼容旧版导出格式：JSON 可能是数组（旧版收藏夹导出为 [{...}]），
+ * 自动取第一个合法题目对象。
+ */
+export const normalizePuzzleData = (data) => {
+  if (Array.isArray(data)) {
+    const found = data.find(
+      (it) =>
+        it && it.rows && it.cols && it.rowCluesStr && it.colCluesStr && it.grid,
+    );
+    if (found) return found;
+    throw new Error('格式不完整');
+  }
+  return data;
+};
+
+/**
  * 解析单个收藏 JSON（用于批量导入）。
  * 合法结构：rows/cols/rowCluesStr/colCluesStr/grid。
  * 缺少 name 时用文件名兜底。
  */
 export const parseCollectionItem = (text, fallbackName = '') => {
-  const data = JSON.parse(text);
+  const data = normalizePuzzleData(JSON.parse(text));
   if (!data.rows || !data.cols || !data.rowCluesStr || !data.colCluesStr || !data.grid) {
     throw new Error('格式不完整');
   }
