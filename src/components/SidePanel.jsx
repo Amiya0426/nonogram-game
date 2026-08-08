@@ -22,7 +22,6 @@ import {
   FileJson,
   Image as ImageIcon,
   Trash2,
-  PlayCircle,
   BookmarkPlus,
   GitBranch,
   X,
@@ -42,6 +41,7 @@ import {
   FolderInput,
   FileArchive,
   ClipboardPaste,
+  ListChecks,
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
@@ -98,6 +98,7 @@ const SidePanel = ({
   onSelectAll,
   onClearSelection,
   onDeleteFromCollection,
+  onDeleteSelected,
   onExportCollection,
   onExportCollectionZip,
   onImportCollectionFiles,
@@ -122,6 +123,7 @@ const SidePanel = ({
   const [ioTab, setIoTab] = useState('import');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [collectionSelectMode, setCollectionSelectMode] = useState(false);
   const batchImportInputRef = useRef(null);
   return (
     <>
@@ -691,6 +693,14 @@ const SidePanel = ({
                   e.target.value = null;
                 }}
               />
+              <button
+                onClick={onDeleteSelected}
+                disabled={!selectedCollectionIds.length}
+                className="flex-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded text-[10px] font-bold transition-colors border border-red-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="删除所有已选中的收藏"
+              >
+                <Trash2 className="w-3 h-3" /> 删除选中
+              </button>
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -728,6 +738,21 @@ const SidePanel = ({
             </span>
             <div className="flex items-center gap-1.5">
               <button
+                onClick={() => setCollectionSelectMode(!collectionSelectMode)}
+                className={`px-1.5 py-0.5 rounded border font-medium transition-colors flex items-center gap-1 ${
+                  collectionSelectMode
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+                title={
+                  collectionSelectMode
+                    ? '关闭选择模式（点击题目即游玩）'
+                    : '开启选择模式（点击题目即选中/取消）'
+                }
+              >
+                <ListChecks className="w-3 h-3" /> 选择
+              </button>
+              <button
                 onClick={onSelectAll}
                 className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               >
@@ -745,43 +770,63 @@ const SidePanel = ({
             {puzzleCollection.length === 0 ? (
               <p className="text-[10px] text-slate-400 text-center py-2">暂无收藏的题目</p>
             ) : (
-              puzzleCollection.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-2 bg-white p-1.5 rounded border border-slate-200 shadow-sm group"
-                >
-                  <div className="flex items-center gap-2 overflow-hidden flex-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedCollectionIds.includes(item.id)}
-                      onChange={() => onToggleSelection(item.id)}
-                      className="accent-indigo-600 w-3.5 h-3.5 shrink-0"
-                    />
-                    <div className="flex flex-col overflow-hidden">
+              puzzleCollection.map((item) => {
+                const isSelected = selectedCollectionIds.includes(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() =>
+                      collectionSelectMode
+                        ? onToggleSelection(item.id)
+                        : onLoadFromCollection(item)
+                    }
+                    className={`flex items-center gap-2 bg-white p-1.5 rounded border shadow-sm cursor-pointer transition-colors group ${
+                      collectionSelectMode && isSelected
+                        ? 'border-indigo-400 bg-indigo-50'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {collectionSelectMode && (
+                      <span
+                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                          isSelected
+                            ? 'bg-indigo-600 border-indigo-600 text-white'
+                            : 'border-slate-300 bg-white'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-2.5 h-2.5" />}
+                      </span>
+                    )}
+                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                       <span className="text-xs font-bold text-slate-700 truncate">{item.name}</span>
                       <span className="text-[9px] text-slate-400">
                         {item.cols}×{item.rows} - {item.date}
                       </span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => onLoadFromCollection(item)}
-                      className="p-1 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded"
-                      title="游玩此题"
+                    <span
+                      className={`text-[9px] shrink-0 transition-opacity ${
+                        collectionSelectMode
+                          ? isSelected
+                            ? 'text-indigo-500 font-bold'
+                            : 'text-indigo-400'
+                          : 'text-slate-300 opacity-0 group-hover:opacity-100'
+                      }`}
                     >
-                      <PlayCircle className="w-3 h-3" />
-                    </button>
+                      {collectionSelectMode ? (isSelected ? '已选中' : '点击选中') : '点击游玩'}
+                    </span>
                     <button
-                      onClick={() => onDeleteFromCollection(item.id)}
-                      className="p-1 bg-red-50 text-red-500 hover:bg-red-100 rounded"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteFromCollection(item.id);
+                      }}
+                      className="p-1 bg-red-50 text-red-500 hover:bg-red-100 rounded shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="删除"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </Accordion>

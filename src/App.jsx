@@ -115,6 +115,7 @@ export default function NonogramApp() {
         onSelectAll={g.selectAllCollection}
         onClearSelection={g.clearCollectionSelection}
         onDeleteFromCollection={g.deleteFromCollection}
+        onDeleteSelected={g.deleteSelectedCollection}
         onExportCollection={g.handleExportCollectionJSON}
         onExportCollectionZip={g.handleExportCollectionZip}
         onImportCollectionFiles={g.importCollectionFiles}

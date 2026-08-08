@@ -1016,6 +1016,33 @@ export default function useGameState() {
     }
   }, [user]);
 
+  /** 批量删除选中的收藏 */
+  const deleteSelectedCollection = useCallback(() => {
+    const ids = selectedCollectionIds;
+    if (!ids.length) return;
+    if (!confirm(`确定要删除选中的 ${ids.length} 个收藏吗？此操作不可恢复。`)) return;
+
+    const clearLocal = () => {
+      setPuzzleCollection((prev) => prev.filter((p) => !ids.includes(p.id)));
+      setSelectedCollectionIds([]);
+    };
+
+    if (user) {
+      Promise.all(ids.map((id) => api.deleteCollection(id).catch(() => null)))
+        .then(() => {
+          clearLocal();
+          setAlertMsg(`✅ 已删除 ${ids.length} 个云端收藏`);
+        })
+        .catch(() => setAlertMsg('❌ 删除失败，请稍后重试'));
+    } else {
+      const newCol = puzzleCollection.filter((p) => !ids.includes(p.id));
+      saveJSON(COLLECTION_KEY, newCol);
+      setPuzzleCollection(newCol);
+      setSelectedCollectionIds([]);
+      setAlertMsg(`✅ 已删除 ${ids.length} 个本地收藏`);
+    }
+  }, [user, selectedCollectionIds, puzzleCollection]);
+
   // ==========================================
   // 9. 导入 / 导出
   // ==========================================
@@ -1604,6 +1631,7 @@ export default function useGameState() {
     selectAllCollection,
     clearCollectionSelection,
     deleteFromCollection,
+    deleteSelectedCollection,
     handleExportCode,
     handleExportJSON,
     handleExportCollectionJSON,
