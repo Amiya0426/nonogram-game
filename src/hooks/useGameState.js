@@ -37,38 +37,78 @@ import {
   downloadItemsAsZip,
 } from '../logic/exporter.js';
 
+const SAVE_KEY = 'nonogram_master_save';
 const COLLECTION_KEY = 'nonogram_collection';
+
+/** 读取自动存档并做基本校验，损坏或尺寸不符时返回 null */
+const loadSavedState = () => {
+  const s = loadJSON(SAVE_KEY, null);
+  if (!s) return null;
+  const rows = Number(s.rows) || 0;
+  const cols = Number(s.cols) || 0;
+  if (
+    rows < 1 ||
+    rows > MAX_BOARD ||
+    cols < 1 ||
+    cols > MAX_BOARD ||
+    !Array.isArray(s.grid) ||
+    s.grid.length !== rows ||
+    !Array.isArray(s.grid[0]) ||
+    s.grid[0].length !== cols ||
+    !Array.isArray(s.rowCluesStr) ||
+    s.rowCluesStr.length !== rows ||
+    !Array.isArray(s.colCluesStr) ||
+    s.colCluesStr.length !== cols
+  ) {
+    return null;
+  }
+  return s;
+};
 
 export default function useGameState() {
   // ==========================================
-  // 1. 初始状态（不做自动存档：仅默认盘面 + 手动检查错误快照）
+  // 1. 初始状态：从 localStorage 恢复上次游玩设置与棋盘进度
   // ==========================================
-  const [mode, setMode] = useState('play');
-  const [editInputMode, setEditInputMode] = useState('pattern');
+  const savedState = useMemo(() => loadSavedState(), []);
+
+  const [mode, setMode] = useState(savedState?.mode === 'edit' ? 'edit' : 'play');
+  const [editInputMode, setEditInputMode] = useState(
+    savedState?.editInputMode === 'manual' ? 'manual' : 'pattern',
+  );
   const [user, setUser] = useState(null);
   const [authBusy, setAuthBusy] = useState(false);
-  const [rows, setRows] = useState(PRESETS.heart.rows);
-  const [cols, setCols] = useState(PRESETS.heart.cols);
+  const [rows, setRows] = useState(savedState?.rows || PRESETS.heart.rows);
+  const [cols, setCols] = useState(savedState?.cols || PRESETS.heart.cols);
 
   const [rowCluesStr, setRowCluesStr] = useState(
-    PRESETS.heart.rowClues.map((c) => c.join(' ')),
+    savedState?.rowCluesStr || PRESETS.heart.rowClues.map((c) => c.join(' ')),
   );
   const [colCluesStr, setColCluesStr] = useState(
-    PRESETS.heart.colClues.map((c) => c.join('\n')),
+    savedState?.colCluesStr || PRESETS.heart.colClues.map((c) => c.join('\n')),
   );
 
-  const [grid, setGrid] = useState(createGrid(PRESETS.heart.rows, PRESETS.heart.cols));
-  const [cellSize, setCellSize] = useState(DEFAULT_CELL_SIZE);
+  const [grid, setGrid] = useState(
+    savedState?.grid || createGrid(PRESETS.heart.rows, PRESETS.heart.cols),
+  );
+  const [cellSize, setCellSize] = useState(
+    savedState?.cellSize || DEFAULT_CELL_SIZE,
+  );
 
-  const [interactionMode, setInteractionMode] = useState('toggle');
-  const [currentBrush, setCurrentBrush] = useState(1);
+  const [interactionMode, setInteractionMode] = useState(
+    savedState?.interactionMode === 'paint' ? 'paint' : 'toggle',
+  );
+  const [currentBrush, setCurrentBrush] = useState(
+    [0, 1, 2].includes(savedState?.currentBrush) ? savedState.currentBrush : 1,
+  );
 
   const [dragAction, setDragAction] = useState(null);
   const [alertMsg, setAlertMsg] = useState('');
   const [hintInfo, setHintInfo] = useState(null);
 
-  const [deductionLevel, setDeductionLevel] = useState(0);
-  const [backupGrids, setBackupGrids] = useState([]);
+  const [deductionLevel, setDeductionLevel] = useState(
+    Math.max(0, Math.min(3, savedState?.deductionLevel || 0)),
+  );
+  const [backupGrids, setBackupGrids] = useState(savedState?.backupGrids || []);
 
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [isPanelPinned, setIsPanelPinned] = useState(true);
@@ -85,14 +125,69 @@ export default function useGameState() {
   );
   const [selectedCollectionIds, setSelectedCollectionIds] = useState([]);
 
-  const [randomDifficulty, setRandomDifficulty] = useState('medium');
+  const [randomDifficulty, setRandomDifficulty] = useState(
+    savedState?.randomDifficulty || 'medium',
+  );
 
-  const [gameSettings, setGameSettings] = useState({ ...DEFAULT_SETTINGS });
+  const [gameSettings, setGameSettings] = useState({
+    ...DEFAULT_SETTINGS,
+    ...(savedState?.gameSettings || {}),
+  });
 
   const [hoverPos, setHoverPos] = useState({ r: -1, c: -1 });
-  const [markedRowClues, setMarkedRowClues] = useState({});
-  const [markedColClues, setMarkedColClues] = useState({});
-  const [lastCorrectSnapshot, setLastCorrectSnapshot] = useState(null);
+  const [markedRowClues, setMarkedRowClues] = useState(
+    savedState?.markedRowClues || {},
+  );
+  const [markedColClues, setMarkedColClues] = useState(
+    savedState?.markedColClues || {},
+  );
+  const [lastCorrectSnapshot, setLastCorrectSnapshot] = useState(
+    savedState?.lastCorrectSnapshot || null,
+  );
+
+  // 自动存档：游玩设置 + 棋盘进度防抖写入 localStorage（刷新后恢复）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveJSON(SAVE_KEY, {
+        mode,
+        editInputMode,
+        rows,
+        cols,
+        rowCluesStr,
+        colCluesStr,
+        grid,
+        cellSize,
+        interactionMode,
+        currentBrush,
+        deductionLevel,
+        backupGrids,
+        gameSettings,
+        markedRowClues,
+        markedColClues,
+        lastCorrectSnapshot,
+        randomDifficulty,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    mode,
+    editInputMode,
+    rows,
+    cols,
+    rowCluesStr,
+    colCluesStr,
+    grid,
+    cellSize,
+    interactionMode,
+    currentBrush,
+    deductionLevel,
+    backupGrids,
+    gameSettings,
+    markedRowClues,
+    markedColClues,
+    lastCorrectSnapshot,
+    randomDifficulty,
+  ]);
 
   const hoverPosRef = useRef({ r: -1, c: -1 });
   const measureStartRef = useRef(null);
