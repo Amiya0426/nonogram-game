@@ -1,15 +1,64 @@
 // 导出：存档代码 / JSON 文件 / 图片
 
+/** 本地时间格式化为 YYYY-MM-DD_HH-mm */
+export const formatTimestamp = (d = new Date()) => {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
+};
+
+/** 单题导出默认文件名：2026-08-08_14-30_30x30_100% */
+export const buildPuzzleExportName = ({ rows, cols, progressPercent }) =>
+  `${formatTimestamp()}_${cols}x${rows}_${progressPercent}%`;
+
+/** 收藏夹导出默认文件名：收藏夹_2026-08-08_14-30_12题 */
+export const buildCollectionExportName = ({ count }) =>
+  `收藏夹_${formatTimestamp()}_${count}题`;
+
+/** 清洗文件名中的非法字符 */
+export const sanitizeFilename = (name) =>
+  String(name || '')
+    .replace(/[\\/:*?"<>|\r\n\t]/g, '_')
+    .trim() || 'unnamed';
+
 export const downloadJSON = (filename, data) => {
   const jsonStr = JSON.stringify(data, null, 2);
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.download = `${filename}-${new Date().getTime()}.json`;
+  link.download = `${filename}.json`;
   link.href = url;
   link.click();
   URL.revokeObjectURL(url);
 };
+
+/** 逐个下载多个收藏为独立 JSON 文件（错开触发，避免被浏览器拦截） */
+export const downloadItemsAsFiles = (items, buildName) => {
+  items.forEach((item, i) => {
+    setTimeout(() => {
+      downloadJSON(buildName(item, i), item);
+    }, i * 250);
+  });
+};
+
+/** 将多个收藏打包为 ZIP（每个收藏一个 JSON 文件） */
+export const downloadItemsAsZip = async (items, zipName, buildName) => {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  items.forEach((item) => {
+    zip.file(`${buildName(item)}.json`, JSON.stringify(item, null, 2));
+  });
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${zipName}.zip`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+/** 收藏条目导出文件名：题目名_列x行（清洗非法字符） */
+export const buildCollectionItemName = (item) =>
+  `${sanitizeFilename(item.name)}_${item.cols}x${item.rows}`;
 
 export const buildExportData = (state, remark) => ({
   rows: state.rows,
@@ -179,7 +228,7 @@ export const exportBoardAsImage = (
   }
 
   const link = document.createElement('a');
-  link.download = `${filename}-${new Date().getTime()}.${format}`;
+  link.download = `${filename}.${format}`;
   link.href = canvas.toDataURL(`image/${format}`, 0.9);
   link.click();
 };

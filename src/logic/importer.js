@@ -137,3 +137,32 @@ export const extractPuzzleFromHtml = (html) => {
   }
   return { rows: r, cols: c, rowClues: parsedRowClues, colClues: parsedColClues };
 };
+
+/**
+ * 解析单个收藏 JSON（用于批量导入）。
+ * 合法结构：rows/cols/rowCluesStr/colCluesStr/grid。
+ * 缺少 name 时用文件名兜底。
+ */
+export const parseCollectionItem = (text, fallbackName = '') => {
+  const data = JSON.parse(text);
+  if (!data.rows || !data.cols || !data.rowCluesStr || !data.colCluesStr || !data.grid) {
+    throw new Error('格式不完整');
+  }
+  const baseName =
+    typeof data.name === 'string' && data.name.trim()
+      ? data.name.trim()
+      : fallbackName.replace(/\.json$/i, '').trim() || '导入题目';
+  return {
+    name: baseName,
+    rows: data.rows,
+    cols: data.cols,
+    rowCluesStr: data.rowCluesStr,
+    colCluesStr: data.colCluesStr,
+    grid: data.grid,
+    markedRowClues: data.markedRowClues || {},
+    markedColClues: data.markedColClues || {},
+    isSolvedStatus: data.isSolvedStatus || false,
+    deductionLevel: data.deductionLevel || 0,
+    backupGrids: data.backupGrids || [],
+  };
+};

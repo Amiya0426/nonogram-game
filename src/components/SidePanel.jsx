@@ -39,6 +39,8 @@ import {
   UserRound,
   LogIn,
   LogOut,
+  FolderInput,
+  FileArchive,
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
 
@@ -95,6 +97,8 @@ const SidePanel = ({
   onClearSelection,
   onDeleteFromCollection,
   onExportCollection,
+  onExportCollectionZip,
+  onImportCollectionFiles,
   onExportCode,
   onExportJSON,
   onExportImage,
@@ -658,30 +662,56 @@ const SidePanel = ({
               </button>
             </div>
           )}
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs text-slate-500">
-              {user ? '数据保存在云端' : '本地保存，登录后可同步'}
-            </div>
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5">
               <button
                 onClick={onSaveToCollection}
-                className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition-colors border border-indigo-200 flex items-center gap-1"
+                className="flex-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition-colors border border-indigo-200 flex items-center justify-center gap-1"
               >
                 <BookmarkPlus className="w-3 h-3" /> 存入当前
               </button>
+              <label
+                className="flex-1 px-2 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded text-[10px] font-bold transition-colors border border-sky-200 flex items-center justify-center gap-1 cursor-pointer"
+                title="支持多选 JSON 文件或 ZIP 压缩包"
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept=".json,.zip,application/zip,application/x-zip-compressed"
+                  onChange={onImportCollectionFiles}
+                  className="sr-only"
+                />
+                <FolderInput className="w-3 h-3" /> 批量导入
+              </label>
+            </div>
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => onExportCollection(false)}
-                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center gap-1"
+                className="flex-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center justify-center gap-1"
               >
                 <Download className="w-3 h-3" /> 下载全部
               </button>
               <button
                 onClick={() => onExportCollection(true)}
                 disabled={!selectedCollectionIds.length}
-                className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded text-[10px] font-bold transition-colors border border-sky-200 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="多选时逐个下载为独立 JSON 文件"
               >
                 <Download className="w-3 h-3" /> 下载选中
               </button>
+              <button
+                onClick={() => onExportCollectionZip(true)}
+                disabled={!selectedCollectionIds.length}
+                className="flex-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[10px] font-bold transition-colors border border-amber-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="将选中的收藏打包为一个 ZIP 文件"
+              >
+                <FileArchive className="w-3 h-3" /> 选中 ZIP
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-slate-500">
+              {user ? '数据保存在云端' : '本地保存，登录后可同步'}
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">

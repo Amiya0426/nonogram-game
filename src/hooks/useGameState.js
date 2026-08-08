@@ -19,13 +19,18 @@ import {
 import { createGrid, cloneGrid, updateCell } from '../logic/board.js';
 import { loadJSON, saveJSON } from '../logic/storage.js';
 import { solveBoardLogic, solveLineFast } from '../logic/solver.js';
-import { extractPuzzleFromHtml } from '../logic/importer.js';
+import { extractPuzzleFromHtml, parseCollectionItem } from '../logic/importer.js';
 import { api } from '../api.js';
 import {
   downloadJSON,
   buildExportData,
   copyToClipboard,
   exportBoardAsImage,
+  buildPuzzleExportName,
+  buildCollectionExportName,
+  buildCollectionItemName,
+  downloadItemsAsFiles,
+  downloadItemsAsZip,
 } from '../logic/exporter.js';
 
 const COLLECTION_KEY = 'nonogram_collection';
@@ -214,6 +219,19 @@ export default function useGameState() {
       if (!lineAnalysis.cols[i].completed) return false;
     }
     return true;
+  }, [mode, rows, cols, lineAnalysis]);
+
+  /** 游玩进度：已完成行+列占全部行+列的百分比（用于导出文件名） */
+  const progressPercent = useMemo(() => {
+    if (mode !== 'play' || rows + cols === 0) return 0;
+    let done = 0;
+    for (let i = 0; i < rows; i++) {
+      if (lineAnalysis.rows[i].completed) done++;
+    }
+    for (let i = 0; i < cols; i++) {
+      if (lineAnalysis.cols[i].completed) done++;
+    }
+    return Math.round((done / (rows + cols)) * 100);
   }, [mode, rows, cols, lineAnalysis]);
 
   const getClueTextSize = useCallback(() => {
@@ -998,7 +1016,8 @@ export default function useGameState() {
   // 9. 导入 / 导出
   // ==========================================
   const handleExportCode = useCallback(async () => {
-    const finalFilename = exportFilename.trim() || 'nonogram-save';
+    const finalFilename =
+      exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
     const data = buildExportData(
       {
         rows,
@@ -1027,6 +1046,7 @@ export default function useGameState() {
     exportRemark,
     rows,
     cols,
+    progressPercent,
     rowCluesStr,
     colCluesStr,
     grid,
@@ -1038,7 +1058,6 @@ export default function useGameState() {
   ]);
 
   const handleExportJSON = useCallback(() => {
-    const finalFilename = exportFilename.trim() || 'nonogram-save';
     const data = buildExportData(
       {
         rows,
@@ -1054,6 +1073,8 @@ export default function useGameState() {
       },
       exportRemark,
     );
+    const finalFilename =
+      exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
     downloadJSON(finalFilename, data);
     setAlertMsg(`✅ 存档文件 [${finalFilename}] 已成功下载！`);
   }, [
@@ -1061,6 +1082,7 @@ export default function useGameState() {
     exportRemark,
     rows,
     cols,
+    progressPercent,
     rowCluesStr,
     colCluesStr,
     grid,
@@ -1074,7 +1096,7 @@ export default function useGameState() {
   const handleExportCollectionJSON = useCallback(
     (selectedOnly = false) => {
       if (!puzzleCollection.length) {
-        setAlertMsg('❌ 当前收藏夹为空，无法批量下载。');
+        setAlertMsg('❌ 当前收藏夹为空，无法下载。');
         return;
       }
       const exportItems = selectedOnly
@@ -1084,22 +1106,127 @@ export default function useGameState() {
         setAlertMsg('❌ 当前没有选中任何收藏题目，无法下载。');
         return;
       }
+      // 多选：逐个下载为独立 JSON 文件（修复之前只下一个文件的问题）
+      if (selectedOnly && exportItems.length > 1) {
+        downloadItemsAsFiles(exportItems, (item) => buildCollectionItemName(item));
+        setAlertMsg(
+          `✅ 已逐个下载 ${exportItems.length} 个所选收藏。若浏览器拦截多个下载，请改用「选中 ZIP」。`,
+        );
+        return;
+      }
       const finalFilename =
-        exportFilename.trim() ||
-        (selectedOnly ? 'nonogram-collection-selected' : 'nonogram-collection');
+        exportFilename.trim() || buildCollectionExportName({ count: exportItems.length });
       downloadJSON(finalFilename, exportItems);
       setAlertMsg(
-        `✅ 已${selectedOnly ? '下载所选收藏题目' : '批量下载收藏夹'}中的 ${exportItems.length} 个题目为 JSON 文件！`,
+        `✅ 已${selectedOnly ? '下载所选收藏' : '批量下载收藏夹'} ${exportItems.length} 个题目！`,
       );
     },
     [puzzleCollection, selectedCollectionIds, exportFilename],
+  );
+
+  /** 选中收藏打包为 ZIP（每个题目一个 JSON 文件） */
+  const handleExportCollectionZip = useCallback(
+    (selectedOnly = true) => {
+      const exportItems = selectedOnly
+        ? puzzleCollection.filter((item) => selectedCollectionIds.includes(item.id))
+        : puzzleCollection;
+      if (!exportItems.length) {
+        setAlertMsg('❌ 当前没有选中任何收藏题目，无法打包。');
+        return;
+      }
+      const zipName =
+        exportFilename.trim() || buildCollectionExportName({ count: exportItems.length });
+      downloadItemsAsZip(exportItems, zipName, (item) => buildCollectionItemName(item))
+        .then(() => setAlertMsg(`✅ 已打包 ${exportItems.length} 个收藏为 ZIP 文件！`))
+        .catch((e) => setAlertMsg(`❌ ZIP 打包失败：${e.message}`));
+    },
+    [puzzleCollection, selectedCollectionIds, exportFilename],
+  );
+
+  /** 批量导入收藏：支持多选 JSON 文件与 ZIP 压缩包 */
+  const importCollectionFiles = useCallback(
+    async (files) => {
+      const fileList = Array.from(files || []);
+      if (!fileList.length) return;
+      setAlertMsg('⏳ 正在导入收藏...');
+      const items = [];
+      for (const file of fileList) {
+        try {
+          if (/\.zip$/i.test(file.name)) {
+            const JSZip = (await import('jszip')).default;
+            const zip = await JSZip.loadAsync(file);
+            const entries = Object.values(zip.files).filter(
+              (e) => !e.dir && /\.json$/i.test(e.name),
+            );
+            for (const entry of entries) {
+              try {
+                items.push(parseCollectionItem(await entry.async('string'), entry.name));
+              } catch {
+                // 跳过包内无效文件
+              }
+            }
+          } else if (/\.json$/i.test(file.name)) {
+            try {
+              items.push(parseCollectionItem(await file.text(), file.name));
+            } catch {
+              // 跳过无效文件
+            }
+          }
+        } catch {
+          // 跳过无法读取的文件
+        }
+      }
+      if (!items.length) {
+        setAlertMsg('❌ 未找到有效的 JSON 收藏文件');
+        return;
+      }
+      const existingKeys = new Set(
+        puzzleCollection.map((c) => `${c.name}|${c.cols}x${c.rows}`),
+      );
+      const fresh = items.filter(
+        (it) => !existingKeys.has(`${it.name}|${it.cols}x${it.rows}`),
+      );
+      const skipped = items.length - fresh.length;
+      if (user) {
+        let ok = 0;
+        for (const it of fresh) {
+          try {
+            await api.addCollection(it);
+            ok++;
+          } catch {
+            // 单个失败不阻塞
+          }
+        }
+        const merged = await api.listCollections();
+        setPuzzleCollection(merged);
+        setAlertMsg(
+          `✅ 批量导入完成：新增 ${ok} 个${skipped ? `，跳过 ${skipped} 个重复` : ''}`,
+        );
+      } else {
+        const newCol = [
+          ...fresh.map((it, i) => ({
+            id: Date.now() + i,
+            date: new Date().toLocaleString(),
+            ...it,
+          })),
+          ...puzzleCollection,
+        ];
+        setPuzzleCollection(newCol);
+        saveJSON(COLLECTION_KEY, newCol);
+        setAlertMsg(
+          `✅ 批量导入完成：新增 ${fresh.length} 个${skipped ? `，跳过 ${skipped} 个重复` : ''}`,
+        );
+      }
+    },
+    [user, puzzleCollection],
   );
 
   const exportAsImage = useCallback(
     (format = 'png') => {
       try {
         setAlertMsg('正在生成高清图片，请稍候...');
-        const finalFilename = exportFilename.trim() || 'nonogram-save';
+        const finalFilename =
+          exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
         exportBoardAsImage(
           {
             grid,
@@ -1126,6 +1253,7 @@ export default function useGameState() {
       grid,
       rows,
       cols,
+      progressPercent,
       rowCluesStr,
       colCluesStr,
       markedRowClues,
@@ -1449,6 +1577,8 @@ export default function useGameState() {
     handleExportCode,
     handleExportJSON,
     handleExportCollectionJSON,
+    handleExportCollectionZip,
+    importCollectionFiles,
     exportAsImage,
     handleLocalImportCode,
     handleImportFile,
