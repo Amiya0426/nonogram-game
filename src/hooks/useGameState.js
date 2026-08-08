@@ -437,49 +437,52 @@ export default function useGameState() {
     setGrid((prev) => updateCell(prev, r, c, val));
   }, [hintInfo]);
 
+  /** 计算某个格子的操作值（轮切/画笔，游玩与画盘面模式共用） */
+  const computeCellAction = useCallback(
+    (r, c) => {
+      const currentVal = grid[r][c];
+      const CF = deductionLevel * 2 + 1;
+      const CX = deductionLevel * 2 + 2;
+      if (mode === 'play') {
+        if (interactionMode === 'toggle') {
+          return currentVal === 0 || (currentVal !== CF && currentVal !== CX)
+            ? CF
+            : currentVal === CF
+              ? CX
+              : 0;
+        }
+        return currentBrush === 1 ? CF : currentBrush === 2 ? CX : 0;
+      }
+      // 编辑-画盘面模式
+      if (interactionMode === 'toggle') {
+        return currentVal === 0 ? 1 : currentVal === 1 ? 2 : 0;
+      }
+      return currentBrush === 1 ? 1 : currentBrush === 2 ? 2 : 0;
+    },
+    [mode, grid, interactionMode, currentBrush, deductionLevel],
+  );
+
   const handleCellMouseDown = useCallback(
     (e, r, c) => {
       const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
       if (!editable) return;
       e.preventDefault();
-      let newAction = 0;
-      const currentVal = grid[r][c];
-      const CF = deductionLevel * 2 + 1;
+      let newAction = computeCellAction(r, c);
       const CX = deductionLevel * 2 + 2;
-
-      if (mode === 'play') {
-        if (e.button === 0) {
-          if (interactionMode === 'toggle') {
-            newAction =
-              currentVal === 0 || (currentVal !== CF && currentVal !== CX)
-                ? CF
-                : currentVal === CF
-                  ? CX
-                  : 0;
-          } else {
-            newAction = currentBrush === 1 ? CF : currentBrush === 2 ? CX : 0;
-          }
-        } else if (e.button === 2) {
-          newAction = currentVal === CX ? 0 : CX;
-        }
-      } else {
-        // 编辑-画盘面模式：简单 0/1/2 循环
-        if (e.button === 0) {
-          if (interactionMode === 'toggle') {
-            newAction = currentVal === 0 ? 1 : currentVal === 1 ? 2 : 0;
-          } else {
-            newAction = currentBrush === 1 ? 1 : currentBrush === 2 ? 2 : 0;
-          }
-        } else if (e.button === 2) {
-          newAction = currentVal === 2 ? 0 : 2;
-        } else {
-          newAction = 0;
-        }
+      if (e.button === 2) {
+        newAction =
+          mode === 'play'
+            ? grid[r][c] === CX
+              ? 0
+              : CX
+            : grid[r][c] === 2
+              ? 0
+              : 2;
       }
       setDragAction(newAction);
       updateCellValue(r, c, newAction);
     },
-    [mode, editInputMode, grid, interactionMode, currentBrush, deductionLevel, updateCellValue],
+    [mode, editInputMode, computeCellAction, grid, deductionLevel, updateCellValue],
   );
 
   const handleCellMouseEnter = useCallback(
@@ -492,6 +495,30 @@ export default function useGameState() {
     },
     [dragAction, mode, editInputMode, scheduleHover, updateCellValue],
   );
+
+  /** 触摸拖画：长按进入绘制后使用同一操作值连续填充 */
+  const touchPaintActionRef = useRef(null);
+  const startTouchPaint = useCallback(
+    (r, c) => {
+      const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
+      if (!editable) return;
+      const action = computeCellAction(r, c);
+      touchPaintActionRef.current = action;
+      updateCellValue(r, c, action);
+    },
+    [mode, editInputMode, computeCellAction, updateCellValue],
+  );
+  const continueTouchPaint = useCallback(
+    (r, c) => {
+      if (touchPaintActionRef.current != null) {
+        updateCellValue(r, c, touchPaintActionRef.current);
+      }
+    },
+    [updateCellValue],
+  );
+  const endTouchPaint = useCallback(() => {
+    touchPaintActionRef.current = null;
+  }, []);
 
   // ==========================================
   // 5. 自动打叉（防抖，1.5s）
@@ -1617,6 +1644,9 @@ export default function useGameState() {
     editColClue,
     handleCellMouseDown,
     handleCellMouseEnter,
+    startTouchPaint,
+    continueTouchPaint,
+    endTouchPaint,
     handleGlobalLeave,
     startDeduction,
     applyDeduction,

@@ -1,4 +1,4 @@
-import { Fragment, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import GridCell from './GridCell.jsx';
 import RowClueBar from './RowClueBar.jsx';
 import ColClueBar from './ColClueBar.jsx';
@@ -31,6 +31,9 @@ const Board = ({
   clueTextSize,
   onCellMouseDown,
   onCellMouseEnter,
+  startTouchPaint,
+  continueTouchPaint,
+  endTouchPaint,
   onToggleMarkedRow,
   onToggleMarkedCol,
   onEditRowClue,
@@ -38,7 +41,95 @@ const Board = ({
   onMouseLeave,
 }) => {
   const lastHoverKeyRef = useRef('');
+  const gridRef = useRef(null);
   const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
+
+  // 触摸拖画：长按进入绘制，快速滑动保持原生滚动
+  const editableRef = useRef(editable);
+  const startPaintRef = useRef(startTouchPaint);
+  const continuePaintRef = useRef(continueTouchPaint);
+  const endPaintRef = useRef(endTouchPaint);
+  useEffect(() => {
+    editableRef.current = editable;
+  }, [editable]);
+  useEffect(() => {
+    startPaintRef.current = startTouchPaint;
+  }, [startTouchPaint]);
+  useEffect(() => {
+    continuePaintRef.current = continueTouchPaint;
+  }, [continueTouchPaint]);
+  useEffect(() => {
+    endPaintRef.current = endTouchPaint;
+  }, [endTouchPaint]);
+
+  useEffect(() => {
+    const gridEl = gridRef.current;
+    if (!gridEl) return;
+
+    let paintTimer = null;
+    let startX = 0;
+    let startY = 0;
+    let painting = false;
+    let startCell = null;
+
+    const findCell = (el) => el?.closest?.('[data-cell]');
+
+    const onTouchStart = (e) => {
+      if (!editableRef.current) return;
+      const cell = findCell(e.target);
+      if (!cell) return;
+      const touch = e.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startCell = { r: +cell.dataset.r, c: +cell.dataset.c };
+      painting = false;
+      clearTimeout(paintTimer);
+      paintTimer = setTimeout(() => {
+        if (!editableRef.current) return;
+        painting = true;
+        if (navigator.vibrate) navigator.vibrate(15);
+        startPaintRef.current(startCell.r, startCell.c);
+      }, 220);
+    };
+
+    const onTouchMove = (e) => {
+      if (!painting) {
+        // 手指快速移动：视为滑动画面，取消长按绘制
+        const touch = e.touches[0];
+        const moved =
+          Math.abs(touch.clientX - startX) + Math.abs(touch.clientY - startY) > 12;
+        if (moved) clearTimeout(paintTimer);
+        return;
+      }
+      e.preventDefault();
+      const touch = e.touches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cell = findCell(el);
+      if (!cell) return;
+      continuePaintRef.current(+cell.dataset.r, +cell.dataset.c);
+    };
+
+    const onTouchEnd = (e) => {
+      clearTimeout(paintTimer);
+      // 长按绘制结束时阻止合成鼠标事件，避免重复触发一次点击
+      if (painting) e.preventDefault();
+      painting = false;
+      startCell = null;
+      endPaintRef.current();
+    };
+
+    gridEl.addEventListener('touchstart', onTouchStart, { passive: true });
+    gridEl.addEventListener('touchmove', onTouchMove, { passive: false });
+    gridEl.addEventListener('touchend', onTouchEnd, { passive: false });
+    gridEl.addEventListener('touchcancel', onTouchEnd, { passive: false });
+    return () => {
+      clearTimeout(paintTimer);
+      gridEl.removeEventListener('touchstart', onTouchStart);
+      gridEl.removeEventListener('touchmove', onTouchMove);
+      gridEl.removeEventListener('touchend', onTouchEnd);
+      gridEl.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []);
 
   const handleMouseOver = (e) => {
     const cell = e.target.closest?.('[data-cell]');
@@ -104,6 +195,7 @@ const Board = ({
       <div className="m-auto relative">
         <div
           id="board-grid"
+          ref={gridRef}
           className={`grid gap-[1px] bg-slate-400 border-2 relative transition-colors ${getBorderColorClass(deductionLevel)}`}
           style={{ gridTemplateColumns: `auto repeat(${cols}, ${cellSize}px) auto` }}
           onContextMenu={(e) => e.preventDefault()}

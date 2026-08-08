@@ -25,7 +25,6 @@ import {
   BookmarkPlus,
   GitBranch,
   X,
-  SlidersHorizontal,
   Undo2,
   FolderHeart,
   FileSymlink,
@@ -42,6 +41,8 @@ import {
   FileArchive,
   ClipboardPaste,
   ListChecks,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
@@ -49,6 +50,7 @@ import FileDropZone from './FileDropZone.jsx';
 /** 左侧控制面板：所有折叠区与按钮 */
 const SidePanel = ({
   showLeftPanel,
+  setShowLeftPanel,
   isPanelPinned,
   setIsPanelPinned,
   isPanelHovered,
@@ -125,6 +127,34 @@ const SidePanel = ({
   const [authPassword, setAuthPassword] = useState('');
   const [collectionSelectMode, setCollectionSelectMode] = useState(false);
   const batchImportInputRef = useRef(null);
+  const [rowText, setRowText] = useState(String(rows));
+  const [colText, setColText] = useState(String(cols));
+  const [prevRows, setPrevRows] = useState(rows);
+  const [prevCols, setPrevCols] = useState(cols);
+  if (prevRows !== rows) {
+    setPrevRows(rows);
+    setRowText(String(rows));
+  }
+  if (prevCols !== cols) {
+    setPrevCols(cols);
+    setColText(String(cols));
+  }
+
+  const clampBoard = (v) => Math.max(1, Math.min(80, v));
+  const commitRow = () => {
+    onInitBoard(clampBoard(parseInt(rowText, 10) || 1), cols);
+  };
+  const commitCol = () => {
+    onInitBoard(rows, clampBoard(parseInt(colText, 10) || 1));
+  };
+  const stepRow = (delta) => {
+    const base = parseInt(rowText, 10);
+    onInitBoard(clampBoard((Number.isNaN(base) ? rows : base) + delta), cols);
+  };
+  const stepCol = (delta) => {
+    const base = parseInt(colText, 10);
+    onInitBoard(rows, clampBoard((Number.isNaN(base) ? cols : base) + delta));
+  };
   return (
     <>
     {!isPanelPinned && !isPanelHovered && (
@@ -138,17 +168,30 @@ const SidePanel = ({
       </div>
     )}
 
+    {/* 移动端抽屉遮罩：点遮罩关闭，棋盘保持可见 */}
+    {showLeftPanel && (
+      <div
+        className="md:hidden fixed inset-0 top-[65px] bg-black/30 z-30"
+        onClick={() => setShowLeftPanel(false)}
+      />
+    )}
+
     <div
       onMouseLeave={() => {
         if (!isPanelPinned) setIsPanelHovered(false);
       }}
-      className={`${showLeftPanel ? 'flex' : 'hidden'} md:flex flex-col bg-white border-r border-slate-200 shadow-2xl w-full md:w-80 lg:w-96 ${
-        isPanelPinned
-          ? 'relative h-[calc(100vh-65px)] md:h-screen z-10 shrink-0'
-          : `fixed top-0 left-0 h-screen z-40 transition-transform duration-300 ease-in-out ${
-              isPanelHovered ? 'translate-x-0' : '-translate-x-full'
-            }`
-      }`}
+      className={`
+        flex flex-col bg-white border-r border-slate-200 shadow-2xl
+        fixed top-[65px] bottom-0 left-0 z-40 w-[85%] max-w-sm
+        transition-transform duration-300 ease-in-out
+        ${showLeftPanel ? 'translate-x-0' : '-translate-x-full'}
+        md:top-0 md:bottom-auto md:w-80 lg:w-96
+        ${isPanelPinned
+          ? 'md:relative md:h-screen md:z-10 md:shrink-0 md:translate-x-0'
+          : `md:fixed md:h-screen md:z-40 ${
+              isPanelHovered ? 'md:translate-x-0' : 'md:-translate-x-full'
+            }`}
+      `}
     >
       <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
         {/* 模式头部：游玩 = 主界面；自定义题目 = 独立编辑视图 */}
@@ -448,34 +491,155 @@ const SidePanel = ({
                 </button>
               </div>
             )}
+
+            {/* 辅助设置（原“游戏辅助”，已合并） */}
+            <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2">
+              <span className="text-[10px] font-bold text-slate-400">辅助设置</span>
+              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={gameSettings.completeLineStyle === 'highlight'}
+                  onChange={(e) =>
+                    setGameSettings((p) => ({
+                      ...p,
+                      completeLineStyle: e.target.checked ? 'highlight' : 'fade',
+                    }))
+                  }
+                  className="accent-indigo-600 w-3 h-3"
+                />{' '}
+                完成的行列高亮
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={gameSettings.autoMarkNumbers}
+                  onChange={(e) => setGameSettings((p) => ({ ...p, autoMarkNumbers: e.target.checked }))}
+                  className="accent-indigo-600 w-3 h-3"
+                />{' '}
+                自动高亮已完成线索
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={gameSettings.autoFillCross}
+                  onChange={(e) => setGameSettings((p) => ({ ...p, autoFillCross: e.target.checked }))}
+                  className="accent-indigo-600 w-3 h-3"
+                />{' '}
+                自动补全确定叉格
+              </label>
+              <div className="border-t border-slate-100 pt-2 mt-1 flex flex-col gap-1.5">
+                <span className="text-[9px] font-bold text-slate-400">悬浮提示</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={gameSettings.hoverRowClues}
+                      onChange={(e) => setGameSettings((p) => ({ ...p, hoverRowClues: e.target.checked }))}
+                      className="accent-indigo-600 w-3 h-3"
+                    />
+                    行跟随
+                  </label>
+                  <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={gameSettings.hoverColClues}
+                      onChange={(e) => setGameSettings((p) => ({ ...p, hoverColClues: e.target.checked }))}
+                      className="accent-indigo-600 w-3 h-3"
+                    />
+                    列跟随
+                  </label>
+                  <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={gameSettings.showClueSums}
+                      onChange={(e) => setGameSettings((p) => ({ ...p, showClueSums: e.target.checked }))}
+                      className="accent-indigo-600 w-3 h-3"
+                    />
+                    线索和
+                  </label>
+                </div>
+              </div>
+            </div>
           </Accordion>
         )}
 
         {/* === 2. 视图与棋盘设置 === */}
         <Accordion title="视图与棋盘设置" icon={ZoomIn} defaultOpen={mode === 'edit'}>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <label className="text-xs font-semibold text-slate-500">行</label>
-              <input
-                type="number"
-                min="1"
-                max="80"
-                value={rows}
-                onChange={(e) => onInitBoard(parseInt(e.target.value, 10) || 5, cols)}
-                className="w-12 px-1 py-1 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 text-center"
-              />
+              <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => stepRow(-1)}
+                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
+                  title="减小行数"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  max="80"
+                  value={rowText}
+                  onChange={(e) => setRowText(e.target.value)}
+                  onBlur={commitRow}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      commitRow();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onWheel={(e) => (e.deltaY < 0 ? stepRow(1) : stepRow(-1))}
+                  className="w-11 px-0.5 py-1 text-xs outline-none focus:bg-indigo-50 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => stepRow(1)}
+                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
+                  title="增大行数"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
             </div>
             <span className="text-slate-300 text-xs">×</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <label className="text-xs font-semibold text-slate-500">列</label>
-              <input
-                type="number"
-                min="1"
-                max="80"
-                value={cols}
-                onChange={(e) => onInitBoard(rows, parseInt(e.target.value, 10) || 5)}
-                className="w-12 px-1 py-1 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 text-center"
-              />
+              <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => stepCol(-1)}
+                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
+                  title="减小列数"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  max="80"
+                  value={colText}
+                  onChange={(e) => setColText(e.target.value)}
+                  onBlur={commitCol}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      commitCol();
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onWheel={(e) => (e.deltaY < 0 ? stepCol(1) : stepCol(-1))}
+                  className="w-11 px-0.5 py-1 text-xs outline-none focus:bg-indigo-50 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => stepCol(1)}
+                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
+                  title="增大列数"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
             </div>
             <div className="flex ml-auto gap-1">
               <select
@@ -526,79 +690,6 @@ const SidePanel = ({
             </div>
           </div>
         </Accordion>
-
-        {/* === 3. 辅助设置（仅游玩） === */}
-        {mode === 'play' && (
-        <Accordion title="游戏辅助" icon={SlidersHorizontal} defaultOpen={false}>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={gameSettings.completeLineStyle === 'highlight'}
-                onChange={(e) =>
-                  setGameSettings((p) => ({
-                    ...p,
-                    completeLineStyle: e.target.checked ? 'highlight' : 'fade',
-                  }))
-                }
-                className="accent-indigo-600 w-3 h-3"
-              />{' '}
-              行列完成后高亮背景 (取代变淡)
-            </label>
-            <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={gameSettings.autoMarkNumbers}
-                onChange={(e) => setGameSettings((p) => ({ ...p, autoMarkNumbers: e.target.checked }))}
-                className="accent-indigo-600 w-3 h-3"
-              />{' '}
-              自动高亮已达成的线索数字
-            </label>
-            <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={gameSettings.autoFillCross}
-                onChange={(e) => setGameSettings((p) => ({ ...p, autoFillCross: e.target.checked }))}
-                className="accent-indigo-600 w-3 h-3"
-              />{' '}
-              智能自动打叉 (填充满足线索及确定区域间的空白格)
-            </label>
-          </div>
-
-          <div className="border-t border-slate-100 pt-3 mt-1">
-            <span className="text-[10px] font-bold text-slate-400 mb-2 block">界面悬浮外挂显示</span>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.hoverRowClues}
-                  onChange={(e) => setGameSettings((p) => ({ ...p, hoverRowClues: e.target.checked }))}
-                  className="accent-indigo-600 w-3 h-3"
-                />
-                行线索跟随
-              </label>
-              <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.hoverColClues}
-                  onChange={(e) => setGameSettings((p) => ({ ...p, hoverColClues: e.target.checked }))}
-                  className="accent-indigo-600 w-3 h-3"
-                />
-                列线索跟随
-              </label>
-              <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.showClueSums}
-                  onChange={(e) => setGameSettings((p) => ({ ...p, showClueSums: e.target.checked }))}
-                  className="accent-indigo-600 w-3 h-3"
-                />
-                未高亮线索和
-              </label>
-            </div>
-          </div>
-        </Accordion>
-        )}
 
         {/* === 4. 收藏夹（本地 / 云端） === */}
         <Accordion title={user ? '云端收藏夹' : '本地收藏夹'} icon={FolderHeart} defaultOpen={false}>

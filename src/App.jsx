@@ -66,6 +66,7 @@ export default function NonogramApp() {
       {/* 左侧控制面板 */}
       <SidePanel
         showLeftPanel={g.showLeftPanel}
+        setShowLeftPanel={g.setShowLeftPanel}
         isPanelPinned={g.isPanelPinned}
         setIsPanelPinned={g.setIsPanelPinned}
         isPanelHovered={g.isPanelHovered}
@@ -170,6 +171,9 @@ export default function NonogramApp() {
           clueTextSize={g.clueTextSize}
           onCellMouseDown={g.handleCellMouseDown}
           onCellMouseEnter={g.handleCellMouseEnter}
+          startTouchPaint={g.startTouchPaint}
+          continueTouchPaint={g.continueTouchPaint}
+          endTouchPaint={g.endTouchPaint}
           onToggleMarkedRow={g.toggleMarkedRow}
           onToggleMarkedCol={g.toggleMarkedCol}
           onEditRowClue={g.editRowClue}
