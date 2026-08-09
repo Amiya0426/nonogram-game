@@ -2,7 +2,7 @@
 
 一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、云端收藏、用户体系、题库系统与 GIF 复盘。
 
-> 在线地址：<https://nonogram.haiyanghu.top>
+> 在线地址：<https://nonogram.amiya1223.top>
 
 ## 功能特性
 
