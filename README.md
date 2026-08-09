@@ -67,7 +67,8 @@ nonogram-game/
 │   └── e2e-turn.mjs         # 轮换打叉操作记录合并
 ├── deploy/                  # 服务器部署辅助
 │   ├── nonogram.conf        # Nginx 配置（HTTP→HTTPS 跳转 / 反向代理 / SPA）
-│   └── setup-server.sh      # 服务器初始化脚本
+│   ├── setup-server.sh      # 服务器初始化脚本
+│   └── check-cert-chain.sh  # 证书链完整性检查
 ├── deploy.ps1               # 一键部署脚本（需 NONOGRAM_SERVER 环境变量）
 └── package.json
 ```
@@ -164,28 +165,21 @@ cp deploy/nonogram.conf /etc/nginx/conf.d/nonogram.conf
 nginx -t && systemctl reload nginx
 ```
 
-### 5. HTTPS 证书（Let's Encrypt 自动续期）
+### 5. HTTPS 证书（Cloudflare Origin 证书，15 年有效期）
 
-使用 [acme.sh](https://github.com/acmesh-official/acme.sh) 签发并自动续期证书：
+站点通过 Cloudflare 代理访问，源站使用 Cloudflare Origin CA 签发的证书（15 年，无需续期）：
 
-```bash
-# 安装 acme.sh（国内服务器可从 gitee 镜像下载）
-curl -sL https://gitee.com/neilpang/acme.sh/raw/master/acme.sh -o /root/.acme.sh/acme.sh
-chmod +x /root/.acme.sh/acme.sh
-cd /root/.acme.sh && ./acme.sh --install -m admin@your-domain.com
+1. Cloudflare 控制台 → **SSL/TLS → Origin Server → Create Certificate**，主机名填 `nonogram.amiya1223.top`（或 `*.amiya1223.top` 与 `amiya1223.top`），有效期选 15 年，下载 PEM（含完整链）。
+2. 将下载内容上传到源站：
+   - 证书（含链）：`/etc/nginx/ssl/nonogram.amiya1223.top.crt`
+   - 私钥：`/etc/nginx/ssl/nonogram.amiya1223.top.key`（权限 600）
+3. 重载 Nginx：
+   ```bash
+   nginx -t && systemctl reload nginx
+   ```
+4. Cloudflare **SSL/TLS 模式设为 Full (strict)**；可用 `deploy/check-cert-chain.sh` 验证证书链完整（应包含叶子 + Cloudflare Origin CA 根共 2 张证书，且 SAN 覆盖 `nonogram.amiya1223.top`）。
 
-# 签发（HTTP-01 挑战，需 80 端口可达；DNS 代理模式下经 CDN 转发同样可行）
-/root/.acme.sh/acme.sh --issue -d your-domain.com --webroot /opt/nonogram/dist --server letsencrypt
-
-# 安装到标准路径，续期后自动 reload nginx
-mkdir -p /etc/letsencrypt/live/your-domain.com
-/root/.acme.sh/acme.sh --install-cert -d your-domain.com --ecc \
-  --fullchain-file /etc/letsencrypt/live/your-domain.com/fullchain.pem \
-  --key-file /etc/letsencrypt/live/your-domain.com/privkey.pem \
-  --reloadcmd "systemctl reload nginx"
-```
-
-acme.sh 安装时会自动配置 cron（每天检查续期），无需手动维护。若使用 CDN 代理（如 Cloudflare），建议将 SSL 模式设为 **Full (strict)**。
+> 说明：Origin 证书仅对经过 Cloudflare 的访问有效，无需 acme.sh / Let's Encrypt，也没有续期 cron。若源站位于中国大陆云服务器（腾讯云/阿里云），必须先完成 ICP 备案，否则云厂商会拦截未备案域名的 HTTP/HTTPS 访问（表现为 Cloudflare 525 或 403 拦截页）。
 
 ### 6. 一键部署（可选）
 
@@ -199,7 +193,7 @@ powershell -File deploy.ps1 "部署说明"
 ### 7. 安全建议
 
 - 使用 SSH 密钥登录，关闭 root 密码登录；
-- 配置 HTTPS（Let's Encrypt 等）后设置环境变量 `SECURE_COOKIE=1`；
+- 配置 HTTPS（Cloudflare Origin 证书等）后设置环境变量 `SECURE_COOKIE=1`；
 - 定期备份数据库文件 `server/data/app.db`（建议 cron）；
 - 服务器对公网提供服务请完成 ICP 备案，并配置防火墙仅开放 80/443。
 

@@ -23,3 +23,7 @@ server/data
 *.njsproj
 *.sln
 *.sw?
+
+# 证书私钥等敏感文件不要入库
+deploy/*.pem
+deploy/origin-*
