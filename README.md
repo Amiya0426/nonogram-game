@@ -2,7 +2,7 @@
 
 一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、题库浏览、用户体系与 GIF 复盘。
 
-> **English:** [README.en.md](README.en.md) · **日本語 / 繁體中文:** 界面已支持，README 暂未翻译
+> **English:** [docs/README.en.md](docs/README.en.md) · **繁體中文:** [docs/README.zh-Hant.md](docs/README.zh-Hant.md) · **日本語:** [docs/README.ja.md](docs/README.ja.md)
 
 > 在线地址：<https://nonogram.amiya1223.top>
 
@@ -173,15 +173,15 @@ nginx -t && systemctl reload nginx
 
 站点通过 Cloudflare 代理访问，源站使用 Cloudflare Origin CA 签发的证书（15 年，无需续期）：
 
-1. Cloudflare 控制台 → **SSL/TLS → Origin Server → Create Certificate**，主机名填 `nonogram.amiya1223.top`（或 `*.amiya1223.top` 与 `amiya1223.top`），有效期选 15 年，下载 PEM（含完整链）。
+1. Cloudflare 控制台 → **SSL/TLS → Origin Server → Create Certificate**，主机名填 `example.com`（或 `*.example.com`），有效期选 15 年，下载 PEM（含完整链）。
 2. 将下载内容上传到源站：
-   - 证书（含链）：`/etc/nginx/ssl/nonogram.amiya1223.top.crt`
-   - 私钥：`/etc/nginx/ssl/nonogram.amiya1223.top.key`（权限 600）
+   - 证书（含链）：`/etc/nginx/ssl/example.com.crt`
+   - 私钥：`/etc/nginx/ssl/example.com.key`（权限 600）
 3. 重载 Nginx：
    ```bash
    nginx -t && systemctl reload nginx
    ```
-4. Cloudflare **SSL/TLS 模式设为 Full (strict)**；可用 `deploy/check-cert-chain.sh` 验证证书链完整（应包含叶子 + Cloudflare Origin CA 根共 2 张证书，且 SAN 覆盖 `nonogram.amiya1223.top`）。
+4. Cloudflare **SSL/TLS 模式设为 Full (strict)**；可用 `deploy/check-cert-chain.sh` 验证证书链完整（应包含叶子 + Cloudflare Origin CA 根共 2 张证书，且 SAN 覆盖 `example.com`）。
 
 > 说明：Origin 证书仅对经过 Cloudflare 的访问有效，无需 acme.sh / Let's Encrypt，也没有续期 cron。若源站位于中国大陆云服务器（腾讯云/阿里云），必须先完成 ICP 备案，否则云厂商会拦截未备案域名的 HTTP/HTTPS 访问（表现为 Cloudflare 525 或 403 拦截页）。
 

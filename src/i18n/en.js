@@ -214,7 +214,7 @@ export default {
     colConflict: '⚠️ Warning: logical contradiction found in column {n}! The current marks can no longer satisfy the column clues. Please check carefully.',
     hintBoth: 'There are {black} cells that must be filled and {cross} cells that must be crossed.',
     hintBlack: 'There are {black} cells that can be safely filled.',
-    hintCross: 'There are {cross} cells that must be crossed.',
+    hintCross: 'There are {cross} cells that must be crossed (cannot be filled).',
     hintSummary: '💡 Breakthrough at {direction} {index} (clues: {clue}). After excluding all impossible combinations based on your marks, {explain} Try deducing this section!',
     hintRowDir: 'row',
     hintColDir: 'column',

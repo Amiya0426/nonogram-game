@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Check, PencilLine } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Check, PencilLine, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 
 const SIZE_PRESETS = [
@@ -221,14 +221,21 @@ const PuzzleBrowser = ({
         </div>
 
         {/* 列表 */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {browse.loading ? (
-            <p className="text-center text-sm text-slate-400 py-10">{t('browse.loading')}</p>
-          ) : browse.items.length === 0 ? (
-            <p className="text-center text-sm text-slate-400 py-10">{t('browse.empty')}</p>
+        <div className="flex-1 overflow-y-auto p-4 min-h-[50vh]">
+          {browse.loading && browse.items.length > 0 && (
+            <div className="sticky top-0 z-10 -mt-1 mb-2 flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur rounded-lg py-1.5 text-[11px] text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('browse.loading')}
+            </div>
+          )}
+          {browse.items.length === 0 ? (
+            <p className="text-center text-sm text-slate-400 py-10">
+              {browse.loading ? t('browse.loading') : t('browse.empty')}
+            </p>
           ) : (
             <div
-              className="grid gap-2.5"
+              className={`grid gap-2.5 ${
+                browse.loading ? 'opacity-50 pointer-events-none' : ''
+              }`}
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}
             >
               {browse.items.map((item) => {

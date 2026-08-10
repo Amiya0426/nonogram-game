@@ -214,7 +214,7 @@ export default {
     colConflict: '⚠️ 警告：在 縱向第 {n} 列 發現了邏輯矛盾！目前填入的格子已經無法滿足該列的線索，請仔細檢查。',
     hintBoth: '必然有 {black} 個可以塗黑的方塊，以及 {cross} 個可以打叉的空白。',
     hintBlack: '必然有 {black} 個方塊是可以被安全塗黑的。',
-    hintCross: '必然有 {cross} 個地方是不可能被打叉的（應該打叉）。',
+    hintCross: '必然有 {cross} 個格子必須打叉（不可能被塗黑）。',
     hintSummary: '💡 破局點在 {direction} {index} 行/列 (線索: {clue})。結合您現有的標記，排除掉所有不可能的組合後，{explain} 試著推演一下這一段！',
     hintRowDir: '橫向第',
     hintColDir: '縱向第',

@@ -214,7 +214,7 @@ export default {
     colConflict: '⚠️ 警告：在 纵向第 {n} 列 发现了逻辑矛盾！当前填入的格子已经无法满足该列的线索，请仔细检查。',
     hintBoth: '必然有 {black} 个可以涂黑的方块，以及 {cross} 个可以打叉的空白。',
     hintBlack: '必然有 {black} 个方块是可以被安全涂黑的。',
-    hintCross: '必然有 {cross} 个地方是不可能被打叉的（应该打叉）。',
+    hintCross: '必然有 {cross} 个格子必须打叉（不可能被涂黑）。',
     hintSummary: '💡 破局点在 {direction} {index} 行/列 (线索: {clue})。结合您现有的标记，排除掉所有不可能的组合后，{explain} 试着推演一下这一段！',
     hintRowDir: '横向第',
     hintColDir: '纵向第',

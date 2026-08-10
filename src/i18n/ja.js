@@ -214,7 +214,7 @@ export default {
     colConflict: '⚠️ 警告：{n} 列目に論理的な矛盾が見つかりました！現在のマスではこの列の手がかりを満たせません。よく確認してください。',
     hintBoth: '必ず {black} マスを塗れ、{cross} マスにバツを付けられます。',
     hintBlack: '必ず {black} マスを安全に塗れます。',
-    hintCross: '必ず {cross} マスはバツにできません（バツにすべきです）。',
+    hintCross: '必ず {cross} マスはバツにする必要があります（塗ることはできません）。',
     hintSummary: '💡 突破口は {direction} {index}（手がかり：{clue}）。現在のマークから不可能な組み合わせをすべて除外すると、{explain} この部分を推論してみましょう！',
     hintRowDir: '横方向の',
     hintColDir: '縦方向の',

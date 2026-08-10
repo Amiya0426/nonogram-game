@@ -1,5 +1,7 @@
 # Nonogram
 
+> **简体中文:** [../README.md](../README.md) · **繁體中文:** [README.zh-Hant.md](README.zh-Hant.md) · **日本語:** [README.ja.md](README.ja.md)
+
 A complete browser-based Nonogram (Paint by Numbers) puzzle game: play, deduction, custom puzzles, puzzle library browsing, user accounts, and GIF replays.
 
 > Online: <https://nonogram.amiya1223.top>
@@ -170,15 +172,15 @@ nginx -t && systemctl reload nginx
 
 The site is accessed through Cloudflare; the origin uses a Cloudflare Origin CA certificate (15 years, no renewal):
 
-1. Cloudflare dashboard → **SSL/TLS → Origin Server → Create Certificate**, hostname `nonogram.amiya1223.top` (or `*.amiya1223.top` and `amiya1223.top`), validity 15 years, download the PEM (full chain).
+1. Cloudflare dashboard → **SSL/TLS → Origin Server → Create Certificate**, hostname `example.com` (or `*.example.com`), validity 15 years, download the PEM (full chain).
 2. Upload to the origin:
-   - Certificate (with chain): `/etc/nginx/ssl/nonogram.amiya1223.top.crt`
-   - Private key: `/etc/nginx/ssl/nonogram.amiya1223.top.key` (mode 600)
+   - Certificate (with chain): `/etc/nginx/ssl/example.com.crt`
+   - Private key: `/etc/nginx/ssl/example.com.key` (mode 600)
 3. Reload Nginx:
    ```bash
    nginx -t && systemctl reload nginx
    ```
-4. Set Cloudflare **SSL/TLS mode to Full (strict)**; run `deploy/check-cert-chain.sh` to verify the chain (leaf + Cloudflare Origin CA root = 2 certs, SAN covers `nonogram.amiya1223.top`).
+4. Set Cloudflare **SSL/TLS mode to Full (strict)**; run `deploy/check-cert-chain.sh` to verify the chain (leaf + Cloudflare Origin CA root = 2 certs, SAN covers `example.com`).
 
 > Note: Origin certificates only work through Cloudflare; no acme.sh / Let's Encrypt or renewal cron is needed. If the origin is on a mainland China cloud server (Tencent/Aliyun), an ICP filing is required first — otherwise the provider blocks HTTP/HTTPS access to the domain (shown as Cloudflare 525 or a 403 block page).
 
