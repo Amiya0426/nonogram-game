@@ -370,7 +370,8 @@ const SidePanel = ({
           </div>
         )}
 
-        {/* 用户卡片：登录 / 已解统计 / 题库浏览 */}
+        {mode === 'play' && (
+        <>
         <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/80 p-3 flex flex-col gap-2 shrink-0">
           {user ? (
             <>
@@ -445,6 +446,8 @@ const SidePanel = ({
             </div>
           )}
         </div>
+        </>
+        )}
 
         {hintInfo && mode === 'play' && (
           <div

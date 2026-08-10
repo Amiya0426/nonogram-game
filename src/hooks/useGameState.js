@@ -1659,11 +1659,32 @@ export default function useGameState() {
           for (let r = 0; r < rows; r++) line[r] = grid[r][c];
           return getLineClue(line);
         });
-        setRowCluesStr(rClues.map((c) => c.join(' ')));
-        setColCluesStr(cClues.map((c) => c.join('\n')));
+        const rStr = rClues.map((c) => c.join(' '));
+        const cStr = cClues.map((c) => c.join('\n'));
+        setRowCluesStr(rStr);
+        setColCluesStr(cStr);
+        // 自定义图案入库：登录后自动提交到共享题库（图案即答案，校验唯一解后入库）
+        if (user) {
+          submitToLibrary({
+            rows,
+            cols,
+            rowCluesStr: rStr,
+            colCluesStr: cStr,
+            grid: grid.map((row) => row.map((v) => (v % 2 === 1 ? 1 : 0))),
+          });
+        }
       }
       // 图案只是设计稿：完成后面板清空，让玩家从头解谜
       setGrid(createGrid(rows, cols));
+    } else if (user) {
+      // 手动输入线索模式：按当前线索入库（不带答案网格）
+      submitToLibrary({
+        rows,
+        cols,
+        rowCluesStr,
+        colCluesStr,
+        grid: null,
+      });
     }
     editSnapshotRef.current = null;
     setMarkedRowClues({});
@@ -1674,7 +1695,12 @@ export default function useGameState() {
     setMode('play');
     setHintInfo(null);
     setAlertMsg('✅ 题目已更新，开始游玩！');
-  }, [editInputMode, grid, rows, cols]);
+  }, [editInputMode, grid, rows, cols, user, submitToLibrary, rowCluesStr, colCluesStr]);
+
+  /** 滚轮缩放棋盘 */
+  const zoomBoard = useCallback((delta) => {
+    setCellSize((prev) => Math.min(MAX_CELL_SIZE, Math.max(MIN_CELL_SIZE, prev + delta)));
+  }, []);
 
   // ==========================================
   // 10. 悬浮线索提示（工具提示）分析
@@ -1814,6 +1840,7 @@ export default function useGameState() {
     loadPuzzles,
     openPuzzleFromBrowse,
     renamePuzzle,
+    zoomBoard,
     timerSeconds,
     timerRunning,
     togglePauseTimer,

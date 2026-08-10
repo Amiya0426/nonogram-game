@@ -197,6 +197,7 @@ export default function NonogramApp() {
           onEditRowClue={g.editRowClue}
           onEditColClue={g.editColClue}
           onMouseLeave={g.handleGlobalLeave}
+          onZoom={g.zoomBoard}
         />
       </div>
     </div>

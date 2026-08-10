@@ -39,10 +39,25 @@ const Board = ({
   onEditRowClue,
   onEditColClue,
   onMouseLeave,
+  onZoom,
 }) => {
   const lastHoverKeyRef = useRef('');
   const gridRef = useRef(null);
+  const scrollRef = useRef(null);
   const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
+
+  // Ctrl + 滚轮缩放棋盘（原生监听，确保 preventDefault 生效）
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      onZoom?.(e.deltaY < 0 ? 2 : -2);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [onZoom]);
 
   // 触摸拖画：长按进入绘制，快速滑动保持原生滚动
   const editableRef = useRef(editable);
@@ -189,6 +204,7 @@ const Board = ({
   return (
     <div
       id="board-scroll-container"
+      ref={scrollRef}
       className={`flex-1 overflow-auto p-4 md:p-8 flex ${getContainerBgClass(deductionLevel)}`}
       onMouseLeave={onMouseLeave}
     >
