@@ -43,7 +43,8 @@ import {
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
-import { useI18n, LANGS } from '../i18n/index.js';
+import LanguageSwitcher from './LanguageSwitcher.jsx';
+import { useI18n } from '../i18n/index.js';
 
 /** 左侧控制面板：所有折叠区与按钮 */
 const SidePanel = ({
@@ -109,7 +110,7 @@ const SidePanel = ({
   onAutoSolve,
   userProgress,
 }) => {
-  const { t, lang, setLang } = useI18n();
+  const { t } = useI18n();
   const [ioTab, setIoTab] = useState('import');
   const [activeTab, setActiveTab] = useState('game');
   const [authUsername, setAuthUsername] = useState('');
@@ -184,6 +185,7 @@ const SidePanel = ({
     <>
     {!isPanelPinned && !isPanelHovered && (
       <div
+        data-testid="panel-edge-tab"
         className="hidden md:flex fixed left-0 top-1/2 -translate-y-1/2 h-40 w-2 hover:w-6 z-30 items-center justify-start cursor-pointer group transition-all"
         onMouseEnter={() => setIsPanelHovered(true)}
       >
@@ -222,7 +224,7 @@ const SidePanel = ({
       <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
         {/* 模式头部：游玩 = 主界面；自定义题目 = 独立编辑视图 */}
         {mode === 'play' ? (
-          <div className="hidden md:flex pb-2 border-b border-slate-100 justify-between items-start">
+          <div className="hidden md:flex pb-2 border-b border-slate-100 justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2 text-indigo-900">
                 <Dices className="w-7 h-7 text-indigo-500" /> {t('app.title')}
@@ -230,13 +232,7 @@ const SidePanel = ({
               <p className="text-[10px] text-slate-400 mt-0.5">{t('app.playMode')}</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => onModeChange('edit')}
-                className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-orange-200 transition-colors"
-                title={t('panel.createPuzzleTitle')}
-              >
-                <PencilLine className="w-3.5 h-3.5" /> {t('panel.customTitle')}
-              </button>
+              <LanguageSwitcher />
               <button
                 onClick={() => {
                   setIsPanelPinned(!isPanelPinned);
@@ -781,20 +777,15 @@ const SidePanel = ({
               </button>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2 pt-2">
-            <span className="text-xs font-semibold text-slate-500">{t('panel.language')}</span>
-            <select
-              value={lang}
-              onChange={(e) => setLang(e.target.value)}
-              className="text-xs rounded-lg border border-slate-200 bg-white text-slate-600 px-2 py-1.5 outline-none"
+          {mode === 'play' && (
+            <button
+              onClick={() => onModeChange('edit')}
+              className="w-full mt-2 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-orange-200 transition-colors"
+              title={t('panel.createPuzzleTitle')}
             >
-              {LANGS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              <PencilLine className="w-3.5 h-3.5" /> {t('panel.customTitle')}
+            </button>
+          )}
         </Accordion>
         </div>
 

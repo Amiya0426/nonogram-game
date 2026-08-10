@@ -22,6 +22,14 @@ const check = (name, ok, extra = '') => {
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 });
 await page.waitForTimeout(1500);
 
+// 0) 侧边栏默认隐藏：悬停左边缘展开并固定，供后续步骤操作
+await page.mouse.move(1, 450);
+await page.waitForTimeout(700);
+const pinBtn = page.locator('button[title="固定侧边栏"]');
+check('固定侧边栏按钮存在', await pinBtn.isVisible());
+await pinBtn.click();
+await page.waitForTimeout(400);
+
 // 1) 页面渲染
 const rootLen = (await page.locator('#root').innerText()).length;
 check('页面渲染', rootLen > 100, `root=${rootLen}`);

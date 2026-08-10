@@ -1,14 +1,20 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useState } from 'react';
 import zh from './zh.js';
+import zhHant from './zh-Hant.js';
 import en from './en.js';
+import ja from './ja.js';
 
 // 新增语言：在 LANGS 中追加一项，并新增对应语言包文件、注册到 messages
 export const LANGS = [
-  { code: 'zh', label: '简体中文' },
-  { code: 'en', label: 'English' },
+  { code: 'zh', label: '简体中文', short: '中' },
+  { code: 'zh-Hant', label: '繁體中文', short: '繁' },
+  { code: 'en', label: 'English', short: 'EN' },
+  { code: 'ja', label: '日本語', short: '日' },
 ];
 
-const messages = { zh, en };
+const messages = { zh, 'zh-Hant': zhHant, en, ja };
+const HTML_LANG = { zh: 'zh-CN', 'zh-Hant': 'zh-TW', en: 'en', ja: 'ja' };
+const TITLES = { zh: '数织', 'zh-Hant': '數織', en: 'Nonogram', ja: 'ノノグラム' };
 const STORE_KEY = 'nonogram_lang';
 let currentLang = 'zh';
 
@@ -17,7 +23,11 @@ const detectLang = () => {
     const saved = localStorage.getItem(STORE_KEY);
     if (saved && messages[saved]) return saved;
     const nav = (navigator.language || 'zh').toLowerCase();
-    return nav.startsWith('zh') ? 'zh' : 'en';
+    if (nav.startsWith('zh')) {
+      return /(^|-)tw(-|$)|hk|mo|hant/.test(nav) ? 'zh-Hant' : 'zh';
+    }
+    if (nav.startsWith('ja')) return 'ja';
+    return 'en';
   } catch {
     return 'zh';
   }
@@ -51,8 +61,8 @@ export const I18nProvider = ({ children }) => {
     } catch {
       // 忽略存储失败
     }
-    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
-    document.title = lang === 'zh' ? '数织' : 'Nonogram';
+    document.documentElement.lang = HTML_LANG[lang] || 'zh-CN';
+    document.title = TITLES[lang] || 'Nonogram';
   }, [lang]);
 
   const setLang = useCallback((code) => {

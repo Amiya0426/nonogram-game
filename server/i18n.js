@@ -23,6 +23,30 @@ const zh = {
   'api.internal_error': '服务器内部错误',
 };
 
+const zhHant = {
+  'auth.username_invalid': '使用者名稱需為 2-32 位字母、數字、底線或中文',
+  'auth.password_invalid': '密碼長度需為 6-72 位',
+  'auth.user_exists': '使用者名稱已存在，請直接登入',
+  'auth.credentials_required': '請輸入使用者名稱和密碼',
+  'auth.wrong_credentials': '使用者名稱或密碼錯誤',
+  'auth.unauthorized': '未登入',
+  'auth.session_expired': '工作階段已過期，請重新登入',
+  'auth.rate_limited': '嘗試次數過多，請 15 分鐘後再試',
+  'puzzle.none': '暫無該尺寸範圍的題目，請先匯入題庫',
+  'puzzle.import_empty': '請提供 puzzle 或 puzzles 陣列',
+  'puzzle.import_too_many': '單次最多匯入 200 道題',
+  'puzzle.invalid_format': '題目格式不正確',
+  'puzzle.no_solution': '題目無解',
+  'puzzle.multi_solution': '題目存在多個解，不符合唯一解要求',
+  'puzzle.timeout': '唯一解驗證逾時，暫無法入庫',
+  'puzzle.batch_timeout': '整體驗證逾時，請分批匯入',
+  'puzzle.not_found': '題目不存在',
+  'puzzle.rename_forbidden': '只能修改自己匯入的題目名稱',
+  'puzzle.grid_mismatch': '盤面與答案不一致',
+  'api.not_found': '介面不存在',
+  'api.internal_error': '伺服器內部錯誤',
+};
+
 const en = {
   'auth.username_invalid': 'Username must be 2-32 letters, digits, underscores or Chinese characters',
   'auth.password_invalid': 'Password must be 6-72 characters',
@@ -47,12 +71,42 @@ const en = {
   'api.internal_error': 'Internal server error',
 };
 
+const ja = {
+  'auth.username_invalid': 'ユーザー名は 2〜32 文字の英字・数字・アンダースコア・日本語にしてください',
+  'auth.password_invalid': 'パスワードは 6〜72 文字にしてください',
+  'auth.user_exists': 'このユーザー名は既に登録されています。そのままログインしてください',
+  'auth.credentials_required': 'ユーザー名とパスワードを入力してください',
+  'auth.wrong_credentials': 'ユーザー名またはパスワードが正しくありません',
+  'auth.unauthorized': 'ログインしていません',
+  'auth.session_expired': 'セッションの有効期限が切れました。再度ログインしてください',
+  'auth.rate_limited': '試行回数が多すぎます。15分後にもう一度お試しください',
+  'puzzle.none': 'このサイズのパズルはまだありません。先にライブラリへインポートしてください',
+  'puzzle.import_empty': 'puzzle または puzzles 配列を指定してください',
+  'puzzle.import_too_many': '一度にインポートできるのは最大 200 問です',
+  'puzzle.invalid_format': 'パズルの形式が正しくありません',
+  'puzzle.no_solution': 'このパズルには解がありません',
+  'puzzle.multi_solution': 'このパズルには複数の解があり、一意解の要件を満たしていません',
+  'puzzle.timeout': '一意解の検証がタイムアウトしました。まだ追加できません',
+  'puzzle.batch_timeout': '一括検証がタイムアウトしました。分割してインポートしてください',
+  'puzzle.not_found': 'パズルが見つかりません',
+  'puzzle.rename_forbidden': '自分がインポートしたパズルのみ名前を変更できます',
+  'puzzle.grid_mismatch': '盤面が答えと一致しません',
+  'api.not_found': 'エンドポイントが存在しません',
+  'api.internal_error': 'サーバー内部エラー',
+};
+
+const DICTS = { zh, 'zh-Hant': zhHant, en, ja };
+
 const pickLang = (req) => {
   const h = String(req.headers?.['accept-language'] || 'zh').toLowerCase();
-  return h.startsWith('zh') ? 'zh' : 'en';
+  if (h.startsWith('zh')) {
+    return /(^|-)tw(-|$)|hk|mo|hant/.test(h) ? 'zh-Hant' : 'zh';
+  }
+  if (h.startsWith('ja')) return 'ja';
+  return 'en';
 };
 
 export const msg = (req, key) => {
-  const dict = pickLang(req) === 'en' ? en : zh;
-  return dict[key] ?? zh[key] ?? key;
+  const dict = DICTS[pickLang(req)];
+  return dict?.[key] ?? zh[key] ?? key;
 };

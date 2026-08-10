@@ -105,8 +105,8 @@ export default function useGameState() {
   );
   const [backupGrids, setBackupGrids] = useState(savedState?.backupGrids || []);
 
-  const [showLeftPanel, setShowLeftPanel] = useState(true);
-  const [isPanelPinned, setIsPanelPinned] = useState(true);
+  const [showLeftPanel, setShowLeftPanel] = useState(false);
+  const [isPanelPinned, setIsPanelPinned] = useState(false);
   const [isPanelHovered, setIsPanelHovered] = useState(false);
 
   const [importData, setImportData] = useState('');

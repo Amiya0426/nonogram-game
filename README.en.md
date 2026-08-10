@@ -14,7 +14,7 @@ A complete browser-based Nonogram (Paint by Numbers) puzzle game: play, deductio
 - **Puzzle Import**: import from files / codes / page source; the server validates format and unique solution before adding to the library.
 - **Timer & Replay**: timing starts on your first move and can be paused; after solving, generate a GIF replay in move order.
 - **Responsive**: desktop sidebar with accordions; mobile full-screen drawer with bottom tab navigation.
-- **i18n**: simplified Chinese and English, with an extensible language pack system (Japanese / Traditional Chinese can be added easily).
+- **i18n**: Simplified Chinese, Traditional Chinese, English and Japanese, with an extensible language pack system (more languages can be added easily).
 
 ## Tech Stack
 
@@ -36,7 +36,7 @@ nonogram-game/
 │   ├── App.jsx              # Layout and component assembly
 │   ├── constants.js         # Theme, presets, board limits
 │   ├── api.js               # Backend API wrapper
-│   ├── i18n/                # Language packs (zh / en, extensible)
+│   ├── i18n/                # Language packs (zh / zh-Hant / en / ja, extensible)
 │   ├── hooks/
 │   │   └── useGameState.js  # Global state and business logic
 │   ├── logic/               # Pure functions (no React dependency)

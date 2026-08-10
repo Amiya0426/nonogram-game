@@ -2,7 +2,7 @@
 
 一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、题库浏览、用户体系与 GIF 复盘。
 
-> **English:** [README.en.md](README.en.md) · **日本語 / 繁體中文:** 敬请期待（i18n 体系已支持，待翻译）
+> **English:** [README.en.md](README.en.md) · **日本語 / 繁體中文:** 界面已支持，README 暂未翻译
 
 > 在线地址：<https://nonogram.amiya1223.top>
 
@@ -37,7 +37,7 @@ nonogram-game/
 │   ├── App.jsx              # 布局与组件装配
 │   ├── constants.js         # 主题、预设题目、棋盘上限等常量
 │   ├── api.js               # 后端 API 封装
-│   ├── i18n/                # 多语言（简体中文 / English，可扩展）
+│   ├── i18n/                # 多语言（简体中文 / 繁體中文 / English / 日本語，可扩展）
 │   ├── hooks/
 │   │   └── useGameState.js  # 全局状态与业务逻辑
 │   ├── logic/               # 纯函数逻辑（无 React 依赖）

@@ -7,6 +7,7 @@ import PuzzleBrowser from './components/PuzzleBrowser.jsx';
 import FloatingTimer from './components/FloatingTimer.jsx';
 import ImageToPuzzle from './components/ImageToPuzzle.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
+import LanguageSwitcher from './components/LanguageSwitcher.jsx';
 import './App.css';
 import { useI18n } from './i18n/index.js';
 
@@ -42,7 +43,7 @@ export default function NonogramApp() {
       />
 
       {/* 移动端顶栏 */}
-      <div className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center z-20 shadow-sm shrink-0">
+      <div className="md:hidden bg-white border-b border-slate-200 p-4 flex justify-between items-center z-40 shadow-sm shrink-0">
         <h1 className="text-xl font-bold flex items-center gap-2 text-indigo-900">
           <Dices className="w-6 h-6 text-indigo-500" /> Nonogram
         </h1>
@@ -62,6 +63,7 @@ export default function NonogramApp() {
               <PencilLine className="w-4 h-4" /> {t('app.custom')}
             </button>
           )}
+          <LanguageSwitcher compact />
           <button
             onClick={() => g.setShowLeftPanel(!g.showLeftPanel)}
             className="p-2 bg-slate-100 rounded-md"

@@ -2,13 +2,14 @@
 import { translate, getLang } from './i18n/index.js';
 
 const BASE = import.meta.env.VITE_API_BASE || '';
+const LANG_TAGS = { zh: 'zh-CN', 'zh-Hant': 'zh-TW', en: 'en', ja: 'ja' };
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'Accept-Language': getLang() === 'zh' ? 'zh-CN' : 'en',
+      'Accept-Language': LANG_TAGS[getLang()] || 'en',
     },
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
