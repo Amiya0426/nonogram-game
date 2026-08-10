@@ -905,11 +905,11 @@ const SidePanel = ({
         </div>
 
         <div className={tabCls('collection')}>
-<Accordion title={user ? '云端收藏夹' : '本地收藏夹'} icon={FolderHeart} defaultOpen={false}>
+<Accordion title="收藏夹" icon={FolderHeart} defaultOpen={false}>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-1 px-0.5 text-[10px] text-slate-500">
               <span className="truncate">
-                {user ? '云端已同步' : '本地保存，登录后自动同步'} · {puzzleCollection.length} 个
+                {user ? '云端已同步' : '登录后收藏将同步到云端'} · {puzzleCollection.length} 个
               </span>
               <select
                 value={collectionSort}

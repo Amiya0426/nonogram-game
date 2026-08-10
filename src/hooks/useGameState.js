@@ -509,7 +509,7 @@ export default function useGameState() {
 
   // 完成时：把收藏夹中内容一致且未关联题库的条目标记为已完成（云端同步更新）
   useEffect(() => {
-    if (!isSolvedStatus || mode !== 'play') return;
+    if (!isSolvedStatus || mode !== 'play' || moveHistory.length === 0) return;
     const key = puzzleContentKey({ rows, cols, rowCluesStr, colCluesStr });
     const timer = setTimeout(() => {
       setPuzzleCollection((prev) => {
@@ -520,7 +520,6 @@ export default function useGameState() {
         const next = prev.map((it) =>
           matched.includes(it) ? { ...it, isSolvedStatus: true } : it,
         );
-        saveJSON(COLLECTION_KEY, next);
         if (user) {
           for (const it of matched) {
             api
@@ -532,7 +531,7 @@ export default function useGameState() {
       });
     }, 0);
     return () => clearTimeout(timer);
-  }, [isSolvedStatus, mode, rows, cols, rowCluesStr, colCluesStr, user]);
+  }, [isSolvedStatus, mode, moveHistory.length, rows, cols, rowCluesStr, colCluesStr, user]);
 
   // ==========================================
   // 计时：每盘开始计时，可暂停；完成后停止
@@ -1376,29 +1375,17 @@ export default function useGameState() {
     setAlertMsg('已退出登录，云端收藏已保留，随时可再登录。');
   }, []);
 
-  /** 保存一个收藏条目（云端或本地），返回保存后的条目 */
+  /** 保存一个收藏条目到云端（收藏仅云端保存），返回保存后的条目 */
   const persistCollectionItem = useCallback(
     (item) => {
-      if (user) {
-        return api.addCollection(item).then((saved) => {
-          setPuzzleCollection((prev) => [saved, ...prev]);
-          setSelectedCollectionIds((prev) => [saved.id, ...prev]);
-          return saved;
-        });
-      }
-      const entry = {
-        id: Date.now(),
-        name: item.name,
-        date: new Date().toLocaleString(),
-        ...item,
-      };
-      const newCol = [entry, ...puzzleCollection];
-      setPuzzleCollection(newCol);
-      setSelectedCollectionIds((prev) => [entry.id, ...prev]);
-      saveJSON(COLLECTION_KEY, newCol);
-      return Promise.resolve(entry);
+      if (!user) return Promise.reject(new Error('请先登录后再收藏'));
+      return api.addCollection(item).then((saved) => {
+        setPuzzleCollection((prev) => [saved, ...prev]);
+        setSelectedCollectionIds((prev) => [saved.id, ...prev]);
+        return saved;
+      });
     },
-    [user, puzzleCollection],
+    [user],
   );
 
   const saveToCollection = useCallback(() => {
@@ -1464,38 +1451,34 @@ export default function useGameState() {
           })
           .catch((e) => setAlertMsg(`❌ 改名失败：${e.message}`));
       } else {
-        setPuzzleCollection((prev) => {
-          const next = prev.map((p) => (p.id === id ? { ...p, name } : p));
-          saveJSON(COLLECTION_KEY, next);
-          return next;
-        });
-        setAlertMsg(`✅ 已重命名为 "${name}"`);
+        setAlertMsg('请先登录后再操作收藏');
       }
     },
     [user, puzzleCollection],
   );
 
-  /** 导入题目后自动加入收藏夹（内容重复则跳过） */
+  /** 导入题目后自动加入收藏夹（仅登录用户；内容重复则跳过；题目默认未完成） */
   const autoAddImported = useCallback(
     (puzzleData) => {
+      if (!user) return;
       const item = {
         name: `导入 ${puzzleData.cols}x${puzzleData.rows}`,
         rows: puzzleData.rows,
         cols: puzzleData.cols,
         rowCluesStr: puzzleData.rowCluesStr,
         colCluesStr: puzzleData.colCluesStr,
-        grid: puzzleData.grid || createGrid(puzzleData.rows, puzzleData.cols),
-        markedRowClues: puzzleData.markedRowClues || {},
-        markedColClues: puzzleData.markedColClues || {},
-        isSolvedStatus: !!puzzleData.isSolvedStatus,
-        deductionLevel: puzzleData.deductionLevel || 0,
+        grid: createGrid(puzzleData.rows, puzzleData.cols),
+        markedRowClues: {},
+        markedColClues: {},
+        isSolvedStatus: false,
+        deductionLevel: 0,
         backupGrids: [],
       };
       const key = puzzleContentKey(item);
       if (puzzleCollection.some((it) => puzzleContentKey(it) === key)) return;
       persistCollectionItem(item).catch(() => {});
     },
-    [puzzleCollection, persistCollectionItem],
+    [user, puzzleCollection, persistCollectionItem],
   );
 
   const loadFromCollection = useCallback(
@@ -1531,12 +1514,7 @@ export default function useGameState() {
         })
         .catch((e) => setAlertMsg(`❌ 删除失败：${e.message}`));
     } else {
-      setPuzzleCollection((prev) => {
-        const newCol = prev.filter((p) => p.id !== id);
-        saveJSON(COLLECTION_KEY, newCol);
-        return newCol;
-      });
-      setSelectedCollectionIds((prev) => prev.filter((itemId) => itemId !== id));
+      setAlertMsg('请先登录后再操作收藏');
     }
   }, [user]);
 
@@ -1559,11 +1537,7 @@ export default function useGameState() {
         })
         .catch(() => setAlertMsg('❌ 删除失败，请稍后重试'));
     } else {
-      const newCol = puzzleCollection.filter((p) => !ids.includes(p.id));
-      saveJSON(COLLECTION_KEY, newCol);
-      setPuzzleCollection(newCol);
-      setSelectedCollectionIds([]);
-      setAlertMsg(`✅ 已删除 ${ids.length} 个本地收藏`);
+      setAlertMsg('请先登录后再操作收藏');
     }
   }, [user, selectedCollectionIds, puzzleCollection]);
 
@@ -1754,19 +1728,7 @@ export default function useGameState() {
           `✅ 批量导入完成：新增 ${ok} 个${skipped ? `，跳过 ${skipped} 个重复` : ''}`,
         );
       } else {
-        const newCol = [
-          ...fresh.map((it, i) => ({
-            id: Date.now() + i,
-            date: new Date().toLocaleString(),
-            ...it,
-          })),
-          ...puzzleCollection,
-        ];
-        setPuzzleCollection(newCol);
-        saveJSON(COLLECTION_KEY, newCol);
-        setAlertMsg(
-          `✅ 批量导入完成：新增 ${fresh.length} 个${skipped ? `，跳过 ${skipped} 个重复` : ''}`,
-        );
+        setAlertMsg('请先登录后再导入收藏');
       }
     },
     [user, puzzleCollection],
@@ -1928,7 +1890,9 @@ export default function useGameState() {
         };
         submitToLibrary(importedData);
         autoAddImported(importedData);
-        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题，已加入收藏夹。`);
+        setAlertMsg(
+          `✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题${user ? '，已加入收藏夹' : ''}。`,
+        );
       } else {
         const puzzle = extractPuzzleFromHtml(data);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
@@ -1941,7 +1905,9 @@ export default function useGameState() {
         };
         submitToLibrary(importedData);
         autoAddImported(importedData);
-        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题，已加入收藏夹。`);
+        setAlertMsg(
+          `✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题${user ? '，已加入收藏夹' : ''}。`,
+        );
       }
       setImportData('');
       setMode('play');
@@ -1950,7 +1916,7 @@ export default function useGameState() {
     } finally {
       setIsImporting(false);
     }
-  }, [importData, initBoard, submitToLibrary, autoAddImported]);
+  }, [importData, initBoard, submitToLibrary, autoAddImported, user]);
 
   const handleModeChange = useCallback((m) => {
     setMode(m);

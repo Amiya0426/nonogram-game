@@ -151,11 +151,11 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 const rowToItem = (row) => {
   const puzzle = JSON.parse(row.puzzle_json || '{}');
   return {
+    ...puzzle,
     id: row.id,
     name: row.name,
     date: row.created_at,
     puzzle_id: row.puzzle_id ?? null,
-    ...puzzle,
   };
 };
 
