@@ -25,17 +25,15 @@ export const api = {
     request('/api/auth/login', { method: 'POST', body: { username, password } }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   me: () => request('/api/auth/me'),
-  listCollections: () => request('/api/collections'),
-  addCollection: (item) =>
-    request('/api/collections', {
-      method: 'POST',
-      body: { name: item.name, puzzle: item },
-    }),
-  updateCollection: (id, patch) =>
-    request(`/api/collections/${id}`, { method: 'PUT', body: patch }),
-  deleteCollection: (id) => request(`/api/collections/${id}`, { method: 'DELETE' }),
 
   // 题库
+  listPuzzles: (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+    });
+    return request(`/api/puzzles${qs.toString() ? `?${qs}` : ''}`);
+  },
   randomPuzzle: (params = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

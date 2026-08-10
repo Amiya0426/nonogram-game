@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   RefreshCw,
@@ -21,12 +21,9 @@ import {
   ClipboardCopy,
   FileJson,
   Image as ImageIcon,
-  Trash2,
-  BookmarkPlus,
   GitBranch,
   X,
   Undo2,
-  FolderHeart,
   FileSymlink,
   ChevronRight,
   Globe,
@@ -37,9 +34,7 @@ import {
   UserRound,
   LogIn,
   LogOut,
-  FolderInput,
   ClipboardPaste,
-  ListChecks,
   Minus,
   Plus,
   Clock,
@@ -47,6 +42,7 @@ import {
   Play,
   Film,
   Trophy,
+  Library,
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
@@ -94,19 +90,9 @@ const SidePanel = ({
   cellSize,
   setCellSize,
   onFitToWidth,
-  puzzleCollection,
-  selectedCollectionIds,
-  onSaveToCollection,
-  onRenameCollection,
-  isItemCompleted,
-  onLoadFromCollection,
-  onToggleSelection,
-  onSelectAll,
-  onClearSelection,
-  onDeleteFromCollection,
-  onDeleteSelected,
-  onExportCollection,
-  onImportCollectionFiles,
+  browse,
+  onLoadPuzzles,
+  onOpenPuzzle,
   onExportCode,
   onExportJSON,
   onExportImage,
@@ -136,8 +122,19 @@ const SidePanel = ({
   const [activeTab, setActiveTab] = useState('game');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [collectionSelectMode, setCollectionSelectMode] = useState(false);
-  const [collectionSort, setCollectionSort] = useState('newest');
+  const [browseSize, setBrowseSize] = useState('all');
+
+  // 首次打开题库页时自动加载第一页
+  useEffect(() => {
+    if (
+      activeTab === 'browse' &&
+      !browse.loading &&
+      browse.items.length === 0 &&
+      browse.total === 0
+    ) {
+      onLoadPuzzles(1, browse.rows, browse.cols);
+    }
+  }, [activeTab, browse.loading, browse.items.length, browse.total, browse.rows, browse.cols, onLoadPuzzles]);
   const [imgScale, setImgScale] = useState('2');
   const [imgJpegQuality, setImgJpegQuality] = useState('0.9');
   const [imgDpi, setImgDpi] = useState('96');
@@ -171,7 +168,6 @@ const SidePanel = ({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   };
-  const batchImportInputRef = useRef(null);
   const [rowText, setRowText] = useState(String(rows));
   const [colText, setColText] = useState(String(cols));
   const [prevRows, setPrevRows] = useState(rows);
@@ -225,37 +221,6 @@ const SidePanel = ({
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [userProgress]);
 
-  /** 已完成/未完成 + 导入时间排序 */
-  const sortedCollection = useMemo(() => {
-    const list = [...puzzleCollection];
-    const sortTime = (item) =>
-      user
-        ? Date.parse(String(item.date || '').replace(' ', 'T') + 'Z') || 0
-        : Number(item.id) || 0;
-    switch (collectionSort) {
-      case 'oldest':
-        list.sort((a, b) => sortTime(a) - sortTime(b));
-        break;
-      case 'uncompleted':
-        list.sort(
-          (a, b) =>
-            (isItemCompleted(a) ? 1 : 0) - (isItemCompleted(b) ? 1 : 0) ||
-            sortTime(b) - sortTime(a),
-        );
-        break;
-      case 'completed':
-        list.sort(
-          (a, b) =>
-            (isItemCompleted(b) ? 1 : 0) - (isItemCompleted(a) ? 1 : 0) ||
-            sortTime(b) - sortTime(a),
-        );
-        break;
-      default:
-        list.sort((a, b) => sortTime(b) - sortTime(a));
-    }
-    return list;
-  }, [puzzleCollection, collectionSort, user, isItemCompleted]);
-
   return (
     <>
     {!isPanelPinned && !isPanelHovered && (
@@ -308,7 +273,7 @@ const SidePanel = ({
                 <div className="text-sm font-bold text-slate-800 truncate">{user.username}</div>
                 <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
                   <Trophy className="w-3 h-3 text-amber-500" />
-                  已解 {userProgress.length} 题 · 云端收藏 {puzzleCollection.length} 个
+                  已解 {userProgress.length} 题
                 </div>
               </div>
               <button
@@ -902,205 +867,102 @@ const SidePanel = ({
           </div>
         </Accordion>
 
-        {/* === 4. 收藏夹（本地 / 云端） === */}
+        {/* === 4. 题库浏览 === */}
         </div>
 
-        <div className={tabCls('collection')}>
-<Accordion title="收藏夹" icon={FolderHeart} defaultOpen={false}>
+        <div className={tabCls('browse')}>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-1 px-0.5 text-[10px] text-slate-500">
-              <span className="truncate">
-                {user ? '云端已同步' : '登录后收藏将同步到云端'} · {puzzleCollection.length} 个
-              </span>
+              <span className="truncate">题库共 {browse.total} 题</span>
               <select
-                value={collectionSort}
-                onChange={(e) => setCollectionSort(e.target.value)}
+                value={browseSize}
+                onChange={(e) => {
+                  setBrowseSize(e.target.value);
+                  const [rw, cl] =
+                    e.target.value === 'all'
+                      ? [null, null]
+                      : e.target.value.split('x').map(Number);
+                  onLoadPuzzles(1, rw, cl);
+                }}
                 className="shrink-0 text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-0.5 outline-none focus:border-indigo-400"
-                title="排序方式"
+                title="尺寸筛选"
               >
-                <option value="newest">最新导入</option>
-                <option value="oldest">最早导入</option>
-                <option value="uncompleted">未完成优先</option>
-                <option value="completed">已完成优先</option>
+                <option value="all">全部尺寸</option>
+                <option value="5x5">5×5</option>
+                <option value="10x10">10×10</option>
+                <option value="15x15">15×15</option>
+                <option value="20x20">20×20</option>
+                <option value="25x25">25×25</option>
+                <option value="30x30">30×30</option>
               </select>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between gap-1.5">
               <button
-                onClick={onSaveToCollection}
-                className="flex-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition-colors border border-indigo-200 flex items-center justify-center gap-1"
-                title="把当前题目存入收藏夹"
+                onClick={() => onLoadPuzzles(browse.page - 1, browse.rows, browse.cols)}
+                disabled={browse.page <= 1 || browse.loading}
+                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-600 rounded border border-slate-200 text-[10px] font-bold disabled:opacity-40"
               >
-                <BookmarkPlus className="w-3 h-3" /> 存入当前
+                上一页
               </button>
+              <span className="text-[10px] text-slate-500">
+                {browse.total === 0
+                  ? '0 / 0'
+                  : `第 ${browse.page} / ${Math.max(1, Math.ceil(browse.total / browse.perPage))} 页`}
+              </span>
               <button
-                onClick={() => batchImportInputRef.current?.click()}
-                className="flex-1 px-2 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded text-[10px] font-bold transition-colors border border-sky-200 flex items-center justify-center gap-1 cursor-pointer"
-                title="支持多选 JSON 文件或 ZIP 压缩包"
+                onClick={() => onLoadPuzzles(browse.page + 1, browse.rows, browse.cols)}
+                disabled={browse.page * browse.perPage >= browse.total || browse.loading}
+                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-600 rounded border border-slate-200 text-[10px] font-bold disabled:opacity-40"
               >
-                <FolderInput className="w-3 h-3" /> 批量导入
-              </button>
-              <input
-                ref={batchImportInputRef}
-                type="file"
-                multiple
-                accept=".json,.zip,application/zip,application/x-zip-compressed"
-                className="hidden"
-                onChange={(e) => {
-                  onImportCollectionFiles(e.target.files);
-                  e.target.value = null;
-                }}
-              />
-              <button
-                onClick={() => onExportCollection(false)}
-                className="flex-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center justify-center gap-1"
-                title="把全部收藏导出为一个 JSON 文件"
-              >
-                <Download className="w-3 h-3" /> 导出全部
+                下一页
               </button>
             </div>
-            {collectionSelectMode ? (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-500 shrink-0">
-                  已选 {selectedCollectionIds.length}/{puzzleCollection.length}
-                </span>
-                <button
-                  onClick={onSelectAll}
-                  className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-[10px] font-medium"
-                >
-                  全选
-                </button>
-                <button
-                  onClick={onClearSelection}
-                  className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-[10px] font-medium"
-                >
-                  清空
-                </button>
-                <button
-                  onClick={() => onExportCollection(true)}
-                  disabled={!selectedCollectionIds.length}
-                  className="px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[10px] font-bold disabled:opacity-50 flex items-center gap-0.5"
-                  title="导出选中的收藏（逐个 JSON 文件）"
-                >
-                  <Download className="w-3 h-3" /> 导出选中
-                </button>
-                <button
-                  onClick={onDeleteSelected}
-                  disabled={!selectedCollectionIds.length}
-                  className="px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-[10px] font-bold disabled:opacity-50 flex items-center gap-0.5"
-                  title="删除选中的收藏"
-                >
-                  <Trash2 className="w-3 h-3" /> 删除
-                </button>
-                <button
-                  onClick={() => setCollectionSelectMode(false)}
-                  className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[10px] font-medium"
-                >
-                  完成
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setCollectionSelectMode(true)}
-                className="self-start px-2 py-1 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 text-[10px] font-medium flex items-center gap-1"
-                title="多选管理：选中后可批量导出或删除"
-              >
-                <ListChecks className="w-3 h-3" /> 选择
-              </button>
-            )}
+            <div className="flex flex-col gap-1.5 max-h-[420px] overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100">
+              {browse.loading ? (
+                <p className="text-[10px] text-slate-400 text-center py-3">加载中...</p>
+              ) : browse.items.length === 0 ? (
+                <p className="text-[10px] text-slate-400 text-center py-3">暂无题目</p>
+              ) : (
+                browse.items.map((item) => {
+                  const done =
+                    item.completed ||
+                    userProgress.some((p) => String(p.id) === String(item.id));
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => onOpenPuzzle(item)}
+                      className={`flex items-center gap-2 p-2 rounded-lg border shadow-sm cursor-pointer transition-colors group ${
+                        done
+                          ? 'border-emerald-300 bg-emerald-50/50'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                      title={`${item.cols}×${item.rows} · ${item.source || ''}${
+                        item.contributor ? ` · 贡献者 ${item.contributor}` : ''
+                      }`}
+                    >
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="text-[11px] font-bold text-slate-700 truncate">
+                          {item.cols}×{item.rows}
+                        </span>
+                        <span className="text-[9px] text-slate-400 truncate">
+                          {item.source}
+                          {item.contributor ? ` · ${item.contributor}` : ''}
+                        </span>
+                      </div>
+                      {done && (
+                        <span className="shrink-0 flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[8px] font-bold">
+                          <Check className="w-2.5 h-2.5" /> 已完成
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
-          <div
-            className="grid gap-2 max-h-52 overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}
-          >
-            {sortedCollection.length === 0 ? (
-              <p className="col-span-full text-[10px] text-slate-400 text-center py-2">
-                暂无收藏的题目
-              </p>
-            ) : (
-              sortedCollection.map((item) => {
-                const isSelected = selectedCollectionIds.includes(item.id);
-                const done = isItemCompleted(item);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() =>
-                      collectionSelectMode
-                        ? onToggleSelection(item.id)
-                        : onLoadFromCollection(item)
-                    }
-                    className={`relative flex flex-col gap-1 p-2 rounded-lg border shadow-sm cursor-pointer transition-colors group min-h-[104px] ${
-                      done
-                        ? 'border-emerald-300 bg-emerald-50/50'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    } ${
-                      collectionSelectMode && isSelected
-                        ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300'
-                        : ''
-                    }`}
-                  >
-                    {collectionSelectMode && (
-                      <span
-                        className={`absolute top-1 left-1 w-4 h-4 rounded border flex items-center justify-center z-10 ${
-                          isSelected
-                            ? 'bg-indigo-600 border-indigo-600 text-white'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-2.5 h-2.5" />}
-                      </span>
-                    )}
-                    {done && (
-                      <span className="absolute top-1 right-1 flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[8px] font-bold z-10">
-                        <Check className="w-2.5 h-2.5" /> 已完成
-                      </span>
-                    )}
-                    <div className="flex items-start gap-1 pr-9 min-w-0">
-                      <span className="text-[11px] font-bold text-slate-700 leading-snug line-clamp-2 break-all">
-                        {item.name}
-                      </span>
-                    </div>
-                    {item.puzzle_id && (
-                      <span className="self-start px-1 rounded bg-emerald-100 text-emerald-700 text-[8px] font-bold">
-                        题库
-                      </span>
-                    )}
-                    <div className="mt-auto flex flex-col gap-0.5 min-w-0">
-                      <span className="text-[9px] text-slate-400">
-                        {item.cols}×{item.rows}
-                      </span>
-                      <span className="text-[9px] text-slate-400 truncate">{item.date}</span>
-                    </div>
-                    <div className="absolute bottom-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRenameCollection(item.id);
-                        }}
-                        className="p-1 rounded bg-white text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 shadow-sm border border-slate-200"
-                        title="改名"
-                      >
-                        <PencilLine className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteFromCollection(item.id);
-                        }}
-                        className="p-1 rounded bg-white text-red-500 hover:bg-red-100 shadow-sm border border-slate-200"
-                        title="删除"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </Accordion>
+        </div>
 
         {/* === 5. 导入与导出 === */}
-        </div>
 
         <div className={tabCls('import')}>
 <Accordion title="导入与导出" icon={FileSymlink} defaultOpen={false}>
@@ -1350,7 +1212,7 @@ const SidePanel = ({
         <div className="md:hidden flex border-t border-slate-200 bg-white shrink-0 sticky bottom-0">
           {[
             { key: 'game', label: '游戏', Icon: MousePointerClick },
-            { key: 'collection', label: '收藏', Icon: FolderHeart },
+            { key: 'browse', label: '题库', Icon: Library },
             { key: 'import', label: '导入', Icon: FileSymlink },
           ].map(({ key, label, Icon }) => (
             <button

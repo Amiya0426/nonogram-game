@@ -147,91 +147,6 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json(req.user);
 });
 
-// ---------- 收藏夹 ----------
-const rowToItem = (row) => {
-  const puzzle = JSON.parse(row.puzzle_json || '{}');
-  return {
-    ...puzzle,
-    id: row.id,
-    name: row.name,
-    date: row.created_at,
-    puzzle_id: row.puzzle_id ?? null,
-  };
-};
-
-app.get('/api/collections', requireAuth, (req, res) => {
-  const rows = db
-    .prepare('SELECT * FROM collections WHERE user_id = ? ORDER BY created_at DESC')
-    .all(req.user.id);
-  res.json(rows.map(rowToItem));
-});
-
-app.post('/api/collections', requireAuth, async (req, res) => {
-  const { name, puzzle } = req.body || {};
-  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) {
-    return res.status(400).json({ error: '收藏名称不合法' });
-  }
-  if (!puzzle || typeof puzzle !== 'object') {
-    return res.status(400).json({ error: '收藏内容不合法' });
-  }
-  const info = db
-    .prepare(
-      'INSERT INTO collections (user_id, name, puzzle_json) VALUES (?, ?, ?)',
-    )
-    .run(req.user.id, name.trim(), JSON.stringify(puzzle));
-  const colId = Number(info.lastInsertRowid);
-  // 收藏与共享题库打通：内容合法且唯一解时自动入库并关联
-  let puzzleId = null;
-  try {
-    const lib = await upsertPuzzleIntoLibrary({ ...puzzle, source: 'user-import' }, req.user.id);
-    if (lib.ok) puzzleId = lib.id;
-  } catch {
-    // 入库失败不影响收藏保存
-  }
-  if (puzzleId) db.prepare('UPDATE collections SET puzzle_id = ? WHERE id = ?').run(puzzleId, colId);
-  const row = db.prepare('SELECT * FROM collections WHERE id = ?').get(colId);
-  res.json(rowToItem(row));
-});
-
-app.put('/api/collections/:id', requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
-  const row = db
-    .prepare('SELECT * FROM collections WHERE id = ? AND user_id = ?')
-    .get(id, req.user.id);
-  if (!row) return res.status(404).json({ error: '收藏不存在' });
-
-  const { name, puzzle } = req.body || {};
-  const newName = typeof name === 'string' && name.trim() ? name.trim() : row.name;
-  const newPuzzle =
-    puzzle && typeof puzzle === 'object' ? JSON.stringify(puzzle) : row.puzzle_json;
-  db.prepare(
-    `UPDATE collections SET name = ?, puzzle_json = ?, updated_at = datetime('now')
-     WHERE id = ? AND user_id = ?`,
-  ).run(newName, newPuzzle, id, req.user.id);
-  // 内容变化时重新关联题库
-  if (puzzle && typeof puzzle === 'object') {
-    let puzzleId = null;
-    try {
-      const lib = await upsertPuzzleIntoLibrary({ ...puzzle, source: 'user-import' }, req.user.id);
-      if (lib.ok) puzzleId = lib.id;
-    } catch {
-      // 入库失败则保留 null（收藏本身不受影响）
-    }
-    db.prepare('UPDATE collections SET puzzle_id = ? WHERE id = ?').run(puzzleId, id);
-  }
-  const updated = db.prepare('SELECT * FROM collections WHERE id = ?').get(id);
-  res.json(rowToItem(updated));
-});
-
-app.delete('/api/collections/:id', requireAuth, (req, res) => {
-  const id = Number(req.params.id);
-  const info = db
-    .prepare('DELETE FROM collections WHERE id = ? AND user_id = ?')
-    .run(id, req.user.id);
-  if (info.changes === 0) return res.status(404).json({ error: '收藏不存在' });
-  res.json({ ok: true });
-});
-
 // ---------- 题库 ----------
 
 const puzzleRowToDto = (row) => ({
@@ -244,6 +159,7 @@ const puzzleRowToDto = (row) => ({
   density: row.density,
   user_id: row.user_id ?? null,
   contributor: row.contributor ?? null,
+  completed: !!row.completed,
 });
 
 const numParam = (v) => {
@@ -311,6 +227,49 @@ app.get('/api/puzzles/random', resolveUser, (req, res) => {
 
   if (!row) return res.status(404).json({ error: '暂无该尺寸范围的题目，请先导入题库' });
   res.json(puzzleRowToDto(row));
+});
+
+/** 题库浏览：分页返回题目列表，登录用户附带是否已完成 */
+app.get('/api/puzzles', resolveUser, (req, res) => {
+  const q = req.query;
+  const page = Math.max(1, parseInt(q.page, 10) || 1);
+  const perPage = Math.min(100, Math.max(1, parseInt(q.perPage, 10) || 30));
+  const rows = numParam(q.rows);
+  const cols = numParam(q.cols);
+  const minRows = numParam(q.minRows) ?? 3;
+  const maxRows = numParam(q.maxRows) ?? 80;
+  const minCols = numParam(q.minCols) ?? 3;
+  const maxCols = numParam(q.maxCols) ?? 80;
+
+  let where = 'WHERE p.rows BETWEEN ? AND ? AND p.cols BETWEEN ? AND ?';
+  let params = [minRows, maxRows, minCols, maxCols];
+  if (rows !== null && cols !== null) {
+    where = 'WHERE p.rows = ? AND p.cols = ?';
+    params = [rows, cols];
+  }
+
+  const total = db
+    .prepare(`SELECT COUNT(*) AS n FROM puzzles p ${where}`)
+    .get(...params).n;
+  const items = db
+    .prepare(
+      `SELECT p.*, u.username AS contributor,
+              CASE WHEN up.user_id IS NULL THEN 0 ELSE 1 END AS completed
+       FROM puzzles p
+       LEFT JOIN users u ON u.id = p.user_id
+       LEFT JOIN user_progress up ON up.puzzle_id = p.id AND up.user_id = ?
+       ${where}
+       ORDER BY p.created_at DESC, p.id
+       LIMIT ? OFFSET ?`,
+    )
+    .all(req.user?.id ?? -1, ...params, perPage, (page - 1) * perPage);
+
+  res.json({
+    items: items.map(puzzleRowToDto),
+    total,
+    page,
+    perPage,
+  });
 });
 
 /** 导入题目：{ puzzle } 或 { puzzles: [...] }；校验合法且唯一解后入库（自动去重） */

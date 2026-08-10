@@ -95,17 +95,13 @@ async function main() {
   r = await req('/api/puzzles/random?rows=50&cols=50');
   log(`随机50x50(应404): ${r.status}`);
 
-  r = await req('/api/collections', 'POST', { name: '收藏测试', puzzle: uniquePuzzle });
-  log(`收藏: ${r.status} puzzle_id=${r.data?.puzzle_id}`);
+  r = await req('/api/puzzles?rows=5&cols=5&perPage=10');
+  log(`题库浏览: ${r.status} total=${r.data?.total} items=${r.data?.items?.length}`);
   check(
-    '收藏自动关联题库',
-    r.data?.puzzle_id === uniquePuzzleId,
-    `puzzle_id=${r.data?.puzzle_id} expected=${uniquePuzzleId}`,
+    '题库浏览分页',
+    r.status === 200 && Array.isArray(r.data?.items) && r.data?.total >= 1,
+    `status=${r.status} total=${r.data?.total}`,
   );
-  const colId = r.data?.id;
-  r = await req(`/api/collections/${colId}`, 'PUT', { name: '收藏改名后' });
-  log(`收藏改名: ${r.status} name=${r.data?.name}`);
-  check('收藏支持改名', r.data?.name === '收藏改名后', `name=${r.data?.name}`);
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: uniquePuzzle.grid });
   log(`完成标记: ${r.status}`);
 
