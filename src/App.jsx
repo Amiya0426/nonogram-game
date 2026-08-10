@@ -165,15 +165,17 @@ export default function NonogramApp() {
         className="flex-1 relative bg-slate-200/50 flex flex-col h-[calc(100vh-65px)] md:h-screen transition-all"
         onMouseLeave={g.handleGlobalLeave}
       >
-        {/* 计时 + 复盘 GIF 悬浮窗 */}
-        <FloatingTimer
-          timerSeconds={g.timerSeconds}
-          timerRunning={g.timerRunning}
-          togglePauseTimer={g.togglePauseTimer}
-          isSolvedStatus={g.isSolvedStatus}
-          generateReplayGif={g.generateReplayGif}
-          isGeneratingGif={g.isGeneratingGif}
-        />
+        {/* 计时 + 复盘 GIF 悬浮窗（仅游玩模式） */}
+        {g.mode === 'play' && (
+          <FloatingTimer
+            timerSeconds={g.timerSeconds}
+            timerRunning={g.timerRunning}
+            togglePauseTimer={g.togglePauseTimer}
+            isSolvedStatus={g.isSolvedStatus}
+            generateReplayGif={g.generateReplayGif}
+            isGeneratingGif={g.isGeneratingGif}
+          />
+        )}
 
         {g.isSolvedStatus && g.mode === 'play' && (
           <div className="absolute bottom-6 left-6 z-30 pointer-events-none">

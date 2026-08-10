@@ -260,23 +260,10 @@ const SidePanel = ({
                 </span>
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-orange-900">自定义题目</div>
-                  <div className="text-[9px] text-orange-600/70 truncate">画好图案后自动生成线索</div>
+                  <div className="text-[9px] text-orange-600/70 truncate">
+                    画好图案或上传图片后自动生成线索，完成时入库
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={onCancelEditing}
-                  className="px-2 py-1.5 bg-white text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-bold border border-slate-200 transition-colors"
-                  title="放弃本次修改，回到游玩"
-                >
-                  <X className="w-3.5 h-3.5" /> 取消
-                </button>
-                <button
-                  onClick={onFinishEditing}
-                  className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-colors"
-                >
-                  <Check className="w-3.5 h-3.5" /> 完成
-                </button>
               </div>
             </div>
 
@@ -306,7 +293,7 @@ const SidePanel = ({
 
             <button
               onClick={onOpenImageImport}
-              className="w-full py-2 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-pink-200"
+              className="w-full py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-orange-200"
             >
               <ImagePlus className="w-4 h-4" /> 从图片生成题目
             </button>
@@ -1020,12 +1007,21 @@ const SidePanel = ({
             <Eraser className="w-4 h-4" /> {mode === 'edit' ? '清空画板 / 图案' : '清空画板'}
           </button>
           {mode === 'edit' ? (
-            <button
-              onClick={onFinishEditing}
-              className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
-            >
-              <Check className="w-4 h-4" /> 完成编辑并游玩
-            </button>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={onCancelEditing}
+                className="py-2.5 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors text-sm"
+                title="放弃本次修改，回到游玩"
+              >
+                <X className="w-4 h-4" /> 取消编辑
+              </button>
+              <button
+                onClick={onFinishEditing}
+                className="py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
+              >
+                <Check className="w-4 h-4" /> 完成并游玩
+              </button>
+            </div>
           ) : (
             <button
               onClick={onAutoSolve}
