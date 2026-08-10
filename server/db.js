@@ -31,6 +31,7 @@ db.exec(`
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     puzzle_json TEXT NOT NULL,
+    puzzle_id TEXT REFERENCES puzzles(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -45,6 +46,7 @@ db.exec(`
     source TEXT NOT NULL DEFAULT 'import',
     density REAL NOT NULL DEFAULT 0,
     content_hash TEXT NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -61,3 +63,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_puzzles_size ON puzzles(rows, cols);
   CREATE INDEX IF NOT EXISTS idx_progress_user ON user_progress(user_id);
 `);
+
+// 已有数据库迁移：补充 user_id / puzzle_id 列与索引
+const puzzlesCols = db.prepare('PRAGMA table_info(puzzles)').all().map((c) => c.name);
+if (!puzzlesCols.includes('user_id')) {
+  db.exec('ALTER TABLE puzzles ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
+}
+const collectionsCols = db.prepare('PRAGMA table_info(collections)').all().map((c) => c.name);
+if (!collectionsCols.includes('puzzle_id')) {
+  db.exec('ALTER TABLE collections ADD COLUMN puzzle_id TEXT REFERENCES puzzles(id) ON DELETE SET NULL;');
+}
+db.exec('CREATE INDEX IF NOT EXISTS idx_puzzles_user ON puzzles(user_id);');
+db.exec('CREATE INDEX IF NOT EXISTS idx_collections_puzzle ON collections(puzzle_id);');

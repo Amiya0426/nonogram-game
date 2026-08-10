@@ -1039,7 +1039,16 @@ const SidePanel = ({
                       </span>
                     )}
                     <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                      <span className="text-xs font-bold text-slate-700 truncate">{item.name}</span>
+                      <span className="flex items-center gap-1 min-w-0">
+                        <span className="text-xs font-bold text-slate-700 truncate">
+                          {item.name}
+                        </span>
+                        {item.puzzle_id && (
+                          <span className="shrink-0 px-1 rounded bg-emerald-100 text-emerald-700 text-[8px] font-bold">
+                            题库
+                          </span>
+                        )}
+                      </span>
                       <span className="text-[9px] text-slate-400">
                         {item.cols}×{item.rows} - {item.date}
                       </span>

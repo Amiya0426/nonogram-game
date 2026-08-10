@@ -78,6 +78,11 @@ const hasB =
   Array.isArray(cloud) &&
   cloud.some((c) => JSON.stringify(c.grid) === JSON.stringify(itemB.grid));
 check('本地内容B未被丢弃', hasB);
+check(
+  '云端收藏均关联题库',
+  Array.isArray(cloud) && cloud.length > 0 && cloud.every((c) => !!c.puzzle_id),
+  `ids=${Array.isArray(cloud) ? cloud.map((c) => c.puzzle_id).join(',') : 'N/A'}`,
+);
 
 const localAfter = await page.evaluate(() => localStorage.getItem('nonogram_collection'));
 check('同步成功后本地收藏已清空', !localAfter || localAfter === '[]', `local=${localAfter}`);

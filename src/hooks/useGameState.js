@@ -1357,7 +1357,11 @@ export default function useGameState() {
         .then((saved) => {
           setPuzzleCollection((prev) => [saved, ...prev]);
           setSelectedCollectionIds((prev) => [saved.id, ...prev]);
-          setAlertMsg(`✅ 题目 "${name}" 已存入云端收藏夹！`);
+          setAlertMsg(
+            saved.puzzle_id
+              ? `✅ 题目 "${name}" 已存入云端收藏夹并加入共享题库！`
+              : `✅ 题目 "${name}" 已存入云端收藏夹！`,
+          );
         })
         .catch((e) => setAlertMsg(`❌ 保存失败：${e.message}`));
     } else {

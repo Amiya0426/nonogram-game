@@ -49,6 +49,58 @@ const runSolverInWorker = (puzzle, options) =>
     });
   });
 
+/**
+ * 校验并写入共享题库（带用户归属）。供导入接口与收藏夹保存共用：
+ * 收藏/导入的题目都会按内容去重进入题库。
+ * 返回 { ok, created?, id?, reason? }
+ */
+async function upsertPuzzleIntoLibrary(raw, userId) {
+  const p = normalizePuzzle(raw);
+  if (!p) return { ok: false, reason: '题目格式不正确' };
+  const valid = validatePuzzle(p);
+  if (!valid.ok) return { ok: false, reason: valid.reason };
+
+  const hash = contentHash(p);
+  const existing = db.prepare('SELECT * FROM puzzles WHERE content_hash = ?').get(hash);
+  if (existing) return { ok: true, created: false, id: existing.id };
+
+  let sol;
+  try {
+    sol = await runSolverInWorker(p, { timeoutMs: 4000, nodeLimit: 200000 });
+  } catch {
+    sol = { count: 0, timeout: true };
+  }
+  if (sol.timeout) return { ok: false, reason: '唯一解校验超时，暂无法入库' };
+  if (sol.count === 0) return { ok: false, reason: '题目无解' };
+  if (sol.count >= 2) return { ok: false, reason: '题目存在多个解，不符合唯一解要求' };
+
+  const id = puzzleIdFromHash(hash);
+  const blackCells = p.grid ? p.grid.flat().filter(Boolean).length : null;
+  const density =
+    blackCells !== null
+      ? blackCells / (p.rows * p.cols)
+      : (p.rowClues.reduce((a, arr) => a + arr.reduce((x, y) => x + y, 0), 0) +
+          p.colClues.reduce((a, arr) => a + arr.reduce((x, y) => x + y, 0), 0)) /
+        (2 * p.rows * p.cols);
+
+  db.prepare(
+    `INSERT INTO puzzles (id, rows, cols, row_clues, col_clues, grid, source, density, content_hash, user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    p.rows,
+    p.cols,
+    JSON.stringify(p.rowClues),
+    JSON.stringify(p.colClues),
+    p.grid ? JSON.stringify(p.grid) : null,
+    raw.source || 'import',
+    Math.round(density * 1000) / 1000,
+    hash,
+    userId ?? null,
+  );
+  return { ok: true, created: true, id };
+}
+
 const app = express();
 app.set('trust proxy', true);
 app.use(express.json({ limit: '5mb' }));
@@ -102,6 +154,7 @@ const rowToItem = (row) => {
     id: row.id,
     name: row.name,
     date: row.created_at,
+    puzzle_id: row.puzzle_id ?? null,
     ...puzzle,
   };
 };
@@ -113,7 +166,7 @@ app.get('/api/collections', requireAuth, (req, res) => {
   res.json(rows.map(rowToItem));
 });
 
-app.post('/api/collections', requireAuth, (req, res) => {
+app.post('/api/collections', requireAuth, async (req, res) => {
   const { name, puzzle } = req.body || {};
   if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) {
     return res.status(400).json({ error: '收藏名称不合法' });
@@ -126,11 +179,21 @@ app.post('/api/collections', requireAuth, (req, res) => {
       'INSERT INTO collections (user_id, name, puzzle_json) VALUES (?, ?, ?)',
     )
     .run(req.user.id, name.trim(), JSON.stringify(puzzle));
-  const row = db.prepare('SELECT * FROM collections WHERE id = ?').get(Number(info.lastInsertRowid));
+  const colId = Number(info.lastInsertRowid);
+  // 收藏与共享题库打通：内容合法且唯一解时自动入库并关联
+  let puzzleId = null;
+  try {
+    const lib = await upsertPuzzleIntoLibrary({ ...puzzle, source: 'user-import' }, req.user.id);
+    if (lib.ok) puzzleId = lib.id;
+  } catch {
+    // 入库失败不影响收藏保存
+  }
+  if (puzzleId) db.prepare('UPDATE collections SET puzzle_id = ? WHERE id = ?').run(puzzleId, colId);
+  const row = db.prepare('SELECT * FROM collections WHERE id = ?').get(colId);
   res.json(rowToItem(row));
 });
 
-app.put('/api/collections/:id', requireAuth, (req, res) => {
+app.put('/api/collections/:id', requireAuth, async (req, res) => {
   const id = Number(req.params.id);
   const row = db
     .prepare('SELECT * FROM collections WHERE id = ? AND user_id = ?')
@@ -145,6 +208,17 @@ app.put('/api/collections/:id', requireAuth, (req, res) => {
     `UPDATE collections SET name = ?, puzzle_json = ?, updated_at = datetime('now')
      WHERE id = ? AND user_id = ?`,
   ).run(newName, newPuzzle, id, req.user.id);
+  // 内容变化时重新关联题库
+  if (puzzle && typeof puzzle === 'object') {
+    let puzzleId = null;
+    try {
+      const lib = await upsertPuzzleIntoLibrary({ ...puzzle, source: 'user-import' }, req.user.id);
+      if (lib.ok) puzzleId = lib.id;
+    } catch {
+      // 入库失败则保留 null（收藏本身不受影响）
+    }
+    db.prepare('UPDATE collections SET puzzle_id = ? WHERE id = ?').run(puzzleId, id);
+  }
   const updated = db.prepare('SELECT * FROM collections WHERE id = ?').get(id);
   res.json(rowToItem(updated));
 });
@@ -168,6 +242,8 @@ const puzzleRowToDto = (row) => ({
   colCluesStr: JSON.parse(row.col_clues).map((arr) => arr.join('.')),
   source: row.source,
   density: row.density,
+  user_id: row.user_id ?? null,
+  contributor: row.contributor ?? null,
 });
 
 const numParam = (v) => {
@@ -206,20 +282,30 @@ app.get('/api/puzzles/random', resolveUser, (req, res) => {
   if (excludeCompleted) {
     row = db
       .prepare(
-        `SELECT * FROM puzzles ${where}
+        `SELECT p.*, u.username AS contributor FROM puzzles p
+         LEFT JOIN users u ON u.id = p.user_id
+         ${where}
          AND NOT EXISTS (SELECT 1 FROM user_progress up
-                         WHERE up.puzzle_id = puzzles.id AND up.user_id = ?)
+                         WHERE up.puzzle_id = p.id AND up.user_id = ?)
          ORDER BY RANDOM() LIMIT 1`,
       )
       .get(...params, uid);
     if (!row) {
       row = db
-        .prepare(`SELECT * FROM puzzles ${where} ORDER BY RANDOM() LIMIT 1`)
+        .prepare(
+          `SELECT p.*, u.username AS contributor FROM puzzles p
+           LEFT JOIN users u ON u.id = p.user_id
+           ${where} ORDER BY RANDOM() LIMIT 1`,
+        )
         .get(...params);
     }
   } else {
     row = db
-      .prepare(`SELECT * FROM puzzles ${where} ORDER BY RANDOM() LIMIT 1`)
+      .prepare(
+        `SELECT p.*, u.username AS contributor FROM puzzles p
+         LEFT JOIN users u ON u.id = p.user_id
+         ${where} ORDER BY RANDOM() LIMIT 1`,
+      )
       .get(...params);
   }
 
@@ -243,73 +329,16 @@ app.post('/api/puzzles/import', requireAuth, async (req, res) => {
   const TOTAL_BUDGET_MS = 30000;
 
   for (let i = 0; i < items.length; i++) {
-    const raw = items[i];
-    const p = normalizePuzzle(raw);
-    if (!p) {
-      results.push({ index: i, ok: false, reason: '题目格式不正确' });
-      continue;
-    }
-    const valid = validatePuzzle(p);
-    if (!valid.ok) {
-      results.push({ index: i, ok: false, reason: valid.reason });
-      continue;
-    }
-
-    const hash = contentHash(p);
-    const existing = db.prepare('SELECT * FROM puzzles WHERE content_hash = ?').get(hash);
-    if (existing) {
-      results.push({ index: i, ok: true, created: false, id: existing.id });
-      continue;
-    }
-
     if (Date.now() - startedAt > TOTAL_BUDGET_MS) {
       results.push({ index: i, ok: false, reason: '整体校验超时，请分批导入' });
       continue;
     }
-
-    let sol;
-    try {
-      sol = await runSolverInWorker(p, { timeoutMs: 4000, nodeLimit: 200000 });
-    } catch {
-      sol = { count: 0, timeout: true };
-    }
-    if (sol.timeout) {
-      results.push({ index: i, ok: false, reason: '唯一解校验超时，暂无法入库' });
-      continue;
-    }
-    if (sol.count === 0) {
-      results.push({ index: i, ok: false, reason: '题目无解' });
-      continue;
-    }
-    if (sol.count >= 2) {
-      results.push({ index: i, ok: false, reason: '题目存在多个解，不符合唯一解要求' });
-      continue;
-    }
-
-    const id = puzzleIdFromHash(hash);
-    const blackCells = p.grid ? p.grid.flat().filter(Boolean).length : null;
-    const density =
-      blackCells !== null
-        ? blackCells / (p.rows * p.cols)
-        : (p.rowClues.reduce((a, arr) => a + arr.reduce((x, y) => x + y, 0), 0) +
-            p.colClues.reduce((a, arr) => a + arr.reduce((x, y) => x + y, 0), 0)) /
-          (2 * p.rows * p.cols);
-
-    db.prepare(
-      `INSERT INTO puzzles (id, rows, cols, row_clues, col_clues, grid, source, density, content_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      p.rows,
-      p.cols,
-      JSON.stringify(p.rowClues),
-      JSON.stringify(p.colClues),
-      p.grid ? JSON.stringify(p.grid) : null,
-      raw.source || 'import',
-      Math.round(density * 1000) / 1000,
-      hash,
+    const lib = await upsertPuzzleIntoLibrary(items[i], req.user.id);
+    results.push(
+      lib.ok
+        ? { index: i, ok: true, created: lib.created, id: lib.id }
+        : { index: i, ok: false, reason: lib.reason },
     );
-    results.push({ index: i, ok: true, created: true, id });
   }
 
   const okCount = results.filter((r) => r.ok).length;
