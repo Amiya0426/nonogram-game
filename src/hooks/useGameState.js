@@ -1342,10 +1342,10 @@ export default function useGameState() {
     }
   }, [refreshUserProgress]);
 
-  const register = useCallback(async (username, password) => {
+  const register = useCallback(async (username, password, email, code) => {
     setAuthBusy(true);
     try {
-      const me = await api.register(username, password);
+      const me = await api.register(username, password, email, code);
       setUser(me);
       refreshUserProgress();
       setAlertMsg(tr('msg.registered', { name: me.username }));
@@ -1355,6 +1355,12 @@ export default function useGameState() {
       setAuthBusy(false);
     }
   }, [refreshUserProgress]);
+
+  /** 发送邮箱验证码（搭架子阶段返回 devCode 供前端展示） */
+  const sendCode = useCallback(async (email) => {
+    const data = await api.sendCode(email);
+    return data;
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -1912,6 +1918,7 @@ export default function useGameState() {
     finishEditing,
     login,
     register,
+    sendCode,
     logout,
     fitToWidth,
     setMode,

@@ -92,6 +92,7 @@ export default function NonogramApp() {
         authBusy={g.authBusy}
         onLogin={g.login}
         onRegister={g.register}
+        onSendCode={g.sendCode}
         onLogout={g.logout}
         hintInfo={g.hintInfo}
         alertMsg={g.alertMsg}

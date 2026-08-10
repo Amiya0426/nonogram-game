@@ -77,5 +77,10 @@ const collectionsCols = db.prepare('PRAGMA table_info(collections)').all().map((
 if (!collectionsCols.includes('puzzle_id')) {
   db.exec('ALTER TABLE collections ADD COLUMN puzzle_id TEXT REFERENCES puzzles(id) ON DELETE SET NULL;');
 }
+const usersCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+if (!usersCols.includes('email')) {
+  db.exec('ALTER TABLE users ADD COLUMN email TEXT;');
+}
 db.exec('CREATE INDEX IF NOT EXISTS idx_puzzles_user ON puzzles(user_id);');
 db.exec('CREATE INDEX IF NOT EXISTS idx_collections_puzzle ON collections(puzzle_id);');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);');

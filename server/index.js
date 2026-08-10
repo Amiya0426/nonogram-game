@@ -23,7 +23,11 @@ import {
   hashPassword,
   verifyPassword,
   validateCredentials,
+  validateEmail,
+  sendEmailVerificationCode,
+  verifyEmailCode,
 } from './auth.js';
+import { sendEmailCode, isStubMailer } from './mailer.js';
 import { msg } from './i18n.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -109,19 +113,55 @@ app.use(cookieParser());
 
 // ---------- 认证 ----------
 app.post('/api/auth/register', authRateLimit, (req, res) => {
-  const { username, password } = req.body || {};
+  const { username, password, email, code } = req.body || {};
   const err = validateCredentials(username, password);
   if (err) return res.status(400).json({ error: msg(req, err) });
+  const emailErr = validateEmail(email);
+  if (emailErr) return res.status(400).json({ error: msg(req, emailErr) });
+  const normalizedEmail = email.trim().toLowerCase();
 
   const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (exists) return res.status(409).json({ error: msg(req, 'auth.user_exists') });
+  const emailExists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+  if (emailExists) return res.status(409).json({ error: msg(req, 'auth.email_exists') });
+  if (typeof code !== 'string' || !code.trim()) {
+    return res.status(400).json({ error: msg(req, 'auth.code_required') });
+  }
+  if (!verifyEmailCode(normalizedEmail, code.trim())) {
+    return res.status(400).json({ error: msg(req, 'auth.code_invalid') });
+  }
 
   const info = db
-    .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
-    .run(username, hashPassword(password));
+    .prepare('INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)')
+    .run(username, hashPassword(password), normalizedEmail);
   const token = createSession(Number(info.lastInsertRowid));
   setSessionCookie(res, token);
   res.json({ id: Number(info.lastInsertRowid), username });
+});
+
+// 邮箱验证码（搭架子）：生成验证码并通过 mailer 占位发送
+app.post('/api/auth/send-code', authRateLimit, (req, res) => {
+  const { email } = req.body || {};
+  const emailErr = validateEmail(email);
+  if (emailErr) return res.status(400).json({ error: msg(req, emailErr) });
+  const normalized = email.trim().toLowerCase();
+
+  const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalized);
+  if (exists) return res.status(409).json({ error: msg(req, 'auth.email_exists') });
+
+  const sent = sendEmailVerificationCode(normalized);
+  if (!sent.ok) {
+    return res.status(429).json({ error: msg(req, sent.reason) });
+  }
+  // 占位发送：真实邮件服务接入后此调用会真正发信
+  sendEmailCode(normalized, sent.code).catch((e) =>
+    console.error('[mailer] 发送失败:', e),
+  );
+  res.json({
+    ok: true,
+    // 测试模式（未接入真实邮件服务）下把验证码直接返回给前端，方便联调；接入后移除
+    ...(isStubMailer ? { devCode: sent.code } : {}),
+  });
 });
 
 app.post('/api/auth/login', authRateLimit, (req, res) => {

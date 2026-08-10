@@ -95,3 +95,47 @@ export const validateCredentials = (username, password) => {
   }
   return null;
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const validateEmail = (email) => {
+  if (typeof email !== 'string' || email.length > 254 || !EMAIL_RE.test(email)) {
+    return 'auth.email_invalid';
+  }
+  return null;
+};
+
+// 邮箱验证码（内存存储）：email -> { code, sentAt, expiresAt }
+// 搭架子阶段用内存即可；后续可迁移到数据库或 Redis。
+const emailCodes = new Map();
+const EMAIL_CODE_TTL = 10 * 60 * 1000; // 10 分钟有效
+const EMAIL_CODE_INTERVAL = 60 * 1000; // 同一邮箱 60 秒内只能发一次
+
+/** 生成并“发送”邮箱验证码，返回 { ok, code?, retryAfter? } */
+export const sendEmailVerificationCode = (email) => {
+  const now = Date.now();
+  const rec = emailCodes.get(email);
+  if (rec && rec.sentAt + EMAIL_CODE_INTERVAL > now) {
+    return {
+      ok: false,
+      reason: 'auth.code_too_frequent',
+      retryAfter: Math.ceil((rec.sentAt + EMAIL_CODE_INTERVAL - now) / 1000),
+    };
+  }
+  const code = String(crypto.randomInt(100000, 1000000));
+  emailCodes.set(email, { code, sentAt: now, expiresAt: now + EMAIL_CODE_TTL });
+  // 顺手清理过期记录，避免内存无限增长
+  for (const [k, v] of emailCodes) {
+    if (v.expiresAt < now) emailCodes.delete(k);
+  }
+  return { ok: true, code };
+};
+
+/** 校验并一次性消费验证码 */
+export const verifyEmailCode = (email, code) => {
+  const rec = emailCodes.get(email);
+  if (!rec || rec.expiresAt < Date.now()) return false;
+  if (String(code) !== rec.code) return false;
+  emailCodes.delete(email);
+  return true;
+};

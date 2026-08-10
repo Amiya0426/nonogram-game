@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Check,
   RefreshCw,
   Dices,
   Eraser,
+  Eye,
+  EyeOff,
   AlertCircle,
   ZoomIn,
   MousePointerClick,
@@ -44,6 +46,7 @@ import {
 import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 import { useI18n } from '../i18n/index.js';
 
 /** 左侧控制面板：所有折叠区与按钮 */
@@ -65,6 +68,7 @@ const SidePanel = ({
   authBusy,
   onLogin,
   onRegister,
+  onSendCode,
   onLogout,
   hintInfo,
   alertMsg,
@@ -115,6 +119,83 @@ const SidePanel = ({
   const [activeTab, setActiveTab] = useState('game');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authCode, setAuthCode] = useState('');
+  const [authConfirm, setAuthConfirm] = useState('');
+  const [showLoginPwd, setShowLoginPwd] = useState(false);
+  const [showRegPwd, setShowRegPwd] = useState(false);
+  const [showRegConfirm, setShowRegConfirm] = useState(false);
+  const [codeCountdown, setCodeCountdown] = useState(0);
+  const [codeSending, setCodeSending] = useState(false);
+  const [authMsg, setAuthMsg] = useState(null);
+  const countdownRef = useRef(null);
+  useEffect(() => () => clearInterval(countdownRef.current), []);
+
+  const startCodeCountdown = () => {
+    clearInterval(countdownRef.current);
+    setCodeCountdown(60);
+    countdownRef.current = setInterval(() => {
+      setCodeCountdown((v) => {
+        if (v <= 1) {
+          clearInterval(countdownRef.current);
+          return 0;
+        }
+        return v - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendCode = async () => {
+    const email = authEmail.trim();
+    if (!EMAIL_RE.test(email)) {
+      setAuthMsg({ type: 'error', text: t('msg.emailInvalid') });
+      return;
+    }
+    setAuthMsg(null);
+    setCodeSending(true);
+    try {
+      const data = await onSendCode(email);
+      startCodeCountdown();
+      setAuthMsg({
+        type: 'info',
+        text: data?.devCode
+          ? t('msg.codeSentDev', { code: data.devCode })
+          : t('msg.codeSent'),
+      });
+    } catch (e) {
+      setAuthMsg({
+        type: 'error',
+        text: e.message || t('msg.codeSendFailed', { msg: '' }),
+      });
+    } finally {
+      setCodeSending(false);
+    }
+  };
+
+  const submitLogin = () => {
+    if (!authUsername.trim() || !authPassword) return;
+    setAuthMsg(null);
+    onLogin(authUsername.trim(), authPassword);
+  };
+
+  const submitRegister = () => {
+    const email = authEmail.trim();
+    if (!EMAIL_RE.test(email)) {
+      setAuthMsg({ type: 'error', text: t('msg.emailInvalid') });
+      return;
+    }
+    if (!authCode.trim()) {
+      setAuthMsg({ type: 'error', text: t('msg.codeRequired') });
+      return;
+    }
+    if (authPassword !== authConfirm) {
+      setAuthMsg({ type: 'error', text: t('msg.passwordMismatch') });
+      return;
+    }
+    setAuthMsg(null);
+    onRegister(authUsername.trim(), authPassword, email, authCode.trim());
+  };
   const [imgScale, setImgScale] = useState('2');
   const [imgJpegQuality, setImgJpegQuality] = useState('0.9');
   const [imgDpi, setImgDpi] = useState('96');
@@ -400,43 +481,177 @@ const SidePanel = ({
               <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
                 <UserRound className="w-3.5 h-3.5" /> {t('panel.loginHint')}
               </div>
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  value={authUsername}
-                  onChange={(e) => setAuthUsername(e.target.value)}
-                  placeholder={t('panel.usernamePlaceholder')}
-                  className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-                />
-                <input
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && authUsername.trim() && authPassword) {
-                      onLogin(authUsername, authPassword);
-                    }
-                  }}
-                  placeholder={t('panel.passwordPlaceholder')}
-                  className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-                />
+              {/* 登录 / 注册 切换 */}
+              <div className="flex bg-white/70 p-1 rounded-lg">
+                {[
+                  { key: 'login', label: t('panel.login') },
+                  { key: 'register', label: t('panel.register') },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setAuthMode(key);
+                      setAuthMsg(null);
+                    }}
+                    className={`flex-1 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                      authMode === key
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => onLogin(authUsername, authPassword)}
-                  disabled={authBusy || !authUsername.trim() || !authPassword}
-                  className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"
+
+              {authMode === 'register' && (
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder={t('panel.emailPlaceholder')}
+                  className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                />
+              )}
+
+              <input
+                type="text"
+                value={authUsername}
+                onChange={(e) => setAuthUsername(e.target.value)}
+                placeholder={t('panel.usernamePlaceholder')}
+                className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+              />
+
+              {authMode === 'login' && (
+                <div className="relative">
+                  <input
+                    type={showLoginPwd ? 'text' : 'password'}
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') submitLogin();
+                    }}
+                    placeholder={t('panel.passwordPlaceholder')}
+                    className="w-full pr-8 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPwd(!showLoginPwd)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-600 rounded"
+                    title={showLoginPwd ? t('panel.hidePassword') : t('panel.showPassword')}
+                  >
+                    {showLoginPwd ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {authMode === 'register' && (
+                <>
+                  <div className="flex gap-1.5">
+                    <div className="relative flex-1 min-w-0">
+                      <input
+                        type={showRegPwd ? 'text' : 'password'}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder={t('panel.passwordPlaceholder')}
+                        className="w-full pr-8 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPwd(!showRegPwd)}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-600 rounded"
+                        title={showRegPwd ? t('panel.hidePassword') : t('panel.showPassword')}
+                      >
+                        {showRegPwd ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="relative flex-1 min-w-0">
+                      <input
+                        type={showRegConfirm ? 'text' : 'password'}
+                        value={authConfirm}
+                        onChange={(e) => setAuthConfirm(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitRegister();
+                        }}
+                        placeholder={t('panel.confirmPassword')}
+                        className="w-full pr-8 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegConfirm(!showRegConfirm)}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-600 rounded"
+                        title={
+                          showRegConfirm ? t('panel.hidePassword') : t('panel.showPassword')
+                        }
+                      >
+                        {showRegConfirm ? (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={authCode}
+                      onChange={(e) => setAuthCode(e.target.value)}
+                      placeholder={t('panel.emailCodePlaceholder')}
+                      className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendCode}
+                      disabled={codeSending || codeCountdown > 0 || authBusy}
+                      className="shrink-0 px-2.5 py-1.5 text-[11px] font-bold rounded-lg border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {codeCountdown > 0 ? `${codeCountdown}s` : t('panel.sendCode')}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {authMsg && (
+                <p
+                  className={`text-[10px] leading-relaxed ${
+                    authMsg.type === 'error' ? 'text-rose-600' : 'text-emerald-600'
+                  }`}
                 >
-                  <LogIn className="w-3.5 h-3.5" /> {t('panel.login')}
-                </button>
-                <button
-                  onClick={() => onRegister(authUsername, authPassword)}
-                  disabled={authBusy || !authUsername.trim() || !authPassword}
-                  className="flex-1 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {t('panel.register')}
-                </button>
-              </div>
+                  {authMsg.text}
+                </p>
+              )}
+
+              <button
+                onClick={authMode === 'login' ? submitLogin : submitRegister}
+                disabled={
+                  authBusy ||
+                  !authUsername.trim() ||
+                  !authPassword ||
+                  (authMode === 'register' &&
+                    (!authEmail.trim() || !authCode.trim() || !authConfirm))
+                }
+                className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"
+              >
+                {authMode === 'login' ? (
+                  <>
+                    <LogIn className="w-3.5 h-3.5" /> {t('panel.login')}
+                  </>
+                ) : (
+                  <>
+                    <UserRound className="w-3.5 h-3.5" /> {t('panel.register')}
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
