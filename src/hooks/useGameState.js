@@ -1697,6 +1697,28 @@ export default function useGameState() {
     setAlertMsg('✅ 题目已更新，开始游玩！');
   }, [editInputMode, grid, rows, cols, user, submitToLibrary, rowCluesStr, colCluesStr]);
 
+  /** 应用图片转换出的二值图案到画盘面模式（0/1 网格） */
+  const applyPatternImage = useCallback(
+    (imgGrid, r, c) => {
+      const validR = Math.max(1, Math.min(MAX_BOARD, r));
+      const validC = Math.max(1, Math.min(MAX_BOARD, c));
+      const grid2d = Array.from({ length: validR }, (_, y) => {
+        const row = new Array(validC).fill(0);
+        for (let x = 0; x < validC; x++) row[x] = imgGrid?.[y]?.[x] ? 1 : 0;
+        return row;
+      });
+      setRows(validR);
+      setCols(validC);
+      setRowCluesStr(Array(validR).fill('0'));
+      setColCluesStr(Array(validC).fill('0'));
+      setGrid(grid2d);
+      setMode('edit');
+      setEditInputMode('pattern');
+      setAlertMsg('✅ 已从图片生成图案，可微调后点击“完成编辑并游玩”入库');
+    },
+    [],
+  );
+
   /** 滚轮缩放棋盘 */
   const zoomBoard = useCallback((delta) => {
     setCellSize((prev) => Math.min(MAX_CELL_SIZE, Math.max(MIN_CELL_SIZE, prev + delta)));
@@ -1841,6 +1863,7 @@ export default function useGameState() {
     openPuzzleFromBrowse,
     renamePuzzle,
     zoomBoard,
+    applyPatternImage,
     timerSeconds,
     timerRunning,
     togglePauseTimer,

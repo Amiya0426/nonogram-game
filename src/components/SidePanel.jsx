@@ -30,6 +30,7 @@ import {
   Wand2,
   Braces,
   FileUp,
+  ImagePlus,
   PencilLine,
   UserRound,
   LogIn,
@@ -57,6 +58,7 @@ const SidePanel = ({
   setEditInputMode,
   onCancelEditing,
   onFinishEditing,
+  onOpenImageImport,
   user,
   authBusy,
   onLogin,
@@ -301,6 +303,13 @@ const SidePanel = ({
                 <Braces className="w-3.5 h-3.5" /> 手动输入
               </button>
             </div>
+
+            <button
+              onClick={onOpenImageImport}
+              className="w-full py-2 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-pink-200"
+            >
+              <ImagePlus className="w-4 h-4" /> 从图片生成题目
+            </button>
 
             {/* 画笔工具（画盘面模式） */}
             {editInputMode === 'pattern' && (

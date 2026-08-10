@@ -5,12 +5,14 @@ import Board from './components/Board.jsx';
 import SidePanel from './components/SidePanel.jsx';
 import PuzzleBrowser from './components/PuzzleBrowser.jsx';
 import FloatingTimer from './components/FloatingTimer.jsx';
+import ImageToPuzzle from './components/ImageToPuzzle.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import './App.css';
 
 export default function NonogramApp() {
   const g = useGameState();
   const [browseOpen, setBrowseOpen] = useState(false);
+  const [imageImportOpen, setImageImportOpen] = useState(false);
 
   const showTooltip = g.showMeasure || g.showHoverRow || g.showHoverCol;
   const hoverOnlyRow = g.showHoverRow && !g.showHoverCol;
@@ -81,6 +83,7 @@ export default function NonogramApp() {
         setEditInputMode={g.setEditInputMode}
         onCancelEditing={g.cancelEditing}
         onFinishEditing={g.finishEditing}
+        onOpenImageImport={() => setImageImportOpen(true)}
         user={g.user}
         authBusy={g.authBusy}
         onLogin={g.login}
@@ -145,6 +148,16 @@ export default function NonogramApp() {
         userProgress={g.userProgress}
         user={g.user}
         onRenamePuzzle={g.renamePuzzle}
+      />
+
+      {/* 图片转题目弹窗 */}
+      <ImageToPuzzle
+        open={imageImportOpen}
+        onClose={() => setImageImportOpen(false)}
+        onApply={(grid, rows, cols) => {
+          g.applyPatternImage(grid, rows, cols);
+          setImageImportOpen(false);
+        }}
       />
 
       {/* 棋盘区域 */}
