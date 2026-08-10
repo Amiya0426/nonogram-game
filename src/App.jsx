@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { Menu, Dices, Check, PencilLine } from 'lucide-react';
 import useGameState from './hooks/useGameState.js';
 import Board from './components/Board.jsx';
 import SidePanel from './components/SidePanel.jsx';
+import PuzzleBrowser from './components/PuzzleBrowser.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import './App.css';
 
 export default function NonogramApp() {
   const g = useGameState();
+  const [browseOpen, setBrowseOpen] = useState(false);
 
   const showTooltip = g.showMeasure || g.showHoverRow || g.showHoverCol;
   const hoverOnlyRow = g.showHoverRow && !g.showHoverCol;
@@ -106,9 +109,7 @@ export default function NonogramApp() {
         cellSize={g.cellSize}
         setCellSize={g.setCellSize}
         onFitToWidth={g.fitToWidth}
-        browse={g.browse}
-        onLoadPuzzles={g.loadPuzzles}
-        onOpenPuzzle={g.openPuzzleFromBrowse}
+        onOpenBrowse={() => setBrowseOpen(true)}
         onExportCode={g.handleExportCode}
         onExportJSON={g.handleExportJSON}
         onExportImage={g.exportAsImage}
@@ -133,6 +134,19 @@ export default function NonogramApp() {
         userProgress={g.userProgress}
         isGeneratingGif={g.isGeneratingGif}
         generateReplayGif={g.generateReplayGif}
+      />
+
+      {/* 题库浏览悬浮窗 */}
+      <PuzzleBrowser
+        open={browseOpen}
+        onClose={() => setBrowseOpen(false)}
+        browse={g.browse}
+        onLoadPuzzles={g.loadPuzzles}
+        onOpenPuzzle={(item) => {
+          g.openPuzzleFromBrowse(item);
+          setBrowseOpen(false);
+        }}
+        userProgress={g.userProgress}
       />
 
       {/* 棋盘区域 */}

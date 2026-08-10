@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Check,
   RefreshCw,
@@ -90,9 +90,7 @@ const SidePanel = ({
   cellSize,
   setCellSize,
   onFitToWidth,
-  browse,
-  onLoadPuzzles,
-  onOpenPuzzle,
+  onOpenBrowse,
   onExportCode,
   onExportJSON,
   onExportImage,
@@ -122,19 +120,6 @@ const SidePanel = ({
   const [activeTab, setActiveTab] = useState('game');
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [browseSize, setBrowseSize] = useState('all');
-
-  // 首次打开题库页时自动加载第一页
-  useEffect(() => {
-    if (
-      activeTab === 'browse' &&
-      !browse.loading &&
-      browse.items.length === 0 &&
-      browse.total === 0
-    ) {
-      onLoadPuzzles(1, browse.rows, browse.cols);
-    }
-  }, [activeTab, browse.loading, browse.items.length, browse.total, browse.rows, browse.cols, onLoadPuzzles]);
   const [imgScale, setImgScale] = useState('2');
   const [imgJpegQuality, setImgJpegQuality] = useState('0.9');
   const [imgDpi, setImgDpi] = useState('96');
@@ -865,101 +850,13 @@ const SidePanel = ({
               </button>
             </div>
           </div>
+          <button
+            onClick={onOpenBrowse}
+            className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
+          >
+            <Library className="w-4 h-4" /> 题库浏览
+          </button>
         </Accordion>
-
-        {/* === 4. 题库浏览 === */}
-        </div>
-
-        <div className={tabCls('browse')}>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-1 px-0.5 text-[10px] text-slate-500">
-              <span className="truncate">题库共 {browse.total} 题</span>
-              <select
-                value={browseSize}
-                onChange={(e) => {
-                  setBrowseSize(e.target.value);
-                  const [rw, cl] =
-                    e.target.value === 'all'
-                      ? [null, null]
-                      : e.target.value.split('x').map(Number);
-                  onLoadPuzzles(1, rw, cl);
-                }}
-                className="shrink-0 text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-0.5 outline-none focus:border-indigo-400"
-                title="尺寸筛选"
-              >
-                <option value="all">全部尺寸</option>
-                <option value="5x5">5×5</option>
-                <option value="10x10">10×10</option>
-                <option value="15x15">15×15</option>
-                <option value="20x20">20×20</option>
-                <option value="25x25">25×25</option>
-                <option value="30x30">30×30</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-between gap-1.5">
-              <button
-                onClick={() => onLoadPuzzles(browse.page - 1, browse.rows, browse.cols)}
-                disabled={browse.page <= 1 || browse.loading}
-                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-600 rounded border border-slate-200 text-[10px] font-bold disabled:opacity-40"
-              >
-                上一页
-              </button>
-              <span className="text-[10px] text-slate-500">
-                {browse.total === 0
-                  ? '0 / 0'
-                  : `第 ${browse.page} / ${Math.max(1, Math.ceil(browse.total / browse.perPage))} 页`}
-              </span>
-              <button
-                onClick={() => onLoadPuzzles(browse.page + 1, browse.rows, browse.cols)}
-                disabled={browse.page * browse.perPage >= browse.total || browse.loading}
-                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-600 rounded border border-slate-200 text-[10px] font-bold disabled:opacity-40"
-              >
-                下一页
-              </button>
-            </div>
-            <div className="flex flex-col gap-1.5 max-h-[420px] overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100">
-              {browse.loading ? (
-                <p className="text-[10px] text-slate-400 text-center py-3">加载中...</p>
-              ) : browse.items.length === 0 ? (
-                <p className="text-[10px] text-slate-400 text-center py-3">暂无题目</p>
-              ) : (
-                browse.items.map((item) => {
-                  const done =
-                    item.completed ||
-                    userProgress.some((p) => String(p.id) === String(item.id));
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => onOpenPuzzle(item)}
-                      className={`flex items-center gap-2 p-2 rounded-lg border shadow-sm cursor-pointer transition-colors group ${
-                        done
-                          ? 'border-emerald-300 bg-emerald-50/50'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
-                      }`}
-                      title={`${item.cols}×${item.rows} · ${item.source || ''}${
-                        item.contributor ? ` · 贡献者 ${item.contributor}` : ''
-                      }`}
-                    >
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-[11px] font-bold text-slate-700 truncate">
-                          {item.cols}×{item.rows}
-                        </span>
-                        <span className="text-[9px] text-slate-400 truncate">
-                          {item.source}
-                          {item.contributor ? ` · ${item.contributor}` : ''}
-                        </span>
-                      </div>
-                      {done && (
-                        <span className="shrink-0 flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[8px] font-bold">
-                          <Check className="w-2.5 h-2.5" /> 已完成
-                        </span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
         </div>
 
         {/* === 5. 导入与导出 === */}
@@ -1212,7 +1109,6 @@ const SidePanel = ({
         <div className="md:hidden flex border-t border-slate-200 bg-white shrink-0 sticky bottom-0">
           {[
             { key: 'game', label: '游戏', Icon: MousePointerClick },
-            { key: 'browse', label: '题库', Icon: Library },
             { key: 'import', label: '导入', Icon: FileSymlink },
           ].map(({ key, label, Icon }) => (
             <button
