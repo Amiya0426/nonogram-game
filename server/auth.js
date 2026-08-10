@@ -49,6 +49,22 @@ export const requireAuth = (req, res, next) => {
   next();
 };
 
+/** 可选登录：会话有效则注入 req.user，未登录也放行（用于公开接口按需排除已完成题） */
+export const resolveUser = (req, _res, next) => {
+  const token = req.cookies?.[COOKIE_NAME];
+  if (token) {
+    const row = db
+      .prepare(
+        `SELECT s.user_id AS id, u.username
+         FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token = ? AND s.expires_at > ?`,
+      )
+      .get(token, Date.now());
+    if (row) req.user = row;
+  }
+  next();
+};
+
 /** 登录/注册接口的简单内存限流：每 IP 15 分钟内最多 20 次尝试 */
 const attempts = new Map();
 export const authRateLimit = (req, res, next) => {

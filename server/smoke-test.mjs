@@ -38,7 +38,12 @@ async function main() {
   }
 
   const out = [];
+  let fails = 0;
   const log = (s) => { console.log(s); out.push(s); };
+  const check = (name, ok, extra = '') => {
+    if (!ok) fails++;
+    log(`${ok ? 'PASS' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`);
+  };
 
   const uname = `smoke_${Date.now()}`;
   let r = await req('/api/auth/register', 'POST', { username: uname, password: 'password123' });
@@ -56,6 +61,16 @@ async function main() {
 
   r = await req('/api/puzzles/import', 'POST', { puzzle: uniquePuzzle });
   log(`重复导入: ${r.status} created=${r.data.results?.[0]?.created} id=${r.data.results?.[0]?.id}`);
+
+  const secondPuzzle = {
+    rows: 5, cols: 5,
+    rowCluesStr: ['1 1','1 1','1 1','0','0'],
+    colCluesStr: ['3','0','3','0','0'],
+    grid: [[1,0,1,0,0],[1,0,1,0,0],[1,0,1,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    source: 'smoke2',
+  };
+  r = await req('/api/puzzles/import', 'POST', { puzzle: secondPuzzle });
+  log(`导入第二题: ${r.status} id=${r.data.results?.[0]?.id}`);
 
   r = await req('/api/puzzles/import', 'POST', { puzzle: { rows: 2, cols: 2, rowCluesStr: ['1','1'], colCluesStr: ['1','1'] } });
   log(`导入多解: ${r.status} ${r.data.results?.[0]?.reason}`);
@@ -83,11 +98,12 @@ async function main() {
   log(`进度: ${r.status} ${JSON.stringify(r.data)}`);
 
   r = await req('/api/puzzles/random?rows=5&cols=5&excludeCompleted=1');
-  log(`排除已完成: ${r.status} id=${r.data.id} (已完成=${pid}, 不同=${r.data.id !== pid})`);
+  const excludedOk = r.status === 404 || (r.data && r.data.id && r.data.id !== pid);
+  check('排除已完成(excludeCompleted)', excludedOk, `status=${r.status} id=${r.data?.id} 已完成=${pid}`);
 
   server.kill();
   fs.writeFileSync('/tmp/smoke-result.txt', out.join('\n'));
-  process.exit(0);
+  process.exit(fails > 0 ? 1 : 0);
 }
 
 main().catch((e) => {

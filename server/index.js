@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { db } from './db.js';
@@ -9,11 +10,11 @@ import {
   validatePuzzle,
   contentHash,
   puzzleIdFromHash,
-  countSolutions,
   gridMatchesClues,
 } from './puzzle-lib.js';
 import {
   requireAuth,
+  resolveUser,
   authRateLimit,
   createSession,
   destroySession,
@@ -27,6 +28,26 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
 const DIST_DIR = process.env.DIST_DIR || path.join(__dirname, '..', 'dist');
+
+/** 在 Worker 线程中做唯一解校验，避免同步求解阻塞事件循环 */
+const runSolverInWorker = (puzzle, options) =>
+  new Promise((resolve) => {
+    const worker = new Worker(new URL('./solve-worker.mjs', import.meta.url), {
+      workerData: { puzzle, options },
+    });
+    const guard = setTimeout(() => {
+      worker.terminate().catch(() => {});
+      resolve({ count: 0, timeout: true });
+    }, (options?.timeoutMs ?? 4000) + 2000);
+    worker.once('message', (result) => {
+      clearTimeout(guard);
+      resolve(result);
+    });
+    worker.once('error', () => {
+      clearTimeout(guard);
+      resolve({ count: 0, timeout: true });
+    });
+  });
 
 const app = express();
 app.set('trust proxy', true);
@@ -155,7 +176,7 @@ const numParam = (v) => {
 };
 
 /** 随机抽题：?rows=&cols= 精确，或 ?minRows=&maxRows=&minCols=&maxCols= 范围 */
-app.get('/api/puzzles/random', (req, res) => {
+app.get('/api/puzzles/random', resolveUser, (req, res) => {
   const q = req.query;
   const rows = numParam(q.rows);
   const cols = numParam(q.cols);
@@ -207,7 +228,7 @@ app.get('/api/puzzles/random', (req, res) => {
 });
 
 /** 导入题目：{ puzzle } 或 { puzzles: [...] }；校验合法且唯一解后入库（自动去重） */
-app.post('/api/puzzles/import', requireAuth, (req, res) => {
+app.post('/api/puzzles/import', requireAuth, async (req, res) => {
   const body = req.body || {};
   const items = Array.isArray(body.puzzles)
     ? body.puzzles
@@ -217,20 +238,53 @@ app.post('/api/puzzles/import', requireAuth, (req, res) => {
   if (!items.length) return res.status(400).json({ error: '请提供 puzzle 或 puzzles 数组' });
   if (items.length > 200) return res.status(400).json({ error: '单次最多导入 200 道题' });
 
-  const results = items.map((raw, i) => {
+  const results = [];
+  const startedAt = Date.now();
+  const TOTAL_BUDGET_MS = 30000;
+
+  for (let i = 0; i < items.length; i++) {
+    const raw = items[i];
     const p = normalizePuzzle(raw);
-    if (!p) return { index: i, ok: false, reason: '题目格式不正确' };
+    if (!p) {
+      results.push({ index: i, ok: false, reason: '题目格式不正确' });
+      continue;
+    }
     const valid = validatePuzzle(p);
-    if (!valid.ok) return { index: i, ok: false, reason: valid.reason };
+    if (!valid.ok) {
+      results.push({ index: i, ok: false, reason: valid.reason });
+      continue;
+    }
 
     const hash = contentHash(p);
     const existing = db.prepare('SELECT * FROM puzzles WHERE content_hash = ?').get(hash);
-    if (existing) return { index: i, ok: true, created: false, id: existing.id };
+    if (existing) {
+      results.push({ index: i, ok: true, created: false, id: existing.id });
+      continue;
+    }
 
-    const sol = countSolutions(p, { timeoutMs: 4000, nodeLimit: 200000 });
-    if (sol.timeout) return { index: i, ok: false, reason: '唯一解校验超时，暂无法入库' };
-    if (sol.count === 0) return { index: i, ok: false, reason: '题目无解' };
-    if (sol.count >= 2) return { index: i, ok: false, reason: '题目存在多个解，不符合唯一解要求' };
+    if (Date.now() - startedAt > TOTAL_BUDGET_MS) {
+      results.push({ index: i, ok: false, reason: '整体校验超时，请分批导入' });
+      continue;
+    }
+
+    let sol;
+    try {
+      sol = await runSolverInWorker(p, { timeoutMs: 4000, nodeLimit: 200000 });
+    } catch {
+      sol = { count: 0, timeout: true };
+    }
+    if (sol.timeout) {
+      results.push({ index: i, ok: false, reason: '唯一解校验超时，暂无法入库' });
+      continue;
+    }
+    if (sol.count === 0) {
+      results.push({ index: i, ok: false, reason: '题目无解' });
+      continue;
+    }
+    if (sol.count >= 2) {
+      results.push({ index: i, ok: false, reason: '题目存在多个解，不符合唯一解要求' });
+      continue;
+    }
 
     const id = puzzleIdFromHash(hash);
     const blackCells = p.grid ? p.grid.flat().filter(Boolean).length : null;
@@ -255,8 +309,8 @@ app.post('/api/puzzles/import', requireAuth, (req, res) => {
       Math.round(density * 1000) / 1000,
       hash,
     );
-    return { index: i, ok: true, created: true, id };
-  });
+    results.push({ index: i, ok: true, created: true, id });
+  }
 
   const okCount = results.filter((r) => r.ok).length;
   res.json({ results, imported: okCount });

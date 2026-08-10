@@ -41,6 +41,16 @@ import {
 const SAVE_KEY = 'nonogram_master_save';
 const COLLECTION_KEY = 'nonogram_collection';
 
+/** 收藏内容指纹：用于云端/本地去重（避免同名同尺寸不同内容被误判重复） */
+const collectionSignature = (item) =>
+  JSON.stringify([
+    item?.rows,
+    item?.cols,
+    item?.rowCluesStr,
+    item?.colCluesStr,
+    item?.grid,
+  ]);
+
 /** 读取自动存档并做基本校验，损坏或尺寸不符时返回 null */
 const loadSavedState = () => {
   const s = loadJSON(SAVE_KEY, null);
@@ -165,6 +175,26 @@ export default function useGameState() {
     }
   }, []);
 
+  /** 把本地收藏（localStorage）合并上传到云端，按内容去重；全部成功才清空本地，失败保留 */
+  const mergeLocalToCloud = useCallback(async () => {
+    const cloud = await api.listCollections();
+    const local = loadJSON(COLLECTION_KEY, []);
+    const cloudSigs = new Set(cloud.map(collectionSignature));
+    const toUpload = local.filter((item) => !cloudSigs.has(collectionSignature(item)));
+    let failed = 0;
+    for (const item of toUpload) {
+      try {
+        await api.addCollection(item);
+      } catch {
+        failed++;
+      }
+    }
+    const merged = await api.listCollections();
+    setPuzzleCollection(merged);
+    if (failed === 0) saveJSON(COLLECTION_KEY, []);
+    return { uploaded: toUpload.length - failed, failed, total: merged.length };
+  }, []);
+
   // 自动存档：游玩设置 + 棋盘进度防抖写入 localStorage（刷新后恢复）
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -238,28 +268,7 @@ export default function useGameState() {
         if (cancelled) return;
         setUser(me);
         refreshUserProgress();
-        const cloud = await api.listCollections();
-        if (cancelled) return;
-        const local = loadJSON(COLLECTION_KEY, []);
-        const existingKeys = new Set(
-          cloud.map((c) => `${c.name}|${c.cols}x${c.rows}`),
-        );
-        const toUpload = local.filter(
-          (item) => !existingKeys.has(`${item.name}|${item.cols}x${item.rows}`),
-        );
-        if (toUpload.length > 0) {
-          for (const item of toUpload) {
-            try {
-              await api.addCollection(item);
-            } catch {
-              // 单个失败不阻塞
-            }
-          }
-          saveJSON(COLLECTION_KEY, []);
-        }
-        const merged = await api.listCollections();
-        if (cancelled) return;
-        setPuzzleCollection(merged);
+        await mergeLocalToCloud();
       } catch {
         // 未登录或会话失效：保持本地收藏
       }
@@ -267,7 +276,7 @@ export default function useGameState() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mergeLocalToCloud, refreshUserProgress]);
 
   const scheduleHover = useCallback((r, c) => {
     pendingHoverRef.current = { r, c };
@@ -1264,40 +1273,21 @@ export default function useGameState() {
     [user],
   );
 
-  /** 把本地收藏（localStorage）合并上传到云端，按 名称+尺寸 去重 */
-  const mergeLocalToCloud = useCallback(async () => {
-    const cloud = await api.listCollections();
-    const local = loadJSON(COLLECTION_KEY, []);
-    const existingKeys = new Set(
-      cloud.map((c) => `${c.name}|${c.cols}x${c.rows}`),
-    );
-    const toUpload = local.filter(
-      (item) => !existingKeys.has(`${item.name}|${item.cols}x${item.rows}`),
-    );
-    for (const item of toUpload) {
-      try {
-        await api.addCollection(item);
-      } catch {
-        // 单个失败不阻塞
-      }
-    }
-    const merged = await api.listCollections();
-    setPuzzleCollection(merged);
-    saveJSON(COLLECTION_KEY, []);
-    return { uploaded: toUpload.length, total: merged.length };
-  }, []);
-
   const login = useCallback(async (username, password) => {
     setAuthBusy(true);
     try {
       const me = await api.login(username, password);
       setUser(me);
       refreshUserProgress();
-      const { uploaded } = await mergeLocalToCloud();
+      const { uploaded, failed } = await mergeLocalToCloud();
       setAlertMsg(
         uploaded > 0
-          ? `✅ 欢迎回来，${me.username}！已将 ${uploaded} 个本地收藏同步到云端。`
-          : `✅ 欢迎回来，${me.username}！`,
+          ? failed > 0
+            ? `✅ 欢迎回来，${me.username}！已同步 ${uploaded} 个，${failed} 个失败已保留在本地。`
+            : `✅ 欢迎回来，${me.username}！已将 ${uploaded} 个本地收藏同步到云端。`
+          : failed > 0
+            ? `⚠️ 欢迎回来，${me.username}！${failed} 个本地收藏同步失败，已保留在本地。`
+            : `✅ 欢迎回来，${me.username}！`,
       );
     } catch (e) {
       setAlertMsg(`❌ 登录失败：${e.message}`);
@@ -1312,11 +1302,15 @@ export default function useGameState() {
       const me = await api.register(username, password);
       setUser(me);
       refreshUserProgress();
-      const { uploaded } = await mergeLocalToCloud();
+      const { uploaded, failed } = await mergeLocalToCloud();
       setAlertMsg(
         uploaded > 0
-          ? `✅ 注册成功，${me.username}！已将 ${uploaded} 个本地收藏同步到云端。`
-          : `✅ 注册成功，${me.username}！现在可以云端保存收藏了。`,
+          ? failed > 0
+            ? `✅ 注册成功，${me.username}！已同步 ${uploaded} 个，${failed} 个失败已保留在本地。`
+            : `✅ 注册成功，${me.username}！已将 ${uploaded} 个本地收藏同步到云端。`
+          : failed > 0
+            ? `⚠️ 注册成功，${me.username}！${failed} 个本地收藏同步失败，已保留在本地。`
+            : `✅ 注册成功，${me.username}！现在可以云端保存收藏了。`,
       );
     } catch (e) {
       setAlertMsg(`❌ 注册失败：${e.message}`);
