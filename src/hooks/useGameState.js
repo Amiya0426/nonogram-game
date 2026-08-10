@@ -43,21 +43,23 @@ import {
 const SAVE_KEY = 'nonogram_master_save';
 const COLLECTION_KEY = 'nonogram_collection';
 
-/** 收藏内容指纹：用于云端/本地去重（避免同名同尺寸不同内容被误判重复） */
-const collectionSignature = (item) =>
-  JSON.stringify([
-    item?.rows,
-    item?.cols,
-    item?.rowCluesStr,
-    item?.colCluesStr,
-    item?.grid,
-  ]);
+/** 线索文本归一化：任意分隔符（空格/逗号/点/换行）统一成逗号数字串，避免同题因格式不同被判为不同题 */
+const normalizeClueText = (s) =>
+  String(s ?? '')
+    .split(/[^0-9]+/)
+    .filter(Boolean)
+    .join(',');
 
-/** 题目内容指纹（仅行列线索）：用于完成状态匹配与自动入收藏去重 */
-const puzzleContentKey = (item) =>
-  `${item?.rows}|${item?.cols}|${JSON.stringify(item?.rowCluesStr)}|${JSON.stringify(
-    item?.colCluesStr,
-  )}`;
+/** 题目内容指纹（仅行列线索，归一化）：用于去重、完成状态匹配与自动入收藏 */
+const puzzleContentKey = (item) => {
+  const rk = (Array.isArray(item?.rowCluesStr) ? item.rowCluesStr : [])
+    .map(normalizeClueText)
+    .join(';');
+  const ck = (Array.isArray(item?.colCluesStr) ? item.colCluesStr : [])
+    .map(normalizeClueText)
+    .join(';');
+  return `${item?.rows}|${item?.cols}|${rk}|${ck}`;
+};
 
 /** 读取自动存档并做基本校验，损坏或尺寸不符时返回 null */
 const loadSavedState = () => {
@@ -196,8 +198,8 @@ export default function useGameState() {
   const mergeLocalToCloud = useCallback(async () => {
     const cloud = await api.listCollections();
     const local = loadJSON(COLLECTION_KEY, []);
-    const cloudSigs = new Set(cloud.map(collectionSignature));
-    const toUpload = local.filter((item) => !cloudSigs.has(collectionSignature(item)));
+    const cloudSigs = new Set(cloud.map(puzzleContentKey));
+    const toUpload = local.filter((item) => !cloudSigs.has(puzzleContentKey(item)));
     let failed = 0;
     for (const item of toUpload) {
       try {
