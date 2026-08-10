@@ -241,11 +241,31 @@ app.get('/api/puzzles', resolveUser, (req, res) => {
   const minCols = numParam(q.minCols) ?? 3;
   const maxCols = numParam(q.maxCols) ?? 80;
 
-  let where = 'WHERE p.rows BETWEEN ? AND ? AND p.cols BETWEEN ? AND ?';
-  let params = [minRows, maxRows, minCols, maxCols];
+  const mine = q.mine === '1' && req.user;
+  const done = q.done === '1' && req.user;
+
+  // 需要登录的筛选（我导入的/已完成）未登录时直接返回空
+  if ((q.mine === '1' || q.done === '1') && !req.user) {
+    return res.json({ items: [], total: 0, page, perPage });
+  }
+
+  let where = 'WHERE 1=1';
+  const params = [];
   if (rows !== null && cols !== null) {
-    where = 'WHERE p.rows = ? AND p.cols = ?';
-    params = [rows, cols];
+    where += ' AND p.rows = ? AND p.cols = ?';
+    params.push(rows, cols);
+  } else {
+    where += ' AND p.rows BETWEEN ? AND ? AND p.cols BETWEEN ? AND ?';
+    params.push(minRows, maxRows, minCols, maxCols);
+  }
+  if (mine) {
+    where += ' AND p.user_id = ?';
+    params.push(req.user.id);
+  }
+  if (done) {
+    where +=
+      ' AND EXISTS (SELECT 1 FROM user_progress up2 WHERE up2.puzzle_id = p.id AND up2.user_id = ?)';
+    params.push(req.user.id);
   }
 
   const total = db

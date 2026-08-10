@@ -150,6 +150,8 @@ export default function useGameState() {
     loading: false,
     rows: null,
     cols: null,
+    mine: false,
+    done: false,
   });
 
   /** 拉取当前用户已完成题目列表 */
@@ -163,10 +165,18 @@ export default function useGameState() {
   }, []);
 
   /** 题库浏览：分页拉取题目列表 */
-  const loadPuzzles = useCallback(async (page = 1, rows = null, cols = null) => {
-    setBrowse((prev) => ({ ...prev, loading: true, page, rows, cols }));
+  const loadPuzzles = useCallback(
+    async (page = 1, rows = null, cols = null, mine = false, done = false) => {
+      setBrowse((prev) => ({ ...prev, loading: true, page, rows, cols, mine, done }));
     try {
-      const data = await api.listPuzzles({ page, perPage: 30, rows, cols });
+      const data = await api.listPuzzles({
+        page,
+        perPage: 30,
+        rows,
+        cols,
+        mine: mine ? '1' : undefined,
+        done: done ? '1' : undefined,
+      });
       setBrowse({
         items: data.items || [],
         total: data.total || 0,
@@ -175,12 +185,16 @@ export default function useGameState() {
         loading: false,
         rows,
         cols,
+        mine,
+        done,
       });
     } catch {
       setBrowse((prev) => ({ ...prev, loading: false }));
       setAlertMsg('❌ 题库加载失败');
     }
-  }, []);
+    },
+    [],
+  );
 
   // 自动存档：游玩设置 + 棋盘进度防抖写入 localStorage（刷新后恢复）
   useEffect(() => {

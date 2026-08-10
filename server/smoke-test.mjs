@@ -105,6 +105,14 @@ async function main() {
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: uniquePuzzle.grid });
   log(`完成标记: ${r.status}`);
 
+  r = await req('/api/puzzles?rows=5&cols=5&mine=1');
+  log(`题库浏览(我导入): ${r.status} total=${r.data?.total}`);
+  check('题库浏览按用户筛选', r.data?.total === 2, `total=${r.data?.total}`);
+
+  r = await req('/api/puzzles?rows=5&cols=5&done=1');
+  log(`题库浏览(已完成): ${r.status} total=${r.data?.total}`);
+  check('题库浏览按完成筛选', r.data?.total === 1, `total=${r.data?.total}`);
+
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]] });
   log(`错误盘面(应400): ${r.status}`);
 
