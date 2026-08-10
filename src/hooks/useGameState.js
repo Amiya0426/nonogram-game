@@ -1735,12 +1735,12 @@ export default function useGameState() {
   );
 
   const exportAsImage = useCallback(
-    (format = 'png') => {
+    async (format = 'png', options = {}) => {
       try {
         setAlertMsg('正在生成高清图片，请稍候...');
         const finalFilename =
           exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
-        exportBoardAsImage(
+        await exportBoardAsImage(
           {
             grid,
             rows,
@@ -1752,10 +1752,11 @@ export default function useGameState() {
             gameSettings,
           },
           { parseClue, getAutoMarked, theme: DEFAULT_THEME },
-          { filename: finalFilename, remark: exportRemark.trim() },
+          { filename: finalFilename, remark: exportRemark.trim(), ...options },
           format,
         );
-        setAlertMsg(`✅ 成功导出为 ${format.toUpperCase()} 格式的图片！`);
+        const scaleText = options.scale && options.scale > 1 ? `（${options.scale}x 高清）` : '';
+        setAlertMsg(`✅ 成功导出为 ${format.toUpperCase()} 图片${scaleText}！`);
       } catch (err) {
         setAlertMsg(`❌ 图片导出失败: ${err.message}`);
       }

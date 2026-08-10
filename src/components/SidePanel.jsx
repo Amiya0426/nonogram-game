@@ -138,6 +138,9 @@ const SidePanel = ({
   const [authPassword, setAuthPassword] = useState('');
   const [collectionSelectMode, setCollectionSelectMode] = useState(false);
   const [collectionSort, setCollectionSort] = useState('newest');
+  const [imgScale, setImgScale] = useState('2');
+  const [imgJpegQuality, setImgJpegQuality] = useState('0.9');
+  const [imgDpi, setImgDpi] = useState('96');
   const [panelWidth, setPanelWidth] = useState(() => {
     try {
       const v = Number(localStorage.getItem('nonogram_panel_width'));
@@ -599,12 +602,12 @@ const SidePanel = ({
 
 {mode === 'play' && (
           <Accordion title="推演与操作" icon={MousePointerClick} defaultOpen>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {deductionLevel < 3 && (
                   <button
                     onClick={onStartDeduction}
-                    className={`px-2 py-2 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border flex-1 justify-center
+                    className={`col-span-2 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border
                       ${deductionLevel === 0 ? 'bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 border-fuchsia-200' : ''}
                       ${deductionLevel === 1 ? 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200' : ''}
                       ${deductionLevel === 2 ? 'bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-200' : ''}
@@ -618,67 +621,65 @@ const SidePanel = ({
                   <>
                     <button
                       onClick={onApplyDeduction}
-                      className="px-2 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-emerald-200 flex-1 justify-center"
+                      className="py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-emerald-200"
                     >
                       <Check className="w-4 h-4" /> 应用({deductionLevel})
                     </button>
                     <button
                       onClick={onCancelDeduction}
-                      className="px-2 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-md text-xs font-bold flex items-center gap-1 transition-colors shadow-sm border border-rose-200 flex-1 justify-center"
+                      className="py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-rose-200"
                     >
                       <X className="w-4 h-4" /> 放弃({deductionLevel})
                     </button>
                   </>
                 )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              <button
-                onClick={onValidate}
-                className="py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-blue-200"
-              >
-                <SearchCheck className="w-4 h-4" /> 检查错误
-              </button>
-              <button
-                onClick={onRestore}
-                disabled={!lastCorrectSnapshot}
-                className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-slate-200"
-                title="回退到上一次检查没有报错的状态"
-              >
-                <Undo2 className="w-4 h-4" /> 恢复检查点
-              </button>
-            </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={onValidate}
+                  className="py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-blue-200"
+                >
+                  <SearchCheck className="w-4 h-4" /> 检查错误
+                </button>
+                <button
+                  onClick={onRestore}
+                  disabled={!lastCorrectSnapshot}
+                  className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-slate-200"
+                  title="回退到上一次检查没有报错的状态"
+                >
+                  <Undo2 className="w-4 h-4" /> 恢复检查点
+                </button>
+              </div>
 
-            <div className="mt-1">
               <button
                 onClick={onProvideHint}
-                className="w-full py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-md text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-amber-200"
+                className="py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-amber-200"
               >
                 <Lightbulb className="w-4 h-4" /> 给我提示
               </button>
             </div>
 
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-1.5 mt-1.5 p-1 bg-slate-100 rounded-lg">
               <button
                 onClick={() => setInteractionMode('toggle')}
-                className={`flex-1 py-2 text-sm rounded-lg border font-medium flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 py-1.5 text-xs rounded-md font-bold flex items-center justify-center gap-1.5 transition-all ${
                   interactionMode === 'toggle'
                     ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    : 'text-slate-600 hover:bg-white'
                 }`}
               >
-                <MousePointerClick className="w-4 h-4" /> 轮切
+                <MousePointerClick className="w-3.5 h-3.5" /> 轮切
               </button>
               <button
                 onClick={() => setInteractionMode('paint')}
-                className={`flex-1 py-2 text-sm rounded-lg border font-medium flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 py-1.5 text-xs rounded-md font-bold flex items-center justify-center gap-1.5 transition-all ${
                   interactionMode === 'paint'
                     ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    : 'text-slate-600 hover:bg-white'
                 }`}
               >
-                <PaintRoller className="w-4 h-4" /> 放置
+                <PaintRoller className="w-3.5 h-3.5" /> 放置
               </button>
             </div>
 
@@ -1245,15 +1246,69 @@ const SidePanel = ({
                   placeholder="图片底部留言 (选填)"
                   className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-blue-500 bg-white"
                 />
+                <div className="grid grid-cols-3 gap-1.5">
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] text-slate-500">清晰度</span>
+                    <select
+                      name="img-scale"
+                      value={imgScale}
+                      onChange={(e) => setImgScale(e.target.value)}
+                      className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
+                    >
+                      <option value="1">标准 1x</option>
+                      <option value="2">高清 2x</option>
+                      <option value="3">超清 3x</option>
+                      <option value="4">4K 4x</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] text-slate-500">JPG 质量</span>
+                    <select
+                      name="img-jpeg-quality"
+                      value={imgJpegQuality}
+                      onChange={(e) => setImgJpegQuality(e.target.value)}
+                      className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
+                    >
+                      <option value="0.95">高</option>
+                      <option value="0.9">标准</option>
+                      <option value="0.7">低</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] text-slate-500">DPI</span>
+                    <select
+                      name="img-dpi"
+                      value={imgDpi}
+                      onChange={(e) => setImgDpi(e.target.value)}
+                      className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
+                    >
+                      <option value="72">72</option>
+                      <option value="96">96</option>
+                      <option value="150">150</option>
+                      <option value="300">300</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="text-[9px] text-slate-400 leading-relaxed">
+                  清晰度 = 每格像素放大倍数；DPI 为打印元数据（屏幕显示无差别）。
+                </p>
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
-                    onClick={() => onExportImage('png')}
+                    onClick={() =>
+                      onExportImage('png', { scale: Number(imgScale), dpi: Number(imgDpi) })
+                    }
                     className="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 flex justify-center items-center gap-1.5 transition-colors"
                   >
                     <ImageIcon className="w-3.5 h-3.5" /> PNG
                   </button>
                   <button
-                    onClick={() => onExportImage('jpeg')}
+                    onClick={() =>
+                      onExportImage('jpeg', {
+                        scale: Number(imgScale),
+                        jpegQuality: Number(imgJpegQuality),
+                        dpi: Number(imgDpi),
+                      })
+                    }
                     className="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 flex justify-center items-center gap-1.5 transition-colors"
                   >
                     <ImageIcon className="w-3.5 h-3.5" /> JPG

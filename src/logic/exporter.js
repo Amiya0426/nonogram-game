@@ -94,32 +94,84 @@ export const buildExportData = (state, remark) => ({
 });
 
 /**
- * 生成分享用存档代码（v2 压缩格式）。
- * 只保留可恢复盘面的核心数据（去掉备份盘与复盘记录），显著缩短分享代码。
+ * 生成分享用存档代码（v2 压缩格式，最精简）。
+ * 网格展平为数字串、标记为空时省略，lz-string 使用 Base64 编码（比 URL 安全编码更短）。
  */
 export const buildExportCode = (state, remark) => {
   const payload = {
-    rows: state.rows,
-    cols: state.cols,
-    rowCluesStr: state.rowCluesStr,
-    colCluesStr: state.colCluesStr,
-    grid: state.grid,
-    markedRowClues: state.markedRowClues,
-    markedColClues: state.markedColClues,
-    isSolvedStatus: state.isSolvedStatus,
-    remark: (remark || '').trim(),
-    deductionLevel: state.deductionLevel || 0,
+    v: 1,
+    r: state.rows,
+    c: state.cols,
+    a: state.rowCluesStr,
+    b: state.colCluesStr,
+    g: state.grid.flat().join(''),
   };
-  return `v2:${lzString.compressToEncodedURIComponent(JSON.stringify(payload))}`;
+  if (
+    state.markedRowClues &&
+    Object.keys(state.markedRowClues).length > 0
+  ) {
+    payload.m = state.markedRowClues;
+  }
+  if (
+    state.markedColClues &&
+    Object.keys(state.markedColClues).length > 0
+  ) {
+    payload.n = state.markedColClues;
+  }
+  if (state.isSolvedStatus) payload.s = 1;
+  if (state.deductionLevel) payload.d = state.deductionLevel;
+  const remarkText = (remark || '').trim();
+  if (remarkText) payload.t = remarkText;
+  return `v2:${lzString.compressToBase64(JSON.stringify(payload))}`;
 };
 
-/** 解码存档代码：优先 v2 压缩格式，兼容旧版 base64(encodeURIComponent(JSON)) 格式 */
+/** 解码存档代码：v2 压缩（Base64 或旧版 URL 编码）与旧版 base64(encodeURIComponent(JSON)) 均兼容 */
 export const decodeExportCode = (code) => {
   const text = String(code || '').trim();
   if (text.startsWith('v2:')) {
-    const json = lzString.decompressFromEncodedURIComponent(text.slice(3));
+    const t = text.slice(3);
+    let json = null;
+    try {
+      const dec = lzString.decompressFromBase64(t);
+      if (dec) json = JSON.parse(dec);
+    } catch {
+      // 尝试下一种格式
+    }
+    if (!json) {
+      try {
+        const dec = lzString.decompressFromEncodedURIComponent(t);
+        if (dec) json = JSON.parse(dec);
+      } catch {
+        // 旧 v2 格式
+      }
+    }
     if (!json) throw new Error('存档代码已损坏');
-    return JSON.parse(json);
+    // 精简格式 -> 完整格式
+    if (typeof json.r === 'number' && typeof json.c === 'number') {
+      const g = String(json.g || '');
+      const grid = [];
+      for (let r = 0; r < json.r; r++) {
+        grid.push(
+          g
+            .slice(r * json.c, (r + 1) * json.c)
+            .split('')
+            .map(Number),
+        );
+      }
+      return {
+        rows: json.r,
+        cols: json.c,
+        rowCluesStr: json.a,
+        colCluesStr: json.b,
+        grid,
+        markedRowClues: json.m || {},
+        markedColClues: json.n || {},
+        isSolvedStatus: !!json.s,
+        deductionLevel: json.d || 0,
+        remark: json.t || '',
+      };
+    }
+    return json;
   }
   const json = decodeURIComponent(atob(text));
   return JSON.parse(json);
@@ -140,32 +192,109 @@ export const copyToClipboard = async (text) => {
   return true;
 };
 
+// ---------- DPI 元数据写入（PNG pHYs / JPEG JFIF density） ----------
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+const crc32 = (bytes, start = 0, end = bytes.length) => {
+  let c = 0xffffffff;
+  for (let i = start; i < end; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+
+/** 在 PNG 的 IHDR 后插入 pHYs 块（单位：像素/米），写入 DPI */
+const patchPngDpi = (buf, dpi) => {
+  const u8 = new Uint8Array(buf);
+  if (u8[0] !== 0x89 || u8[1] !== 0x50) return buf;
+  const ppm = Math.round(dpi * 39.3701);
+  const pHYs = new Uint8Array(4 + 4 + 9 + 4);
+  const dv = new DataView(pHYs.buffer);
+  dv.setUint32(0, 9);
+  pHYs[4] = 0x70;
+  pHYs[5] = 0x48;
+  pHYs[6] = 0x59;
+  pHYs[7] = 0x73; // 'pHYs'
+  dv.setUint32(8, ppm);
+  dv.setUint32(12, ppm);
+  pHYs[16] = 1;
+  dv.setUint32(17, crc32(pHYs, 4, 17));
+  const out = new Uint8Array(u8.length + pHYs.length);
+  out.set(u8.subarray(0, 33), 0);
+  out.set(pHYs, 33);
+  out.set(u8.subarray(33), 33 + pHYs.length);
+  return out.buffer;
+};
+
+/** 修改 JPEG JFIF APP0 中的 DPI（单位：点/英寸） */
+const patchJpegDpi = (buf, dpi) => {
+  const u8 = new Uint8Array(buf);
+  if (u8[0] !== 0xff || u8[1] !== 0xd8) return buf;
+  let p = 2;
+  while (p + 8 < u8.length) {
+    if (u8[p] !== 0xff) {
+      p++;
+      continue;
+    }
+    const marker = u8[p + 1];
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd9)) {
+      p += 2;
+      continue;
+    }
+    const len = (u8[p + 2] << 8) | u8[p + 3];
+    if (
+      marker === 0xe0 &&
+      u8[p + 4] === 0x4a &&
+      u8[p + 5] === 0x46 &&
+      u8[p + 6] === 0x49 &&
+      u8[p + 7] === 0x46
+    ) {
+      const copy = new Uint8Array(u8);
+      copy[p + 11] = 1; // units: dots per inch
+      copy[p + 12] = (dpi >> 8) & 0xff;
+      copy[p + 13] = dpi & 0xff;
+      copy[p + 14] = (dpi >> 8) & 0xff;
+      copy[p + 15] = dpi & 0xff;
+      return copy.buffer;
+    }
+    p += 2 + len;
+  }
+  return buf;
+};
+
 /**
  * 将当前盘面绘制为图片并触发下载。
- * 依赖注入 parseClue / getAutoMarked，避免与 React 状态耦合。
+ * 只绘制黑块（不打叉）；支持放大倍数 scale、JPG 压缩质量与 DPI 元数据。
  */
-export const exportBoardAsImage = (
+export const exportBoardAsImage = async (
   { grid, rows, cols, rowCluesStr, colCluesStr, markedRowClues, markedColClues, gameSettings },
   { parseClue, getAutoMarked, theme },
-  { filename, remark },
+  { filename, remark, scale = 1, jpegQuality = 0.9, dpi = null },
   format = 'png',
 ) => {
-  const EXPORT_CELL_SIZE = 30;
+  const S = Math.max(1, Math.round(scale) || 1);
+  const EXPORT_CELL_SIZE = 30 * S;
   const parsedRowClues = rowCluesStr.map(parseClue);
   const parsedColClues = colCluesStr.map(parseClue);
 
   const maxRowClueLen = Math.max(...parsedRowClues.map((c) => c.length));
   const maxColClueLen = Math.max(...parsedColClues.map((c) => c.length));
 
-  const CLUE_CELL_W = 22;
-  const CLUE_CELL_H = 22;
-  const leftWidth = maxRowClueLen * CLUE_CELL_W + 15;
-  const topHeight = maxColClueLen * CLUE_CELL_H + 15;
+  const CLUE_CELL_W = 22 * S;
+  const CLUE_CELL_H = 22 * S;
+  const leftWidth = maxRowClueLen * CLUE_CELL_W + 15 * S;
+  const topHeight = maxColClueLen * CLUE_CELL_H + 15 * S;
   const boardW = cols * EXPORT_CELL_SIZE;
   const boardH = rows * EXPORT_CELL_SIZE;
 
-  const padding = 20;
-  const remarkHeight = remark ? 40 : 0;
+  const padding = 20 * S;
+  const remarkHeight = remark ? 40 * S : 0;
   const totalW = leftWidth * 2 + boardW + padding * 2;
   const totalH = topHeight * 2 + boardH + padding * 2 + remarkHeight;
 
@@ -187,6 +316,7 @@ export const exportBoardAsImage = (
       const v = grid[r][c];
 
       if (v % 2 === 1) {
+        // 只画黑块（含推演色），不打叉
         let fillStyle = theme.fill;
         if (v === 3) fillStyle = '#d946ef';
         if (v === 5) fillStyle = '#3b82f6';
@@ -196,44 +326,28 @@ export const exportBoardAsImage = (
       } else {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(x, y, EXPORT_CELL_SIZE, EXPORT_CELL_SIZE);
-        if (v > 0 && v % 2 === 0) {
-          let strokeStyle = theme.cross;
-          if (v === 4) strokeStyle = '#d946ef';
-          if (v === 6) strokeStyle = '#3b82f6';
-          if (v === 8) strokeStyle = '#f59e0b';
-          ctx.strokeStyle = strokeStyle;
-          ctx.lineWidth = 3;
-          ctx.globalAlpha = 0.8;
-          ctx.beginPath();
-          ctx.moveTo(x + EXPORT_CELL_SIZE * 0.2, y + EXPORT_CELL_SIZE * 0.2);
-          ctx.lineTo(x + EXPORT_CELL_SIZE * 0.8, y + EXPORT_CELL_SIZE * 0.8);
-          ctx.moveTo(x + EXPORT_CELL_SIZE * 0.8, y + EXPORT_CELL_SIZE * 0.2);
-          ctx.lineTo(x + EXPORT_CELL_SIZE * 0.2, y + EXPORT_CELL_SIZE * 0.8);
-          ctx.stroke();
-          ctx.globalAlpha = 1.0;
-        }
       }
 
       ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = S;
       ctx.strokeRect(x, y, EXPORT_CELL_SIZE, EXPORT_CELL_SIZE);
 
       if (c % 5 === 4 && c !== cols - 1) {
         ctx.fillStyle = '#1e293b';
-        ctx.fillRect(x + EXPORT_CELL_SIZE - 1, y, 2, EXPORT_CELL_SIZE);
+        ctx.fillRect(x + EXPORT_CELL_SIZE - S, y, 2 * S, EXPORT_CELL_SIZE);
       }
       if (r % 5 === 4 && r !== rows - 1) {
         ctx.fillStyle = '#1e293b';
-        ctx.fillRect(x, y + EXPORT_CELL_SIZE - 1, EXPORT_CELL_SIZE, 2);
+        ctx.fillRect(x, y + EXPORT_CELL_SIZE - S, EXPORT_CELL_SIZE, 2 * S);
       }
     }
   }
 
   ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2 * S;
   ctx.strokeRect(leftWidth, topHeight, boardW, boardH);
 
-  ctx.font = 'bold 16px sans-serif';
+  ctx.font = `bold ${16 * S}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -249,8 +363,8 @@ export const exportBoardAsImage = (
       if (clues[i] === 0) continue;
       ctx.fillStyle =
         markedColClues[`${c}-${i}`] || autoMarkedCol[i] ? theme.marked : '#1e293b';
-      ctx.fillText(clues[i], x, topHeight - 10 - (clues.length - 1 - i) * CLUE_CELL_H);
-      ctx.fillText(clues[i], x, topHeight + boardH + 10 + i * CLUE_CELL_H);
+      ctx.fillText(clues[i], x, topHeight - 10 * S - (clues.length - 1 - i) * CLUE_CELL_H);
+      ctx.fillText(clues[i], x, topHeight + boardH + 10 * S + i * CLUE_CELL_H);
     }
   }
 
@@ -260,26 +374,40 @@ export const exportBoardAsImage = (
     const autoMarkedRow = gameSettings.autoMarkNumbers
       ? getAutoMarked(rowLine, clues).marked
       : [];
-    const y = topHeight + r * EXPORT_CELL_SIZE + EXPORT_CELL_SIZE / 2 + 1;
+    const y = topHeight + r * EXPORT_CELL_SIZE + EXPORT_CELL_SIZE / 2 + S;
 
     for (let i = 0; i < clues.length; i++) {
       if (clues[i] === 0) continue;
       ctx.fillStyle =
         markedRowClues[`${r}-${i}`] || autoMarkedRow[i] ? theme.marked : '#1e293b';
-      ctx.fillText(clues[i], leftWidth - 15 - (clues.length - 1 - i) * CLUE_CELL_W, y);
-      ctx.fillText(clues[i], leftWidth + boardW + 15 + i * CLUE_CELL_W, y);
+      ctx.fillText(clues[i], leftWidth - 15 * S - (clues.length - 1 - i) * CLUE_CELL_W, y);
+      ctx.fillText(clues[i], leftWidth + boardW + 15 * S + i * CLUE_CELL_W, y);
     }
   }
 
   if (remark) {
     ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 18px sans-serif';
+    ctx.font = `bold ${18 * S}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(remark, (leftWidth * 2 + boardW) / 2, topHeight * 2 + boardH + 20);
+    ctx.fillText(remark, (leftWidth * 2 + boardW) / 2, topHeight * 2 + boardH + 20 * S);
   }
 
+  const mime = format === 'jpeg' || format === 'jpg' ? 'image/jpeg' : 'image/png';
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, mime, format === 'jpeg' ? jpegQuality : undefined);
+  });
+  let finalBlob = blob;
+  if (dpi && blob) {
+    const buf = await blob.arrayBuffer();
+    finalBlob = new Blob(
+      [format === 'jpeg' ? patchJpegDpi(buf, dpi) : patchPngDpi(buf, dpi)],
+      { type: mime },
+    );
+  }
+  const url = URL.createObjectURL(finalBlob);
   const link = document.createElement('a');
-  link.download = `${filename}.${format}`;
-  link.href = canvas.toDataURL(`image/${format}`, 0.9);
+  link.download = `${filename}.${format === 'jpeg' ? 'jpg' : format}`;
+  link.href = url;
   link.click();
+  URL.revokeObjectURL(url);
 };
