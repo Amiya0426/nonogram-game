@@ -29,6 +29,8 @@ import { api } from '../api.js';
 import {
   downloadJSON,
   buildExportData,
+  buildExportCode,
+  decodeExportCode,
   copyToClipboard,
   exportBoardAsImage,
   buildPuzzleExportName,
@@ -1465,7 +1467,7 @@ export default function useGameState() {
   const handleExportCode = useCallback(async () => {
     const finalFilename =
       exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
-    const data = buildExportData(
+    const code = buildExportCode(
       {
         rows,
         cols,
@@ -1476,15 +1478,12 @@ export default function useGameState() {
         markedColClues,
         isSolvedStatus,
         deductionLevel,
-        backupGrids,
       },
       exportRemark,
     );
-    const jsonStr = JSON.stringify(data);
-    const base64 = btoa(encodeURIComponent(jsonStr));
     try {
-      await copyToClipboard(base64);
-      setAlertMsg(`✅ 存档代码 [${finalFilename}] 已成功复制！`);
+      await copyToClipboard(code);
+      setAlertMsg(`✅ 存档代码 [${finalFilename}] 已复制（已压缩，更短）！`);
     } catch {
       setAlertMsg('✅ 存档代码已生成，请在下方手动复制。');
     }
@@ -1501,7 +1500,6 @@ export default function useGameState() {
     markedColClues,
     isSolvedStatus,
     deductionLevel,
-    backupGrids,
   ]);
 
   const handleExportJSON = useCallback(() => {
@@ -1712,8 +1710,7 @@ export default function useGameState() {
   /** 从存档代码导入（base64 → JSON → 应用到盘面） */
   const importFromCode = useCallback(
     (code) => {
-      const jsonStr = decodeURIComponent(atob(code.trim()));
-      const data = JSON.parse(jsonStr);
+      const data = decodeExportCode(code);
       applyImportedData(data);
       submitToLibrary(data);
     },

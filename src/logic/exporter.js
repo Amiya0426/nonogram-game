@@ -1,5 +1,6 @@
 // 导出：存档代码 / JSON 文件 / 图片
 import { parseClue, getLineClue, arraysEqual } from './clues.js';
+import lzString from 'lz-string';
 
 /** 本地时间格式化为 YYYY-MM-DD_HH-mm */
 export const formatTimestamp = (d = new Date()) => {
@@ -91,6 +92,38 @@ export const buildExportData = (state, remark) => ({
   deductionLevel: state.deductionLevel,
   backupGrids: state.backupGrids,
 });
+
+/**
+ * 生成分享用存档代码（v2 压缩格式）。
+ * 只保留可恢复盘面的核心数据（去掉备份盘与复盘记录），显著缩短分享代码。
+ */
+export const buildExportCode = (state, remark) => {
+  const payload = {
+    rows: state.rows,
+    cols: state.cols,
+    rowCluesStr: state.rowCluesStr,
+    colCluesStr: state.colCluesStr,
+    grid: state.grid,
+    markedRowClues: state.markedRowClues,
+    markedColClues: state.markedColClues,
+    isSolvedStatus: state.isSolvedStatus,
+    remark: (remark || '').trim(),
+    deductionLevel: state.deductionLevel || 0,
+  };
+  return `v2:${lzString.compressToEncodedURIComponent(JSON.stringify(payload))}`;
+};
+
+/** 解码存档代码：优先 v2 压缩格式，兼容旧版 base64(encodeURIComponent(JSON)) 格式 */
+export const decodeExportCode = (code) => {
+  const text = String(code || '').trim();
+  if (text.startsWith('v2:')) {
+    const json = lzString.decompressFromEncodedURIComponent(text.slice(3));
+    if (!json) throw new Error('存档代码已损坏');
+    return JSON.parse(json);
+  }
+  const json = decodeURIComponent(atob(text));
+  return JSON.parse(json);
+};
 
 /** 复制文本到剪贴板，返回是否成功 */
 export const copyToClipboard = async (text) => {

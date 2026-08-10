@@ -38,7 +38,6 @@ import {
   LogIn,
   LogOut,
   FolderInput,
-  FileArchive,
   ClipboardPaste,
   ListChecks,
   Minus,
@@ -105,7 +104,6 @@ const SidePanel = ({
   onDeleteFromCollection,
   onDeleteSelected,
   onExportCollection,
-  onExportCollectionZip,
   onImportCollectionFiles,
   onExportCode,
   onExportJSON,
@@ -843,76 +841,20 @@ const SidePanel = ({
 
         <div className={tabCls('collection')}>
 <Accordion title={user ? '云端收藏夹' : '本地收藏夹'} icon={FolderHeart} defaultOpen={false}>
-          {!user ? (
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
-                <UserRound className="w-3.5 h-3.5" /> 登录后云端保存收藏
-              </div>
-              <input
-                type="text"
-                value={authUsername}
-                onChange={(e) => setAuthUsername(e.target.value)}
-                placeholder="用户名 (2-32 位)"
-                className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-              />
-              <input
-                type="password"
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && authUsername.trim() && authPassword) {
-                    onLogin(authUsername, authPassword);
-                  }
-                }}
-                placeholder="密码 (至少 6 位)"
-                className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-              />
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => onLogin(authUsername, authPassword)}
-                  disabled={authBusy || !authUsername.trim() || !authPassword}
-                  className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"
-                >
-                  <LogIn className="w-3.5 h-3.5" /> 登录
-                </button>
-                <button
-                  onClick={() => onRegister(authUsername, authPassword)}
-                  disabled={authBusy || !authUsername.trim() || !authPassword}
-                  className="flex-1 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  注册
-                </button>
-              </div>
-              <p className="text-[9px] text-indigo-500/70 leading-relaxed">
-                登录后，本地收藏会自动合并到云端（按名称+尺寸去重）。
-              </p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between px-0.5 text-[10px] text-slate-500">
+              <span>
+                {user ? '云端已同步' : '本地保存，登录后自动同步'} · {puzzleCollection.length} 个
+              </span>
+              {user && puzzleCollection.length > 0 && (
+                <span className="text-emerald-600">收藏自动加入共享题库</span>
+              )}
             </div>
-          ) : (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-600 shrink-0">
-                  <UserRound className="w-3.5 h-3.5" />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-emerald-800 truncate">{user.username}</div>
-                  <div className="text-[9px] text-emerald-600/70">
-                    云端收藏 {puzzleCollection.length} 个
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={onLogout}
-                className="px-2 py-1.5 bg-white text-slate-600 hover:bg-slate-100 rounded-lg text-[11px] font-bold border border-slate-200 transition-colors flex items-center gap-1"
-              >
-                <LogOut className="w-3 h-3" /> 退出
-              </button>
-            </div>
-          )}
-          <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5">
               <button
                 onClick={onSaveToCollection}
                 className="flex-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold transition-colors border border-indigo-200 flex items-center justify-center gap-1"
+                title="把当前题目存入收藏夹"
               >
                 <BookmarkPlus className="w-3 h-3" /> 存入当前
               </button>
@@ -935,77 +877,62 @@ const SidePanel = ({
                 }}
               />
               <button
-                onClick={onDeleteSelected}
-                disabled={!selectedCollectionIds.length}
-                className="flex-1 px-2 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded text-[10px] font-bold transition-colors border border-red-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="删除所有已选中的收藏"
-              >
-                <Trash2 className="w-3 h-3" /> 删除选中
-              </button>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
                 onClick={() => onExportCollection(false)}
                 className="flex-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center justify-center gap-1"
+                title="把全部收藏导出为一个 JSON 文件"
               >
-                <Download className="w-3 h-3" /> 下载全部
-              </button>
-              <button
-                onClick={() => onExportCollection(true)}
-                disabled={!selectedCollectionIds.length}
-                className="flex-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold transition-colors border border-emerald-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="多选时逐个下载为独立 JSON 文件"
-              >
-                <Download className="w-3 h-3" /> 下载选中
-              </button>
-              <button
-                onClick={() => onExportCollectionZip(true)}
-                disabled={!selectedCollectionIds.length}
-                className="flex-1 px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[10px] font-bold transition-colors border border-amber-200 flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="将选中的收藏打包为一个 ZIP 文件"
-              >
-                <FileArchive className="w-3 h-3" /> 选中 ZIP
+                <Download className="w-3 h-3" /> 导出全部
               </button>
             </div>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs text-slate-500">
-              {user ? '数据保存在云端' : '本地保存，登录后可同步'}
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500">
-            <span>
-              {selectedCollectionIds.length}/{puzzleCollection.length} 已选
-            </span>
-            <div className="flex items-center gap-1.5">
+            {collectionSelectMode ? (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-500 shrink-0">
+                  已选 {selectedCollectionIds.length}/{puzzleCollection.length}
+                </span>
+                <button
+                  onClick={onSelectAll}
+                  className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-[10px] font-medium"
+                >
+                  全选
+                </button>
+                <button
+                  onClick={onClearSelection}
+                  className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-[10px] font-medium"
+                >
+                  清空
+                </button>
+                <button
+                  onClick={() => onExportCollection(true)}
+                  disabled={!selectedCollectionIds.length}
+                  className="px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[10px] font-bold disabled:opacity-50 flex items-center gap-0.5"
+                  title="导出选中的收藏（逐个 JSON 文件）"
+                >
+                  <Download className="w-3 h-3" /> 导出选中
+                </button>
+                <button
+                  onClick={onDeleteSelected}
+                  disabled={!selectedCollectionIds.length}
+                  className="px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-[10px] font-bold disabled:opacity-50 flex items-center gap-0.5"
+                  title="删除选中的收藏"
+                >
+                  <Trash2 className="w-3 h-3" /> 删除
+                </button>
+                <button
+                  onClick={() => setCollectionSelectMode(false)}
+                  className="px-1.5 py-0.5 rounded border border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200 text-[10px] font-medium"
+                >
+                  完成
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={() => setCollectionSelectMode(!collectionSelectMode)}
-                className={`px-1.5 py-0.5 rounded border font-medium transition-colors flex items-center gap-1 ${
-                  collectionSelectMode
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-                title={
-                  collectionSelectMode
-                    ? '关闭选择模式（点击题目即游玩）'
-                    : '开启选择模式（点击题目即选中/取消）'
-                }
+                onClick={() => setCollectionSelectMode(true)}
+                className="self-start px-2 py-1 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 text-[10px] font-medium flex items-center gap-1"
+                title="多选管理：选中后可批量导出或删除"
               >
                 <ListChecks className="w-3 h-3" /> 选择
               </button>
-              <button
-                onClick={onSelectAll}
-                className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              >
-                全选
-              </button>
-              <button
-                onClick={onClearSelection}
-                className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              >
-                清空
-              </button>
-            </div>
+            )}
           </div>
           <div className="flex flex-col gap-2 max-h-48 overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100">
             {puzzleCollection.length === 0 ? (
