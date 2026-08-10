@@ -102,6 +102,10 @@ async function main() {
     r.data?.puzzle_id === uniquePuzzleId,
     `puzzle_id=${r.data?.puzzle_id} expected=${uniquePuzzleId}`,
   );
+  const colId = r.data?.id;
+  r = await req(`/api/collections/${colId}`, 'PUT', { name: '收藏改名后' });
+  log(`收藏改名: ${r.status} name=${r.data?.name}`);
+  check('收藏支持改名', r.data?.name === '收藏改名后', `name=${r.data?.name}`);
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: uniquePuzzle.grid });
   log(`完成标记: ${r.status}`);
 

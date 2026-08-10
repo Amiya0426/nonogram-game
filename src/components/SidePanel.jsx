@@ -97,6 +97,8 @@ const SidePanel = ({
   puzzleCollection,
   selectedCollectionIds,
   onSaveToCollection,
+  onRenameCollection,
+  isItemCompleted,
   onLoadFromCollection,
   onToggleSelection,
   onSelectAll,
@@ -135,6 +137,37 @@ const SidePanel = ({
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [collectionSelectMode, setCollectionSelectMode] = useState(false);
+  const [collectionSort, setCollectionSort] = useState('newest');
+  const [panelWidth, setPanelWidth] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem('nonogram_panel_width'));
+      return v >= 240 && v <= 520 ? v : 352;
+    } catch {
+      return 352;
+    }
+  });
+  const panelWidthRef = useRef(panelWidth);
+  const startResize = (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = panelWidthRef.current;
+    const onMove = (ev) => {
+      const w = Math.min(520, Math.max(240, startW + (ev.clientX - startX)));
+      panelWidthRef.current = w;
+      setPanelWidth(w);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      try {
+        localStorage.setItem('nonogram_panel_width', String(panelWidthRef.current));
+      } catch {
+        // 忽略存储失败
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
   const batchImportInputRef = useRef(null);
   const [rowText, setRowText] = useState(String(rows));
   const [colText, setColText] = useState(String(cols));
@@ -189,6 +222,37 @@ const SidePanel = ({
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [userProgress]);
 
+  /** 已完成/未完成 + 导入时间排序 */
+  const sortedCollection = useMemo(() => {
+    const list = [...puzzleCollection];
+    const sortTime = (item) =>
+      user
+        ? Date.parse(String(item.date || '').replace(' ', 'T') + 'Z') || 0
+        : Number(item.id) || 0;
+    switch (collectionSort) {
+      case 'oldest':
+        list.sort((a, b) => sortTime(a) - sortTime(b));
+        break;
+      case 'uncompleted':
+        list.sort(
+          (a, b) =>
+            (isItemCompleted(a) ? 1 : 0) - (isItemCompleted(b) ? 1 : 0) ||
+            sortTime(b) - sortTime(a),
+        );
+        break;
+      case 'completed':
+        list.sort(
+          (a, b) =>
+            (isItemCompleted(b) ? 1 : 0) - (isItemCompleted(a) ? 1 : 0) ||
+            sortTime(b) - sortTime(a),
+        );
+        break;
+      default:
+        list.sort((a, b) => sortTime(b) - sortTime(a));
+    }
+    return list;
+  }, [puzzleCollection, collectionSort, user, isItemCompleted]);
+
   return (
     <>
     {!isPanelPinned && !isPanelHovered && (
@@ -216,16 +280,17 @@ const SidePanel = ({
       }}
       className={`
         flex flex-col bg-white border-r border-slate-200 shadow-2xl
-        fixed top-[65px] bottom-0 left-0 z-40 w-full md:w-80 lg:w-96
+        fixed top-[65px] bottom-0 left-0 z-40 w-full md:w-[var(--panel-w)]
         transition-transform duration-300 ease-in-out
         ${showLeftPanel ? 'translate-x-0' : '-translate-x-full'}
-        md:top-0 md:bottom-auto md:w-80 lg:w-96
+        md:top-0 md:bottom-auto md:w-[var(--panel-w)]
         ${isPanelPinned
           ? 'md:relative md:h-screen md:z-10 md:shrink-0 md:translate-x-0'
           : `md:fixed md:h-screen md:z-40 ${
               isPanelHovered ? 'md:translate-x-0' : 'md:-translate-x-full'
             }`}
       `}
+      style={{ '--panel-w': `${panelWidth}px` }}
     >
       <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
         {/* 用户卡片：登录 / 已解统计 */}
@@ -842,13 +907,21 @@ const SidePanel = ({
         <div className={tabCls('collection')}>
 <Accordion title={user ? '云端收藏夹' : '本地收藏夹'} icon={FolderHeart} defaultOpen={false}>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between px-0.5 text-[10px] text-slate-500">
-              <span>
+            <div className="flex items-center justify-between gap-1 px-0.5 text-[10px] text-slate-500">
+              <span className="truncate">
                 {user ? '云端已同步' : '本地保存，登录后自动同步'} · {puzzleCollection.length} 个
               </span>
-              {user && puzzleCollection.length > 0 && (
-                <span className="text-emerald-600">收藏自动加入共享题库</span>
-              )}
+              <select
+                value={collectionSort}
+                onChange={(e) => setCollectionSort(e.target.value)}
+                className="shrink-0 text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-0.5 outline-none focus:border-indigo-400"
+                title="排序方式"
+              >
+                <option value="newest">最新导入</option>
+                <option value="oldest">最早导入</option>
+                <option value="uncompleted">未完成优先</option>
+                <option value="completed">已完成优先</option>
+              </select>
             </div>
             <div className="flex items-center gap-1.5">
               <button
@@ -934,12 +1007,18 @@ const SidePanel = ({
               </button>
             )}
           </div>
-          <div className="flex flex-col gap-2 max-h-48 overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100">
-            {puzzleCollection.length === 0 ? (
-              <p className="text-[10px] text-slate-400 text-center py-2">暂无收藏的题目</p>
+          <div
+            className="grid gap-2 max-h-52 overflow-y-auto bg-slate-50 rounded p-2 border border-slate-100"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))' }}
+          >
+            {sortedCollection.length === 0 ? (
+              <p className="col-span-full text-[10px] text-slate-400 text-center py-2">
+                暂无收藏的题目
+              </p>
             ) : (
-              puzzleCollection.map((item) => {
+              sortedCollection.map((item) => {
                 const isSelected = selectedCollectionIds.includes(item.id);
+                const done = isItemCompleted(item);
                 return (
                   <div
                     key={item.id}
@@ -948,15 +1027,19 @@ const SidePanel = ({
                         ? onToggleSelection(item.id)
                         : onLoadFromCollection(item)
                     }
-                    className={`flex items-center gap-2 bg-white p-1.5 rounded border shadow-sm cursor-pointer transition-colors group ${
+                    className={`relative flex flex-col gap-1 p-2 rounded-lg border shadow-sm cursor-pointer transition-colors group min-h-[104px] ${
+                      done
+                        ? 'border-emerald-300 bg-emerald-50/50'
+                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                    } ${
                       collectionSelectMode && isSelected
-                        ? 'border-indigo-400 bg-indigo-50'
-                        : 'border-slate-200 hover:bg-slate-50'
+                        ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300'
+                        : ''
                     }`}
                   >
                     {collectionSelectMode && (
                       <span
-                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                        className={`absolute top-1 left-1 w-4 h-4 rounded border flex items-center justify-center z-10 ${
                           isSelected
                             ? 'bg-indigo-600 border-indigo-600 text-white'
                             : 'border-slate-300 bg-white'
@@ -965,42 +1048,49 @@ const SidePanel = ({
                         {isSelected && <Check className="w-2.5 h-2.5" />}
                       </span>
                     )}
-                    <div className="flex flex-col overflow-hidden flex-1 min-w-0">
-                      <span className="flex items-center gap-1 min-w-0">
-                        <span className="text-xs font-bold text-slate-700 truncate">
-                          {item.name}
-                        </span>
-                        {item.puzzle_id && (
-                          <span className="shrink-0 px-1 rounded bg-emerald-100 text-emerald-700 text-[8px] font-bold">
-                            题库
-                          </span>
-                        )}
+                    {done && (
+                      <span className="absolute top-1 right-1 flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[8px] font-bold z-10">
+                        <Check className="w-2.5 h-2.5" /> 已完成
                       </span>
-                      <span className="text-[9px] text-slate-400">
-                        {item.cols}×{item.rows} - {item.date}
+                    )}
+                    <div className="flex items-start gap-1 pr-9 min-w-0">
+                      <span className="text-[11px] font-bold text-slate-700 leading-snug line-clamp-2 break-all">
+                        {item.name}
                       </span>
                     </div>
-                    <span
-                      className={`text-[9px] shrink-0 transition-opacity ${
-                        collectionSelectMode
-                          ? isSelected
-                            ? 'text-indigo-500 font-bold'
-                            : 'text-indigo-400'
-                          : 'text-slate-300 opacity-0 group-hover:opacity-100'
-                      }`}
-                    >
-                      {collectionSelectMode ? (isSelected ? '已选中' : '点击选中') : '点击游玩'}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteFromCollection(item.id);
-                      }}
-                      className="p-1 bg-red-50 text-red-500 hover:bg-red-100 rounded shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="删除"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {item.puzzle_id && (
+                      <span className="self-start px-1 rounded bg-emerald-100 text-emerald-700 text-[8px] font-bold">
+                        题库
+                      </span>
+                    )}
+                    <div className="mt-auto flex flex-col gap-0.5 min-w-0">
+                      <span className="text-[9px] text-slate-400">
+                        {item.cols}×{item.rows}
+                      </span>
+                      <span className="text-[9px] text-slate-400 truncate">{item.date}</span>
+                    </div>
+                    <div className="absolute bottom-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRenameCollection(item.id);
+                        }}
+                        className="p-1 rounded bg-white text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 shadow-sm border border-slate-200"
+                        title="改名"
+                      >
+                        <PencilLine className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteFromCollection(item.id);
+                        }}
+                        className="p-1 rounded bg-white text-red-500 hover:bg-red-100 shadow-sm border border-slate-200"
+                        title="删除"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 );
               })
@@ -1220,6 +1310,12 @@ const SidePanel = ({
             </button>
           ))}
         </div>
+        {/* 桌面端：拖拽调整侧边栏宽度 */}
+        <div
+          onPointerDown={startResize}
+          className="hidden md:block absolute top-0 right-0 h-full w-1.5 cursor-col-resize z-50 bg-transparent hover:bg-indigo-300/60 active:bg-indigo-400/60 transition-colors"
+          title="拖动调整面板宽度"
+        />
     </div>
     </>
   );

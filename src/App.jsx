@@ -109,6 +109,8 @@ export default function NonogramApp() {
         puzzleCollection={g.puzzleCollection}
         selectedCollectionIds={g.selectedCollectionIds}
         onSaveToCollection={g.saveToCollection}
+        onRenameCollection={g.renameCollectionItem}
+        isItemCompleted={g.isItemCompleted}
         onLoadFromCollection={g.loadFromCollection}
         onToggleSelection={g.toggleCollectionSelection}
         onSelectAll={g.selectAllCollection}

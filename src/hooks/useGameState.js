@@ -53,6 +53,12 @@ const collectionSignature = (item) =>
     item?.grid,
   ]);
 
+/** 题目内容指纹（仅行列线索）：用于完成状态匹配与自动入收藏去重 */
+const puzzleContentKey = (item) =>
+  `${item?.rows}|${item?.cols}|${JSON.stringify(item?.rowCluesStr)}|${JSON.stringify(
+    item?.colCluesStr,
+  )}`;
+
 /** 读取自动存档并做基本校验，损坏或尺寸不符时返回 null */
 const loadSavedState = () => {
   const s = loadJSON(SAVE_KEY, null);
@@ -166,6 +172,15 @@ export default function useGameState() {
     Array.isArray(savedState?.moveHistory) ? savedState.moveHistory : [],
   );
   const [userProgress, setUserProgress] = useState([]);
+
+  /** 收藏条目是否已完成：保存时已标记完成，或该题在云端完成进度中 */
+  const isItemCompleted = useCallback(
+    (item) =>
+      item?.isSolvedStatus === true ||
+      (item?.puzzle_id &&
+        userProgress.some((p) => String(p.id) === String(item.puzzle_id))),
+    [userProgress],
+  );
 
   /** 拉取当前用户已完成题目列表 */
   const refreshUserProgress = useCallback(async () => {
@@ -491,6 +506,33 @@ export default function useGameState() {
       completedRef.current = null;
     }
   }, [isSolvedStatus, user, currentPuzzleId, grid]);
+
+  // 完成时：把收藏夹中内容一致且未关联题库的条目标记为已完成（云端同步更新）
+  useEffect(() => {
+    if (!isSolvedStatus || mode !== 'play') return;
+    const key = puzzleContentKey({ rows, cols, rowCluesStr, colCluesStr });
+    const timer = setTimeout(() => {
+      setPuzzleCollection((prev) => {
+        const matched = prev.filter(
+          (it) => !it.isSolvedStatus && !it.puzzle_id && puzzleContentKey(it) === key,
+        );
+        if (matched.length === 0) return prev;
+        const next = prev.map((it) =>
+          matched.includes(it) ? { ...it, isSolvedStatus: true } : it,
+        );
+        saveJSON(COLLECTION_KEY, next);
+        if (user) {
+          for (const it of matched) {
+            api
+              .updateCollection(it.id, { name: it.name, puzzle: { ...it, isSolvedStatus: true } })
+              .catch(() => {});
+          }
+        }
+        return next;
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isSolvedStatus, mode, rows, cols, rowCluesStr, colCluesStr, user]);
 
   // ==========================================
   // 计时：每盘开始计时，可暂停；完成后停止
@@ -1334,6 +1376,31 @@ export default function useGameState() {
     setAlertMsg('已退出登录，云端收藏已保留，随时可再登录。');
   }, []);
 
+  /** 保存一个收藏条目（云端或本地），返回保存后的条目 */
+  const persistCollectionItem = useCallback(
+    (item) => {
+      if (user) {
+        return api.addCollection(item).then((saved) => {
+          setPuzzleCollection((prev) => [saved, ...prev]);
+          setSelectedCollectionIds((prev) => [saved.id, ...prev]);
+          return saved;
+        });
+      }
+      const entry = {
+        id: Date.now(),
+        name: item.name,
+        date: new Date().toLocaleString(),
+        ...item,
+      };
+      const newCol = [entry, ...puzzleCollection];
+      setPuzzleCollection(newCol);
+      setSelectedCollectionIds((prev) => [entry.id, ...prev]);
+      saveJSON(COLLECTION_KEY, newCol);
+      return Promise.resolve(entry);
+    },
+    [user, puzzleCollection],
+  );
+
   const saveToCollection = useCallback(() => {
     const name = prompt(
       '请输入此题目的名称以便后续识别：',
@@ -1353,31 +1420,19 @@ export default function useGameState() {
       deductionLevel,
       backupGrids,
     };
-    if (user) {
-      api
-        .addCollection(item)
-        .then((saved) => {
-          setPuzzleCollection((prev) => [saved, ...prev]);
-          setSelectedCollectionIds((prev) => [saved.id, ...prev]);
-          setAlertMsg(
-            saved.puzzle_id
-              ? `✅ 题目 "${name}" 已存入云端收藏夹并加入共享题库！`
-              : `✅ 题目 "${name}" 已存入云端收藏夹！`,
-          );
-        })
-        .catch((e) => setAlertMsg(`❌ 保存失败：${e.message}`));
-    } else {
-      const newCol = [
-        { id: Date.now(), name, date: new Date().toLocaleString(), ...item },
-        ...puzzleCollection,
-      ];
-      setPuzzleCollection(newCol);
-      setSelectedCollectionIds((prev) => [newCol[0].id, ...prev]);
-      saveJSON(COLLECTION_KEY, newCol);
-      setAlertMsg(`✅ 题目 "${name}" 已存入本地收藏夹！登录后可同步到云端。`);
-    }
+    persistCollectionItem(item)
+      .then((saved) => {
+        setAlertMsg(
+          saved.puzzle_id
+            ? `✅ 题目 "${name}" 已存入收藏夹并加入共享题库！`
+            : user
+              ? `✅ 题目 "${name}" 已存入云端收藏夹！`
+              : `✅ 题目 "${name}" 已存入本地收藏夹！登录后可同步到云端。`,
+        );
+      })
+      .catch((e) => setAlertMsg(`❌ 保存失败：${e.message}`));
   }, [
-    user,
+    persistCollectionItem,
     exportFilename,
     rows,
     cols,
@@ -1389,8 +1444,59 @@ export default function useGameState() {
     isSolvedStatus,
     deductionLevel,
     backupGrids,
-    puzzleCollection,
+    user,
   ]);
+
+  /** 重命名收藏条目 */
+  const renameCollectionItem = useCallback(
+    (id) => {
+      const item = puzzleCollection.find((p) => p.id === id);
+      if (!item) return;
+      const newName = prompt('请输入新的名称：', item.name);
+      if (!newName || !newName.trim()) return;
+      const name = newName.trim();
+      if (user) {
+        api
+          .updateCollection(id, { name })
+          .then((updated) => {
+            setPuzzleCollection((prev) => prev.map((p) => (p.id === id ? updated : p)));
+            setAlertMsg(`✅ 已重命名为 "${name}"`);
+          })
+          .catch((e) => setAlertMsg(`❌ 改名失败：${e.message}`));
+      } else {
+        setPuzzleCollection((prev) => {
+          const next = prev.map((p) => (p.id === id ? { ...p, name } : p));
+          saveJSON(COLLECTION_KEY, next);
+          return next;
+        });
+        setAlertMsg(`✅ 已重命名为 "${name}"`);
+      }
+    },
+    [user, puzzleCollection],
+  );
+
+  /** 导入题目后自动加入收藏夹（内容重复则跳过） */
+  const autoAddImported = useCallback(
+    (puzzleData) => {
+      const item = {
+        name: `导入 ${puzzleData.cols}x${puzzleData.rows}`,
+        rows: puzzleData.rows,
+        cols: puzzleData.cols,
+        rowCluesStr: puzzleData.rowCluesStr,
+        colCluesStr: puzzleData.colCluesStr,
+        grid: puzzleData.grid || createGrid(puzzleData.rows, puzzleData.cols),
+        markedRowClues: puzzleData.markedRowClues || {},
+        markedColClues: puzzleData.markedColClues || {},
+        isSolvedStatus: !!puzzleData.isSolvedStatus,
+        deductionLevel: puzzleData.deductionLevel || 0,
+        backupGrids: [],
+      };
+      const key = puzzleContentKey(item);
+      if (puzzleCollection.some((it) => puzzleContentKey(it) === key)) return;
+      persistCollectionItem(item).catch(() => {});
+    },
+    [puzzleCollection, persistCollectionItem],
+  );
 
   const loadFromCollection = useCallback(
     (item) => {
@@ -1713,8 +1819,9 @@ export default function useGameState() {
       const data = decodeExportCode(code);
       applyImportedData(data);
       submitToLibrary(data);
+      autoAddImported(data);
     },
-    [applyImportedData, submitToLibrary],
+    [applyImportedData, submitToLibrary, autoAddImported],
   );
 
   /**
@@ -1755,13 +1862,14 @@ export default function useGameState() {
           const data = normalizePuzzleData(JSON.parse(event.target.result));
           applyImportedData(data);
           submitToLibrary(data);
+          autoAddImported(data);
         } catch {
           setAlertMsg('❌ 导入失败，文件格式错误或已损坏！');
         }
       };
       reader.readAsText(file);
     },
-    [applyImportedData],
+    [applyImportedData, submitToLibrary, autoAddImported],
   );
 
   const fitToWidth = useCallback(() => {
@@ -1811,25 +1919,29 @@ export default function useGameState() {
         }
         const puzzle = extractPuzzleFromHtml(html);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
-        submitToLibrary({
+        const importedData = {
           rows: puzzle.rows,
           cols: puzzle.cols,
           rowCluesStr: puzzle.rowClues.map((arr) => arr.join('.')),
           colCluesStr: puzzle.colClues.map((arr) => arr.join('.')),
           grid: null,
-        });
-        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题。`);
+        };
+        submitToLibrary(importedData);
+        autoAddImported(importedData);
+        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题，已加入收藏夹。`);
       } else {
         const puzzle = extractPuzzleFromHtml(data);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
-        submitToLibrary({
+        const importedData = {
           rows: puzzle.rows,
           cols: puzzle.cols,
           rowCluesStr: puzzle.rowClues.map((arr) => arr.join('.')),
           colCluesStr: puzzle.colClues.map((arr) => arr.join('.')),
           grid: null,
-        });
-        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题。`);
+        };
+        submitToLibrary(importedData);
+        autoAddImported(importedData);
+        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题，已加入收藏夹。`);
       }
       setImportData('');
       setMode('play');
@@ -1838,7 +1950,7 @@ export default function useGameState() {
     } finally {
       setIsImporting(false);
     }
-  }, [importData, initBoard, submitToLibrary]);
+  }, [importData, initBoard, submitToLibrary, autoAddImported]);
 
   const handleModeChange = useCallback((m) => {
     setMode(m);
@@ -2066,6 +2178,8 @@ export default function useGameState() {
     provideHint,
     autoSolve,
     saveToCollection,
+    renameCollectionItem,
+    isItemCompleted,
     loadFromCollection,
     toggleCollectionSelection,
     selectAllCollection,
