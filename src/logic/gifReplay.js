@@ -104,17 +104,6 @@ const drawFrame = (
       if (v % 2 === 1) {
         ctx.fillStyle = `rgb(${COLORS.black.join(',')})`;
         ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-      } else if (v > 0 && v % 2 === 0) {
-        ctx.fillStyle = `rgb(${COLORS.cross.join(',')})`;
-        ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
-        ctx.strokeStyle = `rgb(${COLORS.crossMark.join(',')})`;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(x + 3, y + 3);
-        ctx.lineTo(x + cellSize - 3, y + cellSize - 3);
-        ctx.moveTo(x + cellSize - 3, y + 3);
-        ctx.lineTo(x + 3, y + cellSize - 3);
-        ctx.stroke();
       }
       if (isLast) {
         const color = COLORS[highlightType || 'highlight'] || COLORS.highlight;
@@ -180,6 +169,7 @@ export async function generateReplayGif({
   const gif = GIFEncoder();
   let grid = Array.from({ length: rows }, () => new Array(cols).fill(0));
   let frameIndex = 0;
+  let visibleMoveCount = 0;
 
   const pushFrame = (lastCells, highlightType) => {
     drawFrame(ctx, { rows, cols, rowCluesStr, colCluesStr, grid, lastCells, highlightType });
@@ -188,7 +178,7 @@ export async function generateReplayGif({
     const index = applyPalette(data, palette);
     gif.writeFrame(index, width, height, { palette, delay });
     frameIndex++;
-    onProgress?.(frameIndex, moveHistory.length + 2);
+    onProgress?.(frameIndex, visibleMoveCount + 2);
   };
 
   // 初始空盘帧
@@ -196,18 +186,24 @@ export async function generateReplayGif({
 
   // 逐步应用操作
   for (const move of moveHistory) {
+    // 只保留“黑块状态发生变化”的格子（打叉等变化不显示、不生成帧）
+    const visibleCells = move.cells.filter(
+      ({ r, c, val }) => ((grid[r]?.[c] ?? 0) % 2 === 1) !== (val % 2 === 1),
+    );
     for (const cell of move.cells) {
       if (grid[cell.r] && cell.c < cols) {
         grid[cell.r][cell.c] = cell.val;
       }
     }
-    pushFrame(move.cells.slice(0, 20), move.type);
+    if (visibleCells.length === 0) continue;
+    visibleMoveCount++;
+    pushFrame(visibleCells.slice(0, 20), move.type);
   }
 
   // 完成帧（无高亮）
   pushFrame([], 'auto');
   gif.finish();
-  return { bytes: gif.bytes(), width, height };
+  return { bytes: gif.bytes(), width, height, frames: frameIndex };
 }
 
 /** 将字节数据保存为 gif 文件下载 */

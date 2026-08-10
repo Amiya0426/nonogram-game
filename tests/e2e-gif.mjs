@@ -35,6 +35,8 @@ const solved = {
     { type: 'deduct', cells: [{ r: 2, c: 0, val: 1 }, { r: 2, c: 4, val: 1 }] },
     { type: 'restore', cells: [{ r: 3, c: 1, val: 1 }, { r: 3, c: 3, val: 1 }] },
     { type: 'fill', cells: [{ r: 4, c: 2, val: 1 }] },
+    // 打叉：复盘 GIF 不显示叉，也不应生成帧
+    { type: 'fill', cells: [{ r: 4, c: 4, val: 2 }] },
   ],
 };
 
@@ -57,6 +59,11 @@ const downloadPromise = page.waitForEvent('download', { timeout: 20000 }).catch(
 await gifBtn.click();
 const download = await downloadPromise;
 check('GIF 文件下载触发', !!download, download ? download.suggestedFilename() : '');
+
+// 5 条黑块操作 + 1 条打叉（不生成帧）= 初始帧 + 5 + 完成帧 = 7 帧
+const frameMsg = page.getByText(/复盘 GIF 已生成/);
+await frameMsg.waitFor({ state: 'visible', timeout: 8000 });
+check('帧数提示正确（打叉不生成帧）', (await frameMsg.textContent()).includes('7 帧'), await frameMsg.textContent());
 
 for (const r of results) console.log(r);
 console.log(`\nJS 错误数: ${errors.length}`);

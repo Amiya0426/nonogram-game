@@ -437,7 +437,7 @@ export default function useGameState() {
     setIsGeneratingGif(true);
     setAlertMsg('正在生成复盘 GIF，请稍候...');
     try {
-      const { bytes } = await buildReplayGif({
+      const { bytes, frames } = await buildReplayGif({
         rows,
         cols,
         rowCluesStr,
@@ -445,7 +445,7 @@ export default function useGameState() {
         moveHistory,
       });
       downloadGif(bytes, `${buildPuzzleExportName({ rows, cols, progressPercent })}_replay`);
-      setAlertMsg(`✅ 复盘 GIF 已生成（${moveHistory.length + 2} 帧）`);
+      setAlertMsg(`✅ 复盘 GIF 已生成（${frames} 帧）`);
     } catch (e) {
       setAlertMsg(`❌ GIF 生成失败：${e.message}`);
     } finally {
