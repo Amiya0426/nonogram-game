@@ -1,4 +1,5 @@
 import { DEFAULT_THEME } from '../constants.js';
+import { useI18n } from '../i18n/index.js';
 
 const renderTooltipClues = (parsed, autoMarked, manualMarkedDict, insertIdx, keyPrefix) => {
   const els = [];
@@ -37,6 +38,7 @@ const MeasureTooltip = ({
   markedRowClues,
   markedColClues,
 }) => {
+  const { t } = useI18n();
   return (
     <div
       id="measure-tooltip-container"
@@ -53,19 +55,19 @@ const MeasureTooltip = ({
         <div className="text-amber-300 border-b border-white/20 pb-1 mb-1">
           {Math.abs(hoverPos.r - measureStart.r) + 1 > 1 &&
           Math.abs(hoverPos.c - measureStart.c) + 1 > 1
-            ? `📐 ${Math.abs(hoverPos.r - measureStart.r) + 1} × ${Math.abs(hoverPos.c - measureStart.c) + 1} 格`
-            : `📐 ${Math.max(Math.abs(hoverPos.r - measureStart.r) + 1, Math.abs(hoverPos.c - measureStart.c) + 1)} 格`}
+            ? `📐 ${Math.abs(hoverPos.r - measureStart.r) + 1} × ${Math.abs(hoverPos.c - measureStart.c) + 1} ${t('tooltip.cells')}`
+            : `📐 ${Math.max(Math.abs(hoverPos.r - measureStart.r) + 1, Math.abs(hoverPos.c - measureStart.c) + 1)} ${t('tooltip.cells')}`}
         </div>
       )}
       {showHoverRow && row && (
         <div className={`flex items-center ${hoverOnlyRow ? 'text-3xl font-black gap-2' : 'text-base font-bold gap-1'}`}>
-          {!hoverOnlyRow && <span className="text-slate-400 font-normal text-xs mr-1">行:</span>}
+          {!hoverOnlyRow && <span className="text-slate-400 font-normal text-xs mr-1">{t('tooltip.rowLabel')}</span>}
           {renderTooltipClues(row.parsed, row.autoMarked, markedRowClues, row.insertIdx, hoverPos.r)}
         </div>
       )}
       {showHoverCol && col && (
         <div className={`flex items-center ${hoverOnlyCol ? 'text-3xl font-black gap-2' : 'text-base font-bold gap-1'}`}>
-          {!hoverOnlyCol && <span className="text-slate-400 font-normal text-xs mr-1">列:</span>}
+          {!hoverOnlyCol && <span className="text-slate-400 font-normal text-xs mr-1">{t('tooltip.colLabel')}</span>}
           {renderTooltipClues(col.parsed, col.autoMarked, markedColClues, col.insertIdx, hoverPos.c)}
         </div>
       )}

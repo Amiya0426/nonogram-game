@@ -3,7 +3,7 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.TEST_BASE || 'http://localhost:4173';
-const browser = await chromium.launch({ channel: 'msedge', headless: true });
+const browser = await chromium.launch({ channel: 'msedge', headless: true, locale: 'zh-CN' });
 const page = await browser.newPage();
 
 const errors = [];

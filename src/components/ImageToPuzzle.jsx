@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, ImagePlus } from 'lucide-react';
+import { useI18n } from '../i18n/index.js';
 
 const SIZE_PRESETS = [
   { v: '10x10', label: '10×10' },
@@ -39,6 +40,7 @@ const otsuThreshold = (hist, total) => {
 
 /** 图片转数织：上传图片（可彩色）→ 缩放 → 灰度 → 阈值二值化 → 生成 0/1 图案 */
 const ImageToPuzzle = ({ open, onClose, onApply }) => {
+  const { t } = useI18n();
   const [preset, setPreset] = useState('20x20');
   const [rowsInput, setRowsInput] = useState('20');
   const [colsInput, setColsInput] = useState('20');
@@ -136,13 +138,13 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
         {/* 头部 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
           <div>
-            <div className="text-base font-bold text-slate-800">从图片生成题目</div>
-            <div className="text-[10px] text-slate-400">上传彩色/黑白图片，自动转为数织图案</div>
+            <div className="text-base font-bold text-slate-800">{t('image.title')}</div>
+            <div className="text-[10px] text-slate-400">{t('image.subtitle')}</div>
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-slate-200 text-slate-500"
-            title="关闭"
+            title={t('image.close')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -155,7 +157,7 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
             className="w-full py-4 rounded-xl border-2 border-dashed border-slate-300 hover:border-pink-400 hover:bg-pink-50/40 text-slate-500 hover:text-pink-600 text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition-colors"
           >
             <ImagePlus className="w-6 h-6" />
-            点击选择图片（支持彩色）
+            {t('image.upload')}
           </button>
           <input
             ref={fileRef}
@@ -173,7 +175,7 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
             {result ? (
               <canvas ref={previewRef} className="max-h-[220px] rounded border border-slate-200" />
             ) : (
-              <span className="text-[11px] text-slate-400">选择图片后这里显示转换预览</span>
+              <span className="text-[11px] text-slate-400">{t('image.previewEmpty')}</span>
             )}
           </div>
 
@@ -197,7 +199,7 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
                 max={MAX}
                 value={rowsInput}
                 onChange={(e) => setRowsInput(e.target.value)}
-                placeholder="行"
+                placeholder={t('browse.rowsPh')}
                 className="w-14 px-1.5 py-1 text-xs rounded-lg border border-slate-200 outline-none focus:border-pink-400"
               />
               <span className="text-xs text-slate-400">×</span>
@@ -207,7 +209,7 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
                 max={MAX}
                 value={colsInput}
                 onChange={(e) => setColsInput(e.target.value)}
-                placeholder="列"
+                placeholder={t('browse.colsPh')}
                 className="w-14 px-1.5 py-1 text-xs rounded-lg border border-slate-200 outline-none focus:border-pink-400"
               />
             </div>
@@ -222,10 +224,12 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
                 onChange={(e) => setAutoTh(e.target.checked)}
                 className="accent-pink-600 w-3 h-3"
               />
-              自动阈值（Otsu 最优）
+              {t('image.autoThreshold')}
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400 w-12">阈值 {result?.usedThreshold ?? threshold}</span>
+              <span className="text-[10px] text-slate-400 w-12">
+                {t('image.thresholdLabel', { n: result?.usedThreshold ?? threshold })}
+              </span>
               <input
                 type="range"
                 min="0"
@@ -243,7 +247,7 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
                 onChange={(e) => setInvert(e.target.checked)}
                 className="accent-pink-600 w-3 h-3"
               />
-              反色（黑底白图）
+              {t('image.invert')}
             </label>
           </div>
         </div>
@@ -254,14 +258,14 @@ const ImageToPuzzle = ({ open, onClose, onApply }) => {
             onClick={onClose}
             className="flex-1 py-2 bg-white hover:bg-slate-100 text-slate-600 rounded-lg text-xs font-bold border border-slate-200"
           >
-            取消
+            {t('image.cancel')}
           </button>
           <button
             onClick={() => result && onApply(result.grid, result.rows, result.cols)}
             disabled={!result}
             className="flex-1 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-bold disabled:bg-pink-300"
           >
-            生成题目
+            {t('image.generate')}
           </button>
         </div>
       </div>

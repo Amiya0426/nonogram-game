@@ -22,6 +22,7 @@ import { solveBoardLogic, solveLineFast } from '../logic/solver.js';
 import { generateReplayGif as buildReplayGif, downloadGif } from '../logic/gifReplay.js';
 import { extractPuzzleFromHtml, normalizePuzzleData } from '../logic/importer.js';
 import { api } from '../api.js';
+import { translate as tr } from '../i18n/index.js';
 import {
   downloadJSON,
   buildExportData,
@@ -190,7 +191,7 @@ export default function useGameState() {
       });
     } catch {
       setBrowse((prev) => ({ ...prev, loading: false }));
-      setAlertMsg('❌ 题库加载失败');
+      setAlertMsg(tr('msg.browseFailed'));
     }
     },
     [],
@@ -440,11 +441,11 @@ export default function useGameState() {
   const [isGeneratingGif, setIsGeneratingGif] = useState(false);
   const generateReplayGif = useCallback(async () => {
     if (!moveHistory.length) {
-      setAlertMsg('当前这盘还没有操作记录，无法生成复盘 GIF');
+      setAlertMsg(tr('msg.gifNoMoves'));
       return;
     }
     setIsGeneratingGif(true);
-    setAlertMsg('正在生成复盘 GIF，请稍候...');
+    setAlertMsg(tr('msg.gifGenerating'));
     try {
       const { bytes, frames } = await buildReplayGif({
         rows,
@@ -454,9 +455,9 @@ export default function useGameState() {
         moveHistory,
       });
       downloadGif(bytes, `${buildPuzzleExportName({ rows, cols, progressPercent })}_replay`);
-      setAlertMsg(`✅ 复盘 GIF 已生成（${frames} 帧）`);
+      setAlertMsg(tr('msg.gifDone', { frames }));
     } catch (e) {
-      setAlertMsg(`❌ GIF 生成失败：${e.message}`);
+      setAlertMsg(tr('msg.gifFailed', { msg: e.message }));
     } finally {
       setIsGeneratingGif(false);
     }
@@ -625,7 +626,7 @@ export default function useGameState() {
         item.colCluesStr.map((s) => s.split('.').map(Number)),
       );
       setCurrentPuzzleId(item.id);
-      setAlertMsg(`✅ 已载入题库题目 ${item.cols}×${item.rows}`);
+      setAlertMsg(tr('msg.loadedFromBrowse', { cols: item.cols, rows: item.rows }));
     },
     [initBoard],
   );
@@ -634,14 +635,14 @@ export default function useGameState() {
   const renamePuzzle = useCallback(
     async (item) => {
       if (!user) {
-        setAlertMsg('请先登录');
+        setAlertMsg(tr('msg.needLogin'));
         return;
       }
       if (String(item.user_id) !== String(user.id)) {
-        setAlertMsg('只能修改自己导入的题目名称');
+        setAlertMsg(tr('msg.renameOwnOnly'));
         return;
       }
-      const newName = prompt('输入题目名称（留空清除自定义名称）：', item.name || '');
+      const newName = prompt(tr('msg.renamePrompt'), item.name || '');
       if (newName === null) return;
       const name = newName.trim();
       try {
@@ -652,7 +653,7 @@ export default function useGameState() {
             it.id === item.id ? { ...it, name: r.name } : it,
           ),
         }));
-        setAlertMsg(name ? `✅ 已命名为 "${name}"` : '✅ 已清除自定义名称');
+        setAlertMsg(name ? tr('msg.renamed', { name }) : tr('msg.nameCleared'));
       } catch (e) {
         setAlertMsg(`❌ ${e.message}`);
       }
@@ -676,7 +677,12 @@ export default function useGameState() {
           serverPuzzle.colCluesStr.map((s) => s.split('.').map(Number)),
         );
         setCurrentPuzzleId(serverPuzzle.id);
-        setAlertMsg(`✅ 已从服务器题库抽取 ${serverPuzzle.rows} × ${serverPuzzle.cols} 题目`);
+        setAlertMsg(
+          tr('msg.randomLoaded', {
+            rows: serverPuzzle.rows,
+            cols: serverPuzzle.cols,
+          }),
+        );
         return;
       } catch {
         // 服务器不可用 / 题库为空时回退本地随机生成
@@ -740,7 +746,7 @@ export default function useGameState() {
     // 编辑-画盘面模式下：直接把随机图案放到盘面上，线索按图案实时生成
     if (mode === 'edit' && editInputMode === 'pattern') {
       setGrid(randomGrid);
-      setAlertMsg('已生成随机图案，可直接拖拽修改。');
+      setAlertMsg(tr('msg.randomPattern'));
       return;
     }
     initBoard(rows, cols, newRowClues, newColClues);
@@ -1020,7 +1026,7 @@ export default function useGameState() {
     if (deductionLevel < 3) {
       setBackupGrids((prev) => [...prev, cloneGrid(grid)]);
       setDeductionLevel((prev) => prev + 1);
-      setAlertMsg(`🔬 已进入 ${deductionLevel + 1} 级推演模式，填涂将以新颜色显示。`);
+      setAlertMsg(tr('msg.deductionEnter', { n: deductionLevel + 1 }));
     }
   }, [deductionLevel, grid]);
 
@@ -1047,7 +1053,7 @@ export default function useGameState() {
       }
       setBackupGrids((prev) => prev.slice(0, -1));
       setDeductionLevel((prev) => prev - 1);
-      setAlertMsg(`✅ 成功将 ${deductionLevel} 级推演应用到上级盘面。`);
+      setAlertMsg(tr('msg.deductionApply', { n: deductionLevel }));
     }
   }, [deductionLevel, grid, mode, isSolvedStatus, recordMove]);
 
@@ -1056,7 +1062,7 @@ export default function useGameState() {
       setGrid(backupGrids[backupGrids.length - 1].map((r) => [...r]));
       setBackupGrids((prev) => prev.slice(0, -1));
       setDeductionLevel((prev) => prev - 1);
-      setAlertMsg(`🔙 已放弃 ${deductionLevel} 级推演，恢复上级盘面。`);
+      setAlertMsg(tr('msg.deductionCancel', { n: deductionLevel }));
     }
   }, [deductionLevel, backupGrids]);
 
@@ -1071,7 +1077,7 @@ export default function useGameState() {
     const solvedBoard = solveBoardLogic(rowCluesStr, colCluesStr, rows, cols);
     if (!solvedBoard) {
       setHintInfo({
-        text: '⚠️ 题目本身存在无法调和的矛盾，请检查线索输入是否正确！',
+        text: tr('msg.validateConflict'),
         type: 'error',
         isError: true,
       });
@@ -1101,7 +1107,7 @@ export default function useGameState() {
 
     if (errorFound) {
       setHintInfo({
-        text: `⚠️ 发现疑似冲突！第 ${errorR + 1} 行，第 ${errorC + 1} 列与逻辑推演不符。注意：未执行存档。`,
+        text: tr('msg.cellConflict', { row: errorR + 1, col: errorC + 1 }),
         type: 'cell',
         r: errorR,
         c: errorC,
@@ -1110,9 +1116,9 @@ export default function useGameState() {
     } else {
       setLastCorrectSnapshot(cloneGrid(grid));
       if (solvedBoard.some((row) => row.includes(-1))) {
-        setAlertMsg('✅ 检查通过并存为正确回溯点！当前无逻辑冲突，但可能有多解或需试错。');
+        setAlertMsg(tr('msg.checkOkMulti'));
       } else {
-        setAlertMsg('✅ 检查通过并存为正确回溯点！当前进度完全正确，请继续保持！');
+        setAlertMsg(tr('msg.checkOk'));
       }
     }
   }, [mode, rowCluesStr, colCluesStr, rows, cols, grid]);
@@ -1132,9 +1138,9 @@ export default function useGameState() {
         recordMove('restore', cells);
       }
       setHintInfo(null);
-      setAlertMsg('🔙 已成功回溯到上一次【检查无误】的进度点！');
+      setAlertMsg(tr('msg.restored'));
     } else {
-      setAlertMsg('您还未在无错时执行过【检查错误】，没有可回溯的记录。');
+      setAlertMsg(tr('msg.noCheckpoint'));
     }
   }, [lastCorrectSnapshot, grid, rows, cols, mode, isSolvedStatus, recordMove]);
 
@@ -1142,7 +1148,7 @@ export default function useGameState() {
     setHintInfo(null);
     setAlertMsg('');
     if (isSolvedStatus) {
-      setHintInfo({ text: '🎉 谜题已经完成了！无需提示啦。', type: 'success' });
+      setHintInfo({ text: tr('msg.solvedAlready'), type: 'success' });
       return;
     }
 
@@ -1176,7 +1182,7 @@ export default function useGameState() {
       const res = evaluateLine(r, true);
       if (res.status === 'error') {
         setHintInfo({
-          text: `⚠️ 警告：在 横向第 ${r + 1} 行 发现了逻辑矛盾！当前填入的格子已经无法满足该行的线索，请检查并擦除错误的地方。`,
+          text: tr('msg.rowConflict', { n: r + 1 }),
           type: 'row',
           index: r,
           isError: true,
@@ -1193,7 +1199,7 @@ export default function useGameState() {
       const res = evaluateLine(c, false);
       if (res.status === 'error') {
         setHintInfo({
-          text: `⚠️ 警告：在 纵向第 ${c + 1} 列 发现了逻辑矛盾！当前填入的格子已经无法满足该列的线索，请仔细检查。`,
+          text: tr('msg.colConflict', { n: c + 1 }),
           type: 'col',
           index: c,
           isError: true,
@@ -1208,26 +1214,31 @@ export default function useGameState() {
     }
 
     if (bestHint) {
-      const direction = bestHint.type === 'row' ? '横向第' : '纵向第';
+      const direction = tr(bestHint.type === 'row' ? 'msg.hintRowDir' : 'msg.hintColDir');
       const clueText =
         bestHint.type === 'row'
           ? rowCluesStr[bestHint.index]
           : colCluesStr[bestHint.index].replace(/\n/g, ' ');
       const explainStr =
         bestHint.sureBlack > 0 && bestHint.sureCross > 0
-          ? `必然有 ${bestHint.sureBlack} 个可以涂黑的方块，以及 ${bestHint.sureCross} 个可以打叉的空白。`
+          ? tr('msg.hintBoth', { black: bestHint.sureBlack, cross: bestHint.sureCross })
           : bestHint.sureBlack > 0
-            ? `必然有 ${bestHint.sureBlack} 个方块是可以被安全涂黑的。`
-            : `必然有 ${bestHint.sureCross} 个地方是不可能被打叉的（应该打叉）。`;
+            ? tr('msg.hintBlack', { black: bestHint.sureBlack })
+            : tr('msg.hintCross', { cross: bestHint.sureCross });
       setHintInfo({
-        text: `💡 破局点在 ${direction} ${bestHint.index + 1} 行/列 (线索: ${clueText})。结合您现有的标记，排除掉所有不可能的组合后，${explainStr} 试着推演一下这一段！`,
+        text: tr('msg.hintSummary', {
+          direction,
+          index: bestHint.index + 1,
+          clue: clueText,
+          explain: explainStr,
+        }),
         type: bestHint.type,
         index: bestHint.index,
         isError: false,
       });
     } else {
       setHintInfo({
-        text: '🧠 当前盘面没有简单的单行/单列线索可以推进了。您可能需要结合多行交叉推导，或者利用假设法（推演模式）来进行下一步试探。',
+        text: tr('msg.noSimpleHint'),
         type: 'info',
         isError: false,
       });
@@ -1239,7 +1250,7 @@ export default function useGameState() {
     setHintInfo(null);
     const solvedBoard = solveBoardLogic(rowCluesStr, colCluesStr, rows, cols);
     if (!solvedBoard) {
-      setAlertMsg('当前题目存在矛盾，无解！');
+      setAlertMsg(tr('msg.noSolution'));
       return;
     }
     const finalGrid = solvedBoard.map((row) =>
@@ -1252,7 +1263,7 @@ export default function useGameState() {
     // 一键解题不计入解题记录：标记为已处理，避免完成状态触发服务器上报
     if (currentPuzzleId) completedRef.current = currentPuzzleId;
     if (solvedBoard.some((row) => row.includes(-1))) {
-      setAlertMsg('逻辑推导已完成。剩余部分存在多解或需要深度试错。');
+      setAlertMsg(tr('msg.autoSolvePartial'));
     }
     setDeductionLevel(0);
     setBackupGrids([]);
@@ -1276,10 +1287,10 @@ export default function useGameState() {
       setLastCorrectSnapshot(null);
       setMoveHistory([]);
     resetTimer();
-      setAlertMsg('✅ 存档导入成功！已恢复进度。');
+      setAlertMsg(tr('msg.imported'));
       setMode('play');
     } else {
-      throw new Error('格式不完整');
+      throw new Error('import.incomplete');
     }
   }, [resetTimer]);
 
@@ -1306,12 +1317,10 @@ export default function useGameState() {
           if (okItem) {
             setCurrentPuzzleId(okItem.id);
             setAlertMsg(
-              okItem.created
-                ? '✅ 题目已校验唯一解并加入服务器题库'
-                : '✅ 题目已在服务器题库中（重复导入）',
+              okItem.created ? tr('msg.libraryAdded') : tr('msg.libraryExists'),
             );
           } else if (r.results[0]) {
-            setAlertMsg(`⚠️ 题目已载入游玩，但未能入库：${r.results[0].reason}`);
+            setAlertMsg(tr('msg.libraryFailed', { reason: r.results[0].reason }));
           }
         })
         .catch(() => {});
@@ -1325,9 +1334,9 @@ export default function useGameState() {
       const me = await api.login(username, password);
       setUser(me);
       refreshUserProgress();
-      setAlertMsg(`✅ 欢迎回来，${me.username}！`);
+      setAlertMsg(tr('msg.welcomeBack', { name: me.username }));
     } catch (e) {
-      setAlertMsg(`❌ 登录失败：${e.message}`);
+      setAlertMsg(tr('msg.loginFailed', { msg: e.message }));
     } finally {
       setAuthBusy(false);
     }
@@ -1339,9 +1348,9 @@ export default function useGameState() {
       const me = await api.register(username, password);
       setUser(me);
       refreshUserProgress();
-      setAlertMsg(`✅ 注册成功，${me.username}！`);
+      setAlertMsg(tr('msg.registered', { name: me.username }));
     } catch (e) {
-      setAlertMsg(`❌ 注册失败：${e.message}`);
+      setAlertMsg(tr('msg.registerFailed', { msg: e.message }));
     } finally {
       setAuthBusy(false);
     }
@@ -1355,7 +1364,7 @@ export default function useGameState() {
     }
     setUser(null);
     setUserProgress([]);
-    setAlertMsg('已退出登录');
+    setAlertMsg(tr('msg.loggedOut'));
   }, []);
 
   // ==========================================
@@ -1380,9 +1389,9 @@ export default function useGameState() {
     );
     try {
       await copyToClipboard(code);
-      setAlertMsg(`✅ 存档代码 [${finalFilename}] 已复制（已压缩，更短）！`);
+      setAlertMsg(tr('msg.codeCopied', { name: finalFilename }));
     } catch {
-      setAlertMsg('✅ 存档代码已生成，请在下方手动复制。');
+      setAlertMsg(tr('msg.codeManualCopy'));
     }
   }, [
     exportFilename,
@@ -1418,7 +1427,7 @@ export default function useGameState() {
     const finalFilename =
       exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
     downloadJSON(finalFilename, data);
-    setAlertMsg(`✅ 存档文件 [${finalFilename}] 已成功下载！`);
+    setAlertMsg(tr('msg.jsonDownloaded', { name: finalFilename }));
   }, [
     exportFilename,
     exportRemark,
@@ -1438,7 +1447,7 @@ export default function useGameState() {
   const exportAsImage = useCallback(
     async (format = 'png', options = {}) => {
       try {
-        setAlertMsg('正在生成高清图片，请稍候...');
+        setAlertMsg(tr('msg.imageGenerating'));
         const finalFilename =
           exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
         await exportBoardAsImage(
@@ -1456,10 +1465,13 @@ export default function useGameState() {
           { filename: finalFilename, remark: exportRemark.trim(), ...options },
           format,
         );
-        const scaleText = options.scale && options.scale > 1 ? `（${options.scale}x 高清）` : '';
-        setAlertMsg(`✅ 成功导出为 ${format.toUpperCase()} 图片${scaleText}！`);
+        const scaleText =
+          options.scale && options.scale > 1 ? tr('msg.hdScale', { scale: options.scale }) : '';
+        setAlertMsg(
+          tr('msg.imageDone', { format: format.toUpperCase(), scale: scaleText }),
+        );
       } catch (err) {
-        setAlertMsg(`❌ 图片导出失败: ${err.message}`);
+        setAlertMsg(tr('msg.imageFailed', { msg: err.message }));
       }
     },
     [
@@ -1498,12 +1510,12 @@ export default function useGameState() {
         if (!navigator.clipboard?.readText) throw new Error('unsupported');
         code = (await navigator.clipboard.readText()).trim();
         if (!code) {
-          setAlertMsg('剪贴板为空，请先复制存档代码');
+          setAlertMsg(tr('msg.clipboardEmpty'));
           return;
         }
         setLocalImportData(code);
       } catch {
-        setAlertMsg('无法自动读取剪贴板（需要 HTTPS 或浏览器授权），请手动粘贴后点击导入');
+        setAlertMsg(tr('msg.clipboardUnavailable'));
         return;
       }
     }
@@ -1511,7 +1523,7 @@ export default function useGameState() {
       importFromCode(code);
       setLocalImportData('');
     } catch {
-      setAlertMsg('❌ 导入失败，存档代码格式错误或已损坏！');
+      setAlertMsg(tr('msg.codeImportFailed'));
     }
   }, [localImportData, importFromCode]);
 
@@ -1526,7 +1538,7 @@ export default function useGameState() {
           applyImportedData(data);
           submitToLibrary(data);
         } catch {
-          setAlertMsg('❌ 导入失败，文件格式错误或已损坏！');
+          setAlertMsg(tr('msg.fileImportFailed'));
         }
       };
       reader.readAsText(file);
@@ -1557,7 +1569,7 @@ export default function useGameState() {
     setAlertMsg('');
     try {
       if (data.startsWith('http://') || data.startsWith('https://')) {
-        setAlertMsg('正在尝试通过代理拉取网页...');
+        setAlertMsg(tr('msg.proxying'));
         const proxies = [
           `https://api.allorigins.win/get?url=${encodeURIComponent(data)}`,
           `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(data)}`,
@@ -1577,7 +1589,7 @@ export default function useGameState() {
           }
         }
         if (!html || !html.includes('<html')) {
-          throw new Error('代理请求失败或被目标网站拦截。请直接使用【粘贴网页源代码】的方式提取！');
+          throw new Error('import.proxyFailed');
         }
         const puzzle = extractPuzzleFromHtml(html);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
@@ -1589,7 +1601,7 @@ export default function useGameState() {
           grid: null,
         };
         submitToLibrary(importedData);
-        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题。`);
+        setAlertMsg(tr('msg.extracted', { rows: puzzle.rows, cols: puzzle.cols }));
       } else {
         const puzzle = extractPuzzleFromHtml(data);
         initBoard(puzzle.rows, puzzle.cols, puzzle.rowClues, puzzle.colClues);
@@ -1601,12 +1613,12 @@ export default function useGameState() {
           grid: null,
         };
         submitToLibrary(importedData);
-        setAlertMsg(`✅ 提取成功！生成 ${puzzle.rows} × ${puzzle.cols} 谜题。`);
+        setAlertMsg(tr('msg.extracted', { rows: puzzle.rows, cols: puzzle.cols }));
       }
       setImportData('');
       setMode('play');
     } catch (e) {
-      setAlertMsg(`❌ 提取失败: ${e.message}`);
+      setAlertMsg(tr('msg.extractFailed', { msg: tr(e.message) }));
     } finally {
       setIsImporting(false);
     }
@@ -1694,7 +1706,7 @@ export default function useGameState() {
     setBackupGrids([]);
     setMode('play');
     setHintInfo(null);
-    setAlertMsg('✅ 题目已更新，开始游玩！');
+    setAlertMsg(tr('msg.customFinished'));
   }, [editInputMode, grid, rows, cols, user, submitToLibrary, rowCluesStr, colCluesStr]);
 
   /** 应用图片转换出的二值图案到画盘面模式（0/1 网格） */
@@ -1714,7 +1726,7 @@ export default function useGameState() {
       setGrid(grid2d);
       setMode('edit');
       setEditInputMode('pattern');
-      setAlertMsg('✅ 已从图片生成图案，可微调后点击“完成编辑并游玩”入库');
+      setAlertMsg(tr('msg.imagePatternApplied'));
     },
     [],
   );

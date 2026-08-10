@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useI18n } from '../i18n/index.js';
 import { DEFAULT_THEME } from '../constants.js';
 import { getHoverBgClass, getBorderBaseClass } from '../logic/theme.js';
 
@@ -28,6 +29,7 @@ const RowClueBar = ({
   onClueMouseDown,
   hasBottomBorder,
 }) => {
+  const { t } = useI18n();
   const borderBase = getBorderBaseClass(deductionLevel);
   let bgClass = '';
   let bgStyle = null;
@@ -62,7 +64,7 @@ const RowClueBar = ({
       {mode === 'play' && showClueSums && sum > 0 && (
         <span
           className={`absolute top-0.5 ${isLeft ? 'left-0.5' : 'right-0.5'} text-[11px] text-blue-500 font-bold leading-none pointer-events-none`}
-          title="剩余线索和 (非高亮数字之和)"
+          title={t('clue.sumTitle')}
         >
           {sum}
         </span>
@@ -84,7 +86,7 @@ const RowClueBar = ({
             placeholder="0"
           />
         ) : (
-          <span className="text-slate-300 px-4 text-xs font-medium">镜像</span>
+          <span className="text-slate-300 px-4 text-xs font-medium">{t('clue.mirror')}</span>
         )
       ) : (
         parsed.map((num, i) => (

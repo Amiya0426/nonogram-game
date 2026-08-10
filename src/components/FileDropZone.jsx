@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
+import { useI18n } from '../i18n/index.js';
 
 /**
  * 文件拖拽 / 点击选择区域。
@@ -11,9 +12,10 @@ const FileDropZone = ({
   multiple = false,
   accept = '.json,application/json',
   icon: Icon = UploadCloud,
-  buttonText = '点击选择或拖拽文件到此处',
+  buttonText = '',
   hint,
 }) => {
+  const { t } = useI18n();
   const inputRef = useRef(null);
   const dragDepthRef = useRef(0);
   const [dragging, setDragging] = useState(false);
@@ -68,7 +70,7 @@ const FileDropZone = ({
       />
       <Icon className={`w-4 h-4 ${dragging ? 'text-indigo-500' : 'text-emerald-500'}`} />
       <span className="text-[10px] font-bold text-slate-600">
-        {dragging ? '松开即可导入' : buttonText}
+        {dragging ? t('dropzone.release') : buttonText || t('dropzone.choose')}
       </span>
       {hint && <span className="text-[9px] text-slate-400">{hint}</span>}
     </div>

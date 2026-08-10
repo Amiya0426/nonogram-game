@@ -24,6 +24,7 @@ import {
   verifyPassword,
   validateCredentials,
 } from './auth.js';
+import { msg } from './i18n.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -110,10 +111,10 @@ app.use(cookieParser());
 app.post('/api/auth/register', authRateLimit, (req, res) => {
   const { username, password } = req.body || {};
   const err = validateCredentials(username, password);
-  if (err) return res.status(400).json({ error: err });
+  if (err) return res.status(400).json({ error: msg(req, err) });
 
   const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-  if (exists) return res.status(409).json({ error: '用户名已存在，请直接登录' });
+  if (exists) return res.status(409).json({ error: msg(req, 'auth.user_exists') });
 
   const info = db
     .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
@@ -126,11 +127,11 @@ app.post('/api/auth/register', authRateLimit, (req, res) => {
 app.post('/api/auth/login', authRateLimit, (req, res) => {
   const { username, password } = req.body || {};
   if (typeof username !== 'string' || typeof password !== 'string') {
-    return res.status(400).json({ error: '请输入用户名和密码' });
+    return res.status(400).json({ error: msg(req, 'auth.credentials_required') });
   }
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !verifyPassword(password, user.password_hash)) {
-    return res.status(401).json({ error: '用户名或密码错误' });
+    return res.status(401).json({ error: msg(req, 'auth.wrong_credentials') });
   }
   const token = createSession(user.id);
   setSessionCookie(res, token);
@@ -226,7 +227,7 @@ app.get('/api/puzzles/random', resolveUser, (req, res) => {
       .get(...params);
   }
 
-  if (!row) return res.status(404).json({ error: '暂无该尺寸范围的题目，请先导入题库' });
+  if (!row) return res.status(404).json({ error: msg(req, 'puzzle.none') });
   res.json(puzzleRowToDto(row));
 });
 
@@ -301,8 +302,8 @@ app.post('/api/puzzles/import', requireAuth, async (req, res) => {
     : body.puzzle
       ? [body.puzzle]
       : [];
-  if (!items.length) return res.status(400).json({ error: '请提供 puzzle 或 puzzles 数组' });
-  if (items.length > 200) return res.status(400).json({ error: '单次最多导入 200 道题' });
+  if (!items.length) return res.status(400).json({ error: msg(req, 'puzzle.import_empty') });
+  if (items.length > 200) return res.status(400).json({ error: msg(req, 'puzzle.import_too_many') });
 
   const results = [];
   const startedAt = Date.now();
@@ -310,14 +311,14 @@ app.post('/api/puzzles/import', requireAuth, async (req, res) => {
 
   for (let i = 0; i < items.length; i++) {
     if (Date.now() - startedAt > TOTAL_BUDGET_MS) {
-      results.push({ index: i, ok: false, reason: '整体校验超时，请分批导入' });
+      results.push({ index: i, ok: false, reason: msg(req, 'puzzle.batch_timeout') });
       continue;
     }
     const lib = await upsertPuzzleIntoLibrary(items[i], req.user.id);
     results.push(
       lib.ok
         ? { index: i, ok: true, created: lib.created, id: lib.id }
-        : { index: i, ok: false, reason: lib.reason },
+        : { index: i, ok: false, reason: msg(req, lib.reason) },
     );
   }
 
@@ -329,9 +330,9 @@ app.post('/api/puzzles/import', requireAuth, async (req, res) => {
 app.put('/api/puzzles/:id/name', requireAuth, (req, res) => {
   const id = String(req.params.id || '');
   const row = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(id);
-  if (!row) return res.status(404).json({ error: '题目不存在' });
+  if (!row) return res.status(404).json({ error: msg(req, 'puzzle.not_found') });
   if (row.user_id !== req.user.id) {
-    return res.status(403).json({ error: '只能修改自己导入的题目名称' });
+    return res.status(403).json({ error: msg(req, 'puzzle.rename_forbidden') });
   }
   const { name } = req.body || {};
   const newName =
@@ -344,7 +345,7 @@ app.put('/api/puzzles/:id/name', requireAuth, (req, res) => {
 app.post('/api/puzzles/:id/complete', requireAuth, (req, res) => {
   const id = String(req.params.id || '');
   const row = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(id);
-  if (!row) return res.status(404).json({ error: '题目不存在' });
+  if (!row) return res.status(404).json({ error: msg(req, 'puzzle.not_found') });
 
   const grid = req.body?.grid;
   if (grid) {
@@ -359,7 +360,7 @@ app.post('/api/puzzles/:id/complete', requireAuth, (req, res) => {
     const answer = row.grid ? JSON.parse(row.grid) : null;
     const matchesAnswer = answer ? JSON.stringify(answer) === JSON.stringify(grid) : false;
     if (!stored && !matchesAnswer) {
-      return res.status(400).json({ error: '盘面与答案不一致' });
+      return res.status(400).json({ error: msg(req, 'puzzle.grid_mismatch') });
     }
   }
 
@@ -400,12 +401,12 @@ if (fs.existsSync(DIST_DIR)) {
 }
 
 app.use((req, res) => {
-  res.status(404).json({ error: '接口不存在' });
+  res.status(404).json({ error: msg(req, 'api.not_found') });
 });
 
 app.use((err, req, res, _next) => {
   console.error(err);
-  res.status(500).json({ error: '服务器内部错误' });
+  res.status(500).json({ error: msg(req, 'api.internal_error') });
 });
 
 app.listen(PORT, () => {

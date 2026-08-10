@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Check, PencilLine } from 'lucide-react';
+import { useI18n } from '../i18n/index.js';
 
 const SIZE_PRESETS = [
-  { v: 'all', label: '全部尺寸' },
+  { v: 'all', labelKey: 'browse.allSizes' },
   { v: '5x5', label: '5×5' },
   { v: '10x10', label: '10×10' },
   { v: '15x15', label: '15×15' },
@@ -12,11 +13,11 @@ const SIZE_PRESETS = [
 ];
 
 /** 题目显示名：优先自定义名称，其次来源，用户导入题显示“用户导入” */
-const displayName = (item) =>
+const displayName = (item, t) =>
   item.name ||
   (item.source && item.source !== 'user-import'
     ? item.source
-    : `用户导入 ${item.cols}×${item.rows}`);
+    : t('browse.userImport', { cols: item.cols, rows: item.rows }));
 
 /** 题库浏览悬浮窗：盖在主界面上方，分页浏览题库并显示完成状态 */
 const PuzzleBrowser = ({
@@ -29,6 +30,7 @@ const PuzzleBrowser = ({
   user,
   onRenamePuzzle,
 }) => {
+  const { t } = useI18n();
   const [preset, setPreset] = useState('all');
   const [rowsInput, setRowsInput] = useState('');
   const [colsInput, setColsInput] = useState('');
@@ -93,9 +95,9 @@ const PuzzleBrowser = ({
   };
 
   const filterText = [
-    browse.rows && browse.cols ? `${browse.cols}×${browse.rows}` : '全部尺寸',
-    mine ? '我导入的' : '',
-    done ? '已完成' : '',
+    browse.rows && browse.cols ? `${browse.cols}×${browse.rows}` : t('browse.allSizes'),
+    mine ? t('browse.mine') : '',
+    done ? t('browse.done') : '',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -112,15 +114,15 @@ const PuzzleBrowser = ({
         {/* 头部 */}
         <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-slate-100 bg-slate-50">
           <div className="min-w-0">
-            <div className="text-base font-bold text-slate-800">题库浏览</div>
+            <div className="text-base font-bold text-slate-800">{t('browse.title')}</div>
             <div className="text-[10px] text-slate-400 truncate">
-              共 {browse.total} 题 · 当前：{filterText}
+              {t('browse.total', { n: browse.total, filter: filterText })}
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-slate-200 text-slate-500 shrink-0"
-            title="关闭 (Esc)"
+            title={t('browse.closeEsc')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -135,10 +137,10 @@ const PuzzleBrowser = ({
           >
             {SIZE_PRESETS.map((p) => (
               <option key={p.v} value={p.v}>
-                {p.label}
+                {p.labelKey ? t(p.labelKey) : p.label}
               </option>
             ))}
-            {preset === 'custom' && <option value="custom">自定义</option>}
+            {preset === 'custom' && <option value="custom">{t('browse.custom')}</option>}
           </select>
           <div className="flex items-center gap-1">
             <input
@@ -150,7 +152,7 @@ const PuzzleBrowser = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') applyCustom();
               }}
-              placeholder="行"
+              placeholder={t('browse.rowsPh')}
               className="w-14 px-1.5 py-1 text-xs rounded-lg border border-slate-200 outline-none focus:border-indigo-400"
             />
             <span className="text-xs text-slate-400">×</span>
@@ -163,14 +165,14 @@ const PuzzleBrowser = ({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') applyCustom();
               }}
-              placeholder="列"
+              placeholder={t('browse.colsPh')}
               className="w-14 px-1.5 py-1 text-xs rounded-lg border border-slate-200 outline-none focus:border-indigo-400"
             />
             <button
               onClick={applyCustom}
               className="px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-200"
             >
-              筛选
+              {t('browse.filter')}
             </button>
           </div>
           <div className="flex items-center gap-1.5 ml-auto">
@@ -182,7 +184,7 @@ const PuzzleBrowser = ({
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
-              我导入的
+              {t('browse.mine')}
             </button>
             <button
               onClick={toggleDone}
@@ -192,7 +194,7 @@ const PuzzleBrowser = ({
                   : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
               }`}
             >
-              已完成
+              {t('browse.done')}
             </button>
           </div>
         </div>
@@ -204,26 +206,26 @@ const PuzzleBrowser = ({
             disabled={browse.page <= 1 || browse.loading}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-600 rounded-lg border border-slate-200 text-xs font-bold disabled:opacity-40"
           >
-            <ChevronLeft className="w-3.5 h-3.5" /> 上一页
+            <ChevronLeft className="w-3.5 h-3.5" /> {t('browse.prev')}
           </button>
           <span className="text-xs text-slate-500">
-            第 {browse.page} / {totalPages} 页
+            {t('browse.page', { page: browse.page, total: totalPages })}
           </span>
           <button
             onClick={() => load(browse.page + 1)}
             disabled={browse.page >= totalPages || browse.loading}
             className="flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-600 rounded-lg border border-slate-200 text-xs font-bold disabled:opacity-40"
           >
-            下一页 <ChevronRight className="w-3.5 h-3.5" />
+            {t('browse.next')} <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* 列表 */}
         <div className="flex-1 overflow-y-auto p-4">
           {browse.loading ? (
-            <p className="text-center text-sm text-slate-400 py-10">加载中...</p>
+            <p className="text-center text-sm text-slate-400 py-10">{t('browse.loading')}</p>
           ) : browse.items.length === 0 ? (
-            <p className="text-center text-sm text-slate-400 py-10">暂无题目</p>
+            <p className="text-center text-sm text-slate-400 py-10">{t('browse.empty')}</p>
           ) : (
             <div
               className="grid gap-2.5"
@@ -243,20 +245,20 @@ const PuzzleBrowser = ({
                         ? 'border-emerald-300 bg-emerald-50/60'
                         : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-indigo-300'
                     }`}
-                    title={`${displayName(item)} · ${item.cols}×${item.rows}${
+                    title={`${displayName(item, t)} · ${item.cols}×${item.rows}${
                       item.contributor ? ` · ${item.contributor}` : ''
                     }`}
                   >
                     <div className="flex items-center justify-between w-full gap-1">
                       <span className="text-sm font-bold text-slate-800 truncate">
-                        {displayName(item)}
+                        {displayName(item, t)}
                       </span>
                       <span className="shrink-0 flex items-center gap-1">
                         {canRename && (
                           <span
                             role="button"
                             tabIndex={0}
-                            title="修改名称"
+                            title={t('browse.renameTitle')}
                             className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-indigo-600"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -274,7 +276,7 @@ const PuzzleBrowser = ({
                         )}
                         {doneFlag && (
                           <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold">
-                            <Check className="w-3 h-3" /> 已完成
+                            <Check className="w-3 h-3" /> {t('browse.done')}
                           </span>
                         )}
                       </span>

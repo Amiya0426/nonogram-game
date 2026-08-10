@@ -1,17 +1,23 @@
 // 后端 API 封装（同源部署，Nginx 将 /api 反向代理到 Node 服务）
+import { translate, getLang } from './i18n/index.js';
 
 const BASE = import.meta.env.VITE_API_BASE || '';
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept-Language': getLang() === 'zh' ? 'zh-CN' : 'en',
+    },
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || `请求失败 (${res.status})`);
+    const err = new Error(
+      data.error || translate('api.requestFailed', { status: res.status }),
+    );
     err.status = res.status;
     throw err;
   }

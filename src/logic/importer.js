@@ -133,7 +133,7 @@ export const extractPuzzleFromHtml = (html) => {
   }
 
   if (parsedRowClues.length === 0 || parsedColClues.length === 0) {
-    throw new Error('解析失败。未能找到任何题目数据。请确保您完整复制了目标区域的代码。');
+    throw new Error('import.parseFailed');
   }
   return { rows: r, cols: c, rowClues: parsedRowClues, colClues: parsedColClues };
 };
@@ -149,7 +149,7 @@ export const normalizePuzzleData = (data) => {
         it && it.rows && it.cols && it.rowCluesStr && it.colCluesStr && it.grid,
     );
     if (found) return found;
-    throw new Error('格式不完整');
+    throw new Error('import.incomplete');
   }
   return data;
 };
@@ -162,7 +162,7 @@ export const normalizePuzzleData = (data) => {
 export const parseCollectionItem = (text, fallbackName = '') => {
   const data = normalizePuzzleData(JSON.parse(text));
   if (!data.rows || !data.cols || !data.rowCluesStr || !data.colCluesStr || !data.grid) {
-    throw new Error('格式不完整');
+    throw new Error('import.incomplete');
   }
   const baseName =
     typeof data.name === 'string' && data.name.trim()

@@ -8,9 +8,11 @@ import FloatingTimer from './components/FloatingTimer.jsx';
 import ImageToPuzzle from './components/ImageToPuzzle.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import './App.css';
+import { useI18n } from './i18n/index.js';
 
 export default function NonogramApp() {
   const g = useGameState();
+  const { t } = useI18n();
   const [browseOpen, setBrowseOpen] = useState(false);
   const [imageImportOpen, setImageImportOpen] = useState(false);
 
@@ -50,14 +52,14 @@ export default function NonogramApp() {
               onClick={g.finishEditing}
               className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm font-bold flex items-center gap-1.5 shadow-sm"
             >
-              <Check className="w-4 h-4" /> 完成
+              <Check className="w-4 h-4" /> {t('app.done')}
             </button>
           ) : (
             <button
               onClick={() => g.handleModeChange('edit')}
               className="px-3 py-1.5 bg-orange-50 text-orange-700 rounded-lg text-sm font-bold flex items-center gap-1.5 border border-orange-200"
             >
-              <PencilLine className="w-4 h-4" /> 自定义
+              <PencilLine className="w-4 h-4" /> {t('app.custom')}
             </button>
           )}
           <button
@@ -180,7 +182,7 @@ export default function NonogramApp() {
         {g.isSolvedStatus && g.mode === 'play' && (
           <div className="absolute bottom-6 left-6 z-30 pointer-events-none">
             <div className="bg-emerald-500 text-white px-5 py-3 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(16,185,129,0.3)] flex items-center gap-2 animate-bounce border-2 border-white">
-              <Check className="w-6 h-6" /> 解谜成功！
+              <Check className="w-6 h-6" /> {t('app.solved')}
             </div>
           </div>
         )}

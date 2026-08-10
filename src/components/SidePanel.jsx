@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
+import { useI18n, LANGS } from '../i18n/index.js';
 
 /** 左侧控制面板：所有折叠区与按钮 */
 const SidePanel = ({
@@ -108,6 +109,7 @@ const SidePanel = ({
   onAutoSolve,
   userProgress,
 }) => {
+  const { t, lang, setLang } = useI18n();
   const [ioTab, setIoTab] = useState('import');
   const [activeTab, setActiveTab] = useState('game');
   const [authUsername, setAuthUsername] = useState('');
@@ -223,17 +225,17 @@ const SidePanel = ({
           <div className="hidden md:flex pb-2 border-b border-slate-100 justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2 text-indigo-900">
-                <Dices className="w-7 h-7 text-indigo-500" /> 数织解谜
+                <Dices className="w-7 h-7 text-indigo-500" /> {t('app.title')}
               </h1>
-              <p className="text-[10px] text-slate-400 mt-0.5">游玩模式</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">{t('app.playMode')}</p>
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => onModeChange('edit')}
                 className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-orange-200 transition-colors"
-                title="创建或修改自己的题目"
+                title={t('panel.createPuzzleTitle')}
               >
-                <PencilLine className="w-3.5 h-3.5" /> 自定义题目
+                <PencilLine className="w-3.5 h-3.5" /> {t('panel.customTitle')}
               </button>
               <button
                 onClick={() => {
@@ -245,7 +247,7 @@ const SidePanel = ({
                     ? 'bg-indigo-100 text-indigo-600'
                     : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'
                 }`}
-                title={isPanelPinned ? '取消固定 (自动隐藏)' : '固定侧边栏'}
+                title={isPanelPinned ? t('panel.unpinPanel') : t('panel.pinPanel')}
               >
                 {isPanelPinned ? <PinOff className="w-5 h-5" /> : <Pin className="w-5 h-5" />}
               </button>
@@ -259,9 +261,9 @@ const SidePanel = ({
                   <PencilLine className="w-4 h-4" />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-orange-900">自定义题目</div>
+                  <div className="text-sm font-bold text-orange-900">{t('panel.customTitle')}</div>
                   <div className="text-[9px] text-orange-600/70 truncate">
-                    画好图案或上传图片后自动生成线索，完成时入库
+                    {t('panel.customSubtitle')}
                   </div>
                 </div>
               </div>
@@ -277,7 +279,7 @@ const SidePanel = ({
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                <MousePointerClick className="w-3.5 h-3.5" /> 画盘面
+                <MousePointerClick className="w-3.5 h-3.5" /> {t('panel.pattern')}
               </button>
               <button
                 onClick={() => setEditInputMode('manual')}
@@ -287,7 +289,7 @@ const SidePanel = ({
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                <Braces className="w-3.5 h-3.5" /> 手动输入
+                <Braces className="w-3.5 h-3.5" /> {t('panel.manual')}
               </button>
             </div>
 
@@ -295,7 +297,7 @@ const SidePanel = ({
               onClick={onOpenImageImport}
               className="w-full py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-orange-200"
             >
-              <ImagePlus className="w-4 h-4" /> 从图片生成题目
+              <ImagePlus className="w-4 h-4" /> {t('panel.fromImage')}
             </button>
 
             {/* 画笔工具（画盘面模式） */}
@@ -310,7 +312,7 @@ const SidePanel = ({
                         : 'bg-white/60 text-slate-500 border-slate-200 hover:bg-white'
                     }`}
                   >
-                    <MousePointerClick className="w-3.5 h-3.5" /> 轮切
+                    <MousePointerClick className="w-3.5 h-3.5" /> {t('panel.rotate')}
                   </button>
                   <button
                     onClick={() => setInteractionMode('paint')}
@@ -320,7 +322,7 @@ const SidePanel = ({
                         : 'bg-white/60 text-slate-500 border-slate-200 hover:bg-white'
                     }`}
                   >
-                    <PaintRoller className="w-3.5 h-3.5" /> 放置
+                    <PaintRoller className="w-3.5 h-3.5" /> {t('panel.place')}
                   </button>
                 </div>
                 <div className="flex gap-1.5">
@@ -332,7 +334,7 @@ const SidePanel = ({
                         : 'bg-white/60 text-slate-400 hover:bg-white border border-slate-200'
                     }`}
                   >
-                    <Square fill="currentColor" className="w-3.5 h-3.5" /> 填充
+                    <Square fill="currentColor" className="w-3.5 h-3.5" /> {t('panel.fill')}
                   </button>
                   <button
                     onClick={() => setCurrentBrush(2)}
@@ -342,7 +344,7 @@ const SidePanel = ({
                         : 'bg-white/60 text-slate-400 hover:bg-white border border-slate-200'
                     }`}
                   >
-                    <XSquare className="w-3.5 h-3.5" /> 打叉
+                    <XSquare className="w-3.5 h-3.5" /> {t('panel.cross')}
                   </button>
                   <button
                     onClick={() => setCurrentBrush(0)}
@@ -352,7 +354,7 @@ const SidePanel = ({
                         : 'bg-white/60 text-slate-400 hover:bg-white border border-slate-200'
                     }`}
                   >
-                    <Eraser className="w-3.5 h-3.5" /> 擦除
+                    <Eraser className="w-3.5 h-3.5" /> {t('panel.erase')}
                   </button>
                 </div>
               </div>
@@ -360,8 +362,8 @@ const SidePanel = ({
 
             <p className="text-[10px] text-orange-800/80 leading-relaxed">
               {editInputMode === 'pattern'
-                ? '在盘面上点击或拖拽：左键依次 填充 → 打叉 → 清空，右键直接打叉；两侧线索会实时预览。'
-                : '在棋盘左/上边缘的文本框输入数字，空格、逗号或换行分隔均可。'}
+                ? t('panel.patternHint')
+                : t('panel.manualHint')}
             </p>
           </div>
         )}
@@ -379,13 +381,13 @@ const SidePanel = ({
                 <div className="text-sm font-bold text-slate-800 truncate">{user.username}</div>
                 <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
                   <Trophy className="w-3 h-3 text-amber-500" />
-                  已解 {userProgress.length} 题
+                  {t('panel.solvedCount', { n: userProgress.length })}
                 </div>
               </div>
               <button
                 onClick={onLogout}
                 className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                title="退出登录"
+                title={t('panel.logout')}
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -394,20 +396,20 @@ const SidePanel = ({
               onClick={onOpenBrowse}
               className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
             >
-              <Library className="w-4 h-4" /> 题库浏览
+              <Library className="w-4 h-4" /> {t('panel.browse')}
             </button>
             </>
           ) : (
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
-                <UserRound className="w-3.5 h-3.5" /> 登录后可同步进度与题库筛选
+                <UserRound className="w-3.5 h-3.5" /> {t('panel.loginHint')}
               </div>
               <div className="flex gap-1.5">
                 <input
                   type="text"
                   value={authUsername}
                   onChange={(e) => setAuthUsername(e.target.value)}
-                  placeholder="用户名"
+                  placeholder={t('panel.usernamePlaceholder')}
                   className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
                 />
                 <input
@@ -419,7 +421,7 @@ const SidePanel = ({
                       onLogin(authUsername, authPassword);
                     }
                   }}
-                  placeholder="密码"
+                  placeholder={t('panel.passwordPlaceholder')}
                   className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
                 />
               </div>
@@ -429,14 +431,14 @@ const SidePanel = ({
                   disabled={authBusy || !authUsername.trim() || !authPassword}
                   className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"
                 >
-                  <LogIn className="w-3.5 h-3.5" /> 登录
+                  <LogIn className="w-3.5 h-3.5" /> {t('panel.login')}
                 </button>
                 <button
                   onClick={() => onRegister(authUsername, authPassword)}
                   disabled={authBusy || !authUsername.trim() || !authPassword}
                   className="flex-1 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  注册
+                  {t('panel.register')}
                 </button>
               </div>
             </div>
@@ -478,7 +480,7 @@ const SidePanel = ({
         <div className={tabCls('game')}>
 
 {mode === 'play' && (
-          <Accordion title="推演与操作" icon={MousePointerClick} defaultOpen>
+          <Accordion title={t('panel.deductionTitle')} icon={MousePointerClick} defaultOpen>
             <div className="flex flex-col gap-1.5">
               <div className="grid grid-cols-2 gap-1.5">
                 {deductionLevel < 3 && (
@@ -491,7 +493,9 @@ const SidePanel = ({
                     `}
                   >
                     <GitBranch className="w-4 h-4" />
-                    {deductionLevel === 0 ? '开始推演 (1级)' : `深入推演 (${deductionLevel + 1}级)`}
+                    {deductionLevel === 0
+                      ? t('panel.startDeduction')
+                      : t('panel.deepenDeduction', { n: deductionLevel + 1 })}
                   </button>
                 )}
                 {deductionLevel > 0 && (
@@ -500,13 +504,13 @@ const SidePanel = ({
                       onClick={onApplyDeduction}
                       className="py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-emerald-200"
                     >
-                      <Check className="w-4 h-4" /> 应用({deductionLevel})
+                      <Check className="w-4 h-4" /> {t('panel.applyDeduction', { n: deductionLevel })}
                     </button>
                     <button
                       onClick={onCancelDeduction}
                       className="py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-rose-200"
                     >
-                      <X className="w-4 h-4" /> 放弃({deductionLevel})
+                      <X className="w-4 h-4" /> {t('panel.cancelDeduction', { n: deductionLevel })}
                     </button>
                   </>
                 )}
@@ -517,15 +521,15 @@ const SidePanel = ({
                   onClick={onValidate}
                   className="py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-blue-200"
                 >
-                  <SearchCheck className="w-4 h-4" /> 检查错误
+                  <SearchCheck className="w-4 h-4" /> {t('panel.checkErrors')}
                 </button>
                 <button
                   onClick={onRestore}
                   disabled={!lastCorrectSnapshot}
                   className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-slate-200"
-                  title="回退到上一次检查没有报错的状态"
+                  title={t('panel.restoreCheckpointTitle')}
                 >
-                  <Undo2 className="w-4 h-4" /> 恢复检查点
+                  <Undo2 className="w-4 h-4" /> {t('panel.restoreCheckpoint')}
                 </button>
               </div>
 
@@ -533,7 +537,7 @@ const SidePanel = ({
                 onClick={onProvideHint}
                 className="py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-amber-200"
               >
-                <Lightbulb className="w-4 h-4" /> 给我提示
+                <Lightbulb className="w-4 h-4" /> {t('panel.giveHint')}
               </button>
             </div>
 
@@ -546,7 +550,7 @@ const SidePanel = ({
                     : 'text-slate-600 hover:bg-white'
                 }`}
               >
-                <MousePointerClick className="w-3.5 h-3.5" /> 轮切
+                <MousePointerClick className="w-3.5 h-3.5" /> {t('panel.rotate')}
               </button>
               <button
                 onClick={() => setInteractionMode('paint')}
@@ -556,7 +560,7 @@ const SidePanel = ({
                     : 'text-slate-600 hover:bg-white'
                 }`}
               >
-                <PaintRoller className="w-3.5 h-3.5" /> 放置
+                <PaintRoller className="w-3.5 h-3.5" /> {t('panel.place')}
               </button>
             </div>
 
@@ -591,7 +595,7 @@ const SidePanel = ({
 
             {/* 辅助设置（原“游戏辅助”，已合并） */}
             <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2">
-              <span className="text-[10px] font-bold text-slate-400">辅助设置</span>
+              <span className="text-[10px] font-bold text-slate-400">{t('panel.assistSettings')}</span>
               <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
@@ -604,7 +608,7 @@ const SidePanel = ({
                   }
                   className="accent-indigo-600 w-3 h-3"
                 />{' '}
-                完成的行列高亮
+                {t('panel.completeLineHighlight')}
               </label>
               <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
                 <input
@@ -613,7 +617,7 @@ const SidePanel = ({
                   onChange={(e) => setGameSettings((p) => ({ ...p, autoMarkNumbers: e.target.checked }))}
                   className="accent-indigo-600 w-3 h-3"
                 />{' '}
-                自动高亮已完成线索
+                {t('panel.autoMarkNumbers')}
               </label>
               <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
                 <input
@@ -622,10 +626,10 @@ const SidePanel = ({
                   onChange={(e) => setGameSettings((p) => ({ ...p, autoFillCross: e.target.checked }))}
                   className="accent-indigo-600 w-3 h-3"
                 />{' '}
-                自动补全确定叉格
+                {t('panel.autoFillCross')}
               </label>
               <div className="border-t border-slate-100 pt-2 mt-1 flex flex-col gap-1.5">
-                <span className="text-[9px] font-bold text-slate-400">悬浮提示</span>
+                <span className="text-[9px] font-bold text-slate-400">{t('panel.hoverHints')}</span>
                 <div className="grid grid-cols-3 gap-1.5">
                   <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
                     <input
@@ -634,7 +638,7 @@ const SidePanel = ({
                       onChange={(e) => setGameSettings((p) => ({ ...p, hoverRowClues: e.target.checked }))}
                       className="accent-indigo-600 w-3 h-3"
                     />
-                    行跟随
+                    {t('panel.hoverRow')}
                   </label>
                   <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
                     <input
@@ -643,7 +647,7 @@ const SidePanel = ({
                       onChange={(e) => setGameSettings((p) => ({ ...p, hoverColClues: e.target.checked }))}
                       className="accent-indigo-600 w-3 h-3"
                     />
-                    列跟随
+                    {t('panel.hoverCol')}
                   </label>
                   <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
                     <input
@@ -652,7 +656,7 @@ const SidePanel = ({
                       onChange={(e) => setGameSettings((p) => ({ ...p, showClueSums: e.target.checked }))}
                       className="accent-indigo-600 w-3 h-3"
                     />
-                    线索和
+                    {t('panel.clueSum')}
                   </label>
                 </div>
               </div>
@@ -661,16 +665,16 @@ const SidePanel = ({
         )}
 
         {/* === 2. 视图与棋盘设置 === */}
-        <Accordion title="视图与棋盘设置" icon={ZoomIn} defaultOpen={mode === 'edit'}>
+        <Accordion title={t('panel.viewBoardTitle')} icon={ZoomIn} defaultOpen={mode === 'edit'}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-slate-500">行</label>
+              <label className="text-xs font-semibold text-slate-500">{t('panel.rowsLabel')}</label>
               <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
                 <button
                   type="button"
                   onClick={() => stepRow(-1)}
                   className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title="减小行数"
+                  title={t('panel.decreaseRows')}
                 >
                   <Minus className="w-3 h-3" />
                 </button>
@@ -694,7 +698,7 @@ const SidePanel = ({
                   type="button"
                   onClick={() => stepRow(1)}
                   className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title="增大行数"
+                  title={t('panel.increaseRows')}
                 >
                   <Plus className="w-3 h-3" />
                 </button>
@@ -702,13 +706,13 @@ const SidePanel = ({
             </div>
             <span className="text-slate-300 text-xs">×</span>
             <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-slate-500">列</label>
+              <label className="text-xs font-semibold text-slate-500">{t('panel.colsLabel')}</label>
               <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
                 <button
                   type="button"
                   onClick={() => stepCol(-1)}
                   className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title="减小列数"
+                  title={t('panel.decreaseCols')}
                 >
                   <Minus className="w-3 h-3" />
                 </button>
@@ -732,7 +736,7 @@ const SidePanel = ({
                   type="button"
                   onClick={() => stepCol(1)}
                   className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title="增大列数"
+                  title={t('panel.increaseCols')}
                 >
                   <Plus className="w-3 h-3" />
                 </button>
@@ -742,7 +746,7 @@ const SidePanel = ({
               <button
                 onClick={onGenerateRandom}
                 className="p-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded transition-colors"
-                title="随机生成"
+                title={t('panel.randomGenerate')}
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -750,7 +754,7 @@ const SidePanel = ({
                 <button
                   onClick={onClearClues}
                   className="p-1 bg-red-100 text-red-700 hover:bg-red-200 rounded transition-colors"
-                  title="清空线索"
+                  title={t('panel.clearClues')}
                 >
                   <FileMinus className="w-4 h-4" />
                 </button>
@@ -758,7 +762,7 @@ const SidePanel = ({
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 pt-2">
-            <span className="text-xs font-semibold text-slate-500">缩放</span>
+            <span className="text-xs font-semibold text-slate-500">{t('panel.zoom')}</span>
             <div className="flex items-center gap-2 flex-1 ml-2">
               <input
                 type="range"
@@ -771,11 +775,25 @@ const SidePanel = ({
               <button
                 onClick={onFitToWidth}
                 className="p-1 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors border border-indigo-100"
-                title="自适应宽度"
+                title={t('panel.fitWidth')}
               >
                 <Maximize className="w-4 h-4" />
               </button>
             </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <span className="text-xs font-semibold text-slate-500">{t('panel.language')}</span>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              className="text-xs rounded-lg border border-slate-200 bg-white text-slate-600 px-2 py-1.5 outline-none"
+            >
+              {LANGS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
           </div>
         </Accordion>
         </div>
@@ -783,7 +801,7 @@ const SidePanel = ({
         {/* === 5. 导入与导出 === */}
 
         <div className={tabCls('import')}>
-<Accordion title="导入与导出" icon={FileSymlink} defaultOpen={false}>
+<Accordion title={t('panel.importExportTitle')} icon={FileSymlink} defaultOpen={false}>
           {/* 导入 / 导出 Tab 切换 */}
           <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
             <button
@@ -794,7 +812,7 @@ const SidePanel = ({
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Download className="w-3.5 h-3.5" /> 导入
+              <Download className="w-3.5 h-3.5" /> {t('panel.importTab')}
             </button>
             <button
               onClick={() => setIoTab('export')}
@@ -804,7 +822,7 @@ const SidePanel = ({
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <ClipboardCopy className="w-3.5 h-3.5" /> 导出
+              <ClipboardCopy className="w-3.5 h-3.5" /> {t('panel.exportTab')}
             </button>
           </div>
 
@@ -817,15 +835,15 @@ const SidePanel = ({
                     <Globe className="w-3.5 h-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">从网页解析题目</div>
-                    <div className="text-[9px] text-slate-400 truncate">粘贴外部网站源码即可自动提取</div>
+                    <div className="text-xs font-bold text-slate-700">{t('panel.webParseTitle')}</div>
+                    <div className="text-[9px] text-slate-400 truncate">{t('panel.webParseHint')}</div>
                   </div>
                 </div>
                 <textarea
                   rows={2}
                   value={importData}
                   onChange={(e) => setImportData(e.target.value)}
-                  placeholder="粘贴目标网站源码..."
+                  placeholder={t('panel.webParsePlaceholder')}
                   className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 font-mono bg-white"
                 />
                 <button
@@ -833,7 +851,7 @@ const SidePanel = ({
                   disabled={isImporting || !importData.trim()}
                   className="py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1.5 shadow-sm"
                 >
-                  <Wand2 className="w-3.5 h-3.5" /> 解析提取
+                  <Wand2 className="w-3.5 h-3.5" /> {t('panel.extract')}
                 </button>
               </div>
 
@@ -844,8 +862,8 @@ const SidePanel = ({
                     <UploadCloud className="w-3.5 h-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">恢复存档</div>
-                    <div className="text-[9px] text-slate-400 truncate">代码一键导入，或拖拽 JSON 文件</div>
+                    <div className="text-xs font-bold text-slate-700">{t('panel.restoreTitle')}</div>
+                    <div className="text-[9px] text-slate-400 truncate">{t('panel.restoreHint')}</div>
                   </div>
                 </div>
                 <div className="flex gap-1.5">
@@ -853,22 +871,22 @@ const SidePanel = ({
                     type="text"
                     value={localImportData}
                     onChange={(e) => setLocalImportData(e.target.value)}
-                    placeholder="粘贴存档代码..."
+                    placeholder={t('panel.codePlaceholder')}
                     className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-emerald-500 font-mono bg-white"
                   />
                   <button
                     onClick={onLocalImport}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
-                    title="输入框为空时，自动读取剪贴板中的存档代码并导入"
+                    title={t('panel.importCodeTitle')}
                   >
-                    <ClipboardPaste className="w-3.5 h-3.5" /> 导入
+                    <ClipboardPaste className="w-3.5 h-3.5" /> {t('panel.import')}
                   </button>
                 </div>
                 <FileDropZone
                   onFiles={(files) => onImportFile(files[0])}
                   icon={FileUp}
-                  buttonText="点击选择或拖拽 JSON 文件到此处"
-                  hint="支持 .json 格式存档，松手即导入"
+                  buttonText={t('dropzone.choose')}
+                  hint={t('dropzone.jsonHint')}
                 />
               </div>
             </>
@@ -881,15 +899,15 @@ const SidePanel = ({
                     <FileJson className="w-3.5 h-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">导出存档</div>
-                    <div className="text-[9px] text-slate-400 truncate">复制代码或下载 JSON 文件</div>
+                    <div className="text-xs font-bold text-slate-700">{t('panel.exportTitle')}</div>
+                    <div className="text-[9px] text-slate-400 truncate">{t('panel.exportHint')}</div>
                   </div>
                 </div>
                 <input
                   type="text"
                   value={exportFilename}
                   onChange={(e) => setExportFilename(e.target.value)}
-                  placeholder="导出文件名 (选填)"
+                  placeholder={t('panel.filenamePlaceholder')}
                   className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-emerald-500 bg-white"
                 />
                 <div className="grid grid-cols-2 gap-1.5">
@@ -897,7 +915,7 @@ const SidePanel = ({
                     onClick={onExportCode}
                     className="py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 flex justify-center items-center gap-1.5 transition-colors"
                   >
-                    <ClipboardCopy className="w-3.5 h-3.5" /> 复制代码
+                    <ClipboardCopy className="w-3.5 h-3.5" /> {t('panel.copyCode')}
                   </button>
                   <button
                     onClick={onExportJSON}
@@ -915,47 +933,47 @@ const SidePanel = ({
                     <ImageIcon className="w-3.5 h-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">导出图片</div>
-                    <div className="text-[9px] text-slate-400 truncate">可在图片底部附加留言（选填）</div>
+                    <div className="text-xs font-bold text-slate-700">{t('panel.imageExportTitle')}</div>
+                    <div className="text-[9px] text-slate-400 truncate">{t('panel.imageExportHint')}</div>
                   </div>
                 </div>
                 <input
                   type="text"
                   value={exportRemark}
                   onChange={(e) => setExportRemark(e.target.value)}
-                  placeholder="图片底部留言 (选填)"
+                  placeholder={t('panel.remarkPlaceholder')}
                   className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-blue-500 bg-white"
                 />
                 <div className="grid grid-cols-3 gap-1.5">
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-slate-500">清晰度</span>
+                    <span className="text-[9px] text-slate-500">{t('panel.quality')}</span>
                     <select
                       name="img-scale"
                       value={imgScale}
                       onChange={(e) => setImgScale(e.target.value)}
                       className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
                     >
-                      <option value="1">标准 1x</option>
-                      <option value="2">高清 2x</option>
-                      <option value="3">超清 3x</option>
-                      <option value="4">4K 4x</option>
+                      <option value="1">{t('panel.std')} 1x</option>
+                      <option value="2">{t('panel.hd')}</option>
+                      <option value="3">{t('panel.ultra')}</option>
+                      <option value="4">{t('panel.k4')}</option>
                     </select>
                   </label>
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-slate-500">JPG 质量</span>
+                    <span className="text-[9px] text-slate-500">{t('panel.jpegQuality')}</span>
                     <select
                       name="img-jpeg-quality"
                       value={imgJpegQuality}
                       onChange={(e) => setImgJpegQuality(e.target.value)}
                       className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
                     >
-                      <option value="0.95">高</option>
-                      <option value="0.9">标准</option>
-                      <option value="0.7">低</option>
+                      <option value="0.95">{t('panel.high')}</option>
+                      <option value="0.9">{t('panel.std')}</option>
+                      <option value="0.7">{t('panel.low')}</option>
                     </select>
                   </label>
                   <label className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-slate-500">DPI</span>
+                    <span className="text-[9px] text-slate-500">{t('panel.dpiLabel')}</span>
                     <select
                       name="img-dpi"
                       value={imgDpi}
@@ -970,7 +988,7 @@ const SidePanel = ({
                   </label>
                 </div>
                 <p className="text-[9px] text-slate-400 leading-relaxed">
-                  清晰度 = 每格像素放大倍数；DPI 为打印元数据（屏幕显示无差别）。
+                  {t('panel.dpiHint')}
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
@@ -1004,22 +1022,23 @@ const SidePanel = ({
             onClick={onClearBoard}
             className="w-full py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
           >
-            <Eraser className="w-4 h-4" /> {mode === 'edit' ? '清空画板 / 图案' : '清空画板'}
+            <Eraser className="w-4 h-4" />{' '}
+            {mode === 'edit' ? t('panel.clearBoardPattern') : t('panel.clearBoard')}
           </button>
           {mode === 'edit' ? (
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 onClick={onCancelEditing}
                 className="py-2.5 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors text-sm"
-                title="放弃本次修改，回到游玩"
+                title={t('panel.cancelEditTitle')}
               >
-                <X className="w-4 h-4" /> 取消编辑
+                <X className="w-4 h-4" /> {t('panel.cancelEdit')}
               </button>
               <button
                 onClick={onFinishEditing}
                 className="py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
               >
-                <Check className="w-4 h-4" /> 完成并游玩
+                <Check className="w-4 h-4" /> {t('panel.finishPlay')}
               </button>
             </div>
           ) : (
@@ -1027,7 +1046,7 @@ const SidePanel = ({
               onClick={onAutoSolve}
               className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
             >
-              <Check className="w-4 h-4" /> 一键解题
+              <Check className="w-4 h-4" /> {t('panel.autoSolve')}
             </button>
           )}
         </div>
@@ -1038,8 +1057,8 @@ const SidePanel = ({
         {/* 移动端底部导航 */}
         <div className="md:hidden flex border-t border-slate-200 bg-white shrink-0 sticky bottom-0">
           {[
-            { key: 'game', label: '游戏', Icon: MousePointerClick },
-            { key: 'import', label: '导入', Icon: FileSymlink },
+            { key: 'game', label: t('panel.tabs.game'), Icon: MousePointerClick },
+            { key: 'import', label: t('panel.tabs.import'), Icon: FileSymlink },
           ].map(({ key, label, Icon }) => (
             <button
               key={key}
@@ -1057,7 +1076,7 @@ const SidePanel = ({
         <div
           onPointerDown={startResize}
           className="hidden md:block absolute top-0 right-0 h-full w-1.5 cursor-col-resize z-50 bg-transparent hover:bg-indigo-300/60 active:bg-indigo-400/60 transition-colors"
-          title="拖动调整面板宽度"
+          title={t('panel.dragPanel')}
         />
     </div>
     </>

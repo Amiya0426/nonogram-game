@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { db } from './db.js';
+import { msg } from './i18n.js';
 
 const SESSION_DAYS = 30;
 const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
@@ -36,7 +37,7 @@ export const clearSessionCookie = (res) => {
 /** 登录态中间件：验证会话，注入 req.user */
 export const requireAuth = (req, res, next) => {
   const token = req.cookies?.[COOKIE_NAME];
-  if (!token) return res.status(401).json({ error: '未登录' });
+  if (!token) return res.status(401).json({ error: msg(req, 'auth.unauthorized') });
   const row = db
     .prepare(
       `SELECT s.user_id AS id, u.username
@@ -44,7 +45,7 @@ export const requireAuth = (req, res, next) => {
        WHERE s.token = ? AND s.expires_at > ?`,
     )
     .get(token, Date.now());
-  if (!row) return res.status(401).json({ error: '会话已过期，请重新登录' });
+  if (!row) return res.status(401).json({ error: msg(req, 'auth.session_expired') });
   req.user = row;
   next();
 };
@@ -77,7 +78,7 @@ export const authRateLimit = (req, res, next) => {
   }
   rec.count += 1;
   if (rec.count > 20) {
-    return res.status(429).json({ error: '尝试次数过多，请 15 分钟后再试' });
+    return res.status(429).json({ error: msg(req, 'auth.rate_limited') });
   }
   next();
 };
@@ -87,10 +88,10 @@ export const verifyPassword = (plain, hash) => bcrypt.compareSync(plain, hash);
 
 export const validateCredentials = (username, password) => {
   if (typeof username !== 'string' || !/^[\w\u4e00-\u9fa5-]{2,32}$/.test(username)) {
-    return '用户名需为 2-32 位字母、数字、下划线或中文';
+    return 'auth.username_invalid';
   }
   if (typeof password !== 'string' || password.length < 6 || password.length > 72) {
-    return '密码长度需为 6-72 位';
+    return 'auth.password_invalid';
   }
   return null;
 };
