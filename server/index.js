@@ -159,6 +159,7 @@ const puzzleRowToDto = (row) => ({
   density: row.density,
   user_id: row.user_id ?? null,
   contributor: row.contributor ?? null,
+  name: row.name ?? null,
   completed: !!row.completed,
 });
 
@@ -322,6 +323,21 @@ app.post('/api/puzzles/import', requireAuth, async (req, res) => {
 
   const okCount = results.filter((r) => r.ok).length;
   res.json({ results, imported: okCount });
+});
+
+/** 修改自己导入的题目名称 */
+app.put('/api/puzzles/:id/name', requireAuth, (req, res) => {
+  const id = String(req.params.id || '');
+  const row = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ error: '题目不存在' });
+  if (row.user_id !== req.user.id) {
+    return res.status(403).json({ error: '只能修改自己导入的题目名称' });
+  }
+  const { name } = req.body || {};
+  const newName =
+    typeof name === 'string' && name.trim() ? name.trim().slice(0, 100) : null;
+  db.prepare('UPDATE puzzles SET name = ? WHERE id = ?').run(newName, id);
+  res.json({ ok: true, id, name: newName });
 });
 
 /** 标记题目已完成（可选提交盘面，服务器用答案校验） */

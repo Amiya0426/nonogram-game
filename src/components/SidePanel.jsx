@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Check,
   RefreshCw,
@@ -37,10 +37,6 @@ import {
   ClipboardPaste,
   Minus,
   Plus,
-  Clock,
-  Pause,
-  Play,
-  Film,
   Trophy,
   Library,
 } from 'lucide-react';
@@ -108,13 +104,7 @@ const SidePanel = ({
   onImportFile,
   onClearBoard,
   onAutoSolve,
-  isSolvedStatus,
-  timerSeconds,
-  timerRunning,
-  togglePauseTimer,
   userProgress,
-  isGeneratingGif,
-  generateReplayGif,
 }) => {
   const [ioTab, setIoTab] = useState('import');
   const [activeTab, setActiveTab] = useState('game');
@@ -186,26 +176,6 @@ const SidePanel = ({
   const tabCls = (tab) =>
     `${activeTab === tab ? 'flex flex-col gap-4' : 'hidden md:flex md:flex-col md:gap-4'}`;
 
-  const formatTime = (total) => {
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-    const p = (n) => String(n).padStart(2, '0');
-    return h > 0 ? `${p(h)}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
-  };
-
-  /** 按尺寸统计已完成题目 */
-  const sizeStats = useMemo(() => {
-    const m = new Map();
-    for (const p of userProgress) {
-      if (p && p.rows && p.cols) {
-        const dim = `${p.cols}x${p.rows}`;
-        m.set(dim, (m.get(dim) || 0) + 1);
-      }
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [userProgress]);
-
   return (
     <>
     {!isPanelPinned && !isPanelHovered && (
@@ -246,93 +216,6 @@ const SidePanel = ({
       style={{ '--panel-w': `${panelWidth}px` }}
     >
       <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
-        {/* 用户卡片：登录 / 已解统计 */}
-        <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/80 p-3 flex flex-col gap-2 shrink-0">
-          {user ? (
-            <>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                {String(user.username || '?')[0].toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold text-slate-800 truncate">{user.username}</div>
-                <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
-                  <Trophy className="w-3 h-3 text-amber-500" />
-                  已解 {userProgress.length} 题
-                </div>
-              </div>
-              <button
-                onClick={onLogout}
-                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                title="退出登录"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-            {sizeStats.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 border-t border-indigo-100 pt-2">
-                {sizeStats.slice(0, 5).map(([dim, n]) => (
-                  <span
-                    key={dim}
-                    className="px-2 py-0.5 bg-white/80 border border-indigo-100 rounded-full text-[10px] font-bold text-indigo-700"
-                  >
-                    {dim} × {n}
-                  </span>
-                ))}
-                {sizeStats.length > 5 && (
-                  <span className="px-2 py-0.5 text-[10px] font-bold text-slate-400">
-                    +{sizeStats.length - 5} 种尺寸
-                  </span>
-                )}
-              </div>
-            )}
-            </>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
-                <UserRound className="w-3.5 h-3.5" /> 登录后可同步收藏与解题进度
-              </div>
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  value={authUsername}
-                  onChange={(e) => setAuthUsername(e.target.value)}
-                  placeholder="用户名"
-                  className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-                />
-                <input
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && authUsername.trim() && authPassword) {
-                      onLogin(authUsername, authPassword);
-                    }
-                  }}
-                  placeholder="密码"
-                  className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-                />
-              </div>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => onLogin(authUsername, authPassword)}
-                  disabled={authBusy || !authUsername.trim() || !authPassword}
-                  className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"
-                >
-                  <LogIn className="w-3.5 h-3.5" /> 登录
-                </button>
-                <button
-                  onClick={() => onRegister(authUsername, authPassword)}
-                  disabled={authBusy || !authUsername.trim() || !authPassword}
-                  className="flex-1 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  注册
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* 模式头部：游玩 = 主界面；自定义题目 = 独立编辑视图 */}
         {mode === 'play' ? (
           <div className="hidden md:flex pb-2 border-b border-slate-100 justify-between items-start">
@@ -487,6 +370,82 @@ const SidePanel = ({
           </div>
         )}
 
+        {/* 用户卡片：登录 / 已解统计 / 题库浏览 */}
+        <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/80 p-3 flex flex-col gap-2 shrink-0">
+          {user ? (
+            <>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                {String(user.username || '?')[0].toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-bold text-slate-800 truncate">{user.username}</div>
+                <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
+                  <Trophy className="w-3 h-3 text-amber-500" />
+                  已解 {userProgress.length} 题
+                </div>
+              </div>
+              <button
+                onClick={onLogout}
+                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                title="退出登录"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={onOpenBrowse}
+              className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
+            >
+              <Library className="w-4 h-4" /> 题库浏览
+            </button>
+            </>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
+                <UserRound className="w-3.5 h-3.5" /> 登录后可同步进度与题库筛选
+              </div>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={authUsername}
+                  onChange={(e) => setAuthUsername(e.target.value)}
+                  placeholder="用户名"
+                  className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                />
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && authUsername.trim() && authPassword) {
+                      onLogin(authUsername, authPassword);
+                    }
+                  }}
+                  placeholder="密码"
+                  className="w-1/2 px-2 py-1.5 text-xs rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+                />
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => onLogin(authUsername, authPassword)}
+                  disabled={authBusy || !authUsername.trim() || !authPassword}
+                  className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1"
+                >
+                  <LogIn className="w-3.5 h-3.5" /> 登录
+                </button>
+                <button
+                  onClick={() => onRegister(authUsername, authPassword)}
+                  disabled={authBusy || !authUsername.trim() || !authPassword}
+                  className="flex-1 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  注册
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {hintInfo && mode === 'play' && (
           <div
             className={`p-3 rounded-lg border text-sm shadow-sm leading-relaxed flex gap-2 shrink-0 animate-in fade-in slide-in-from-top-2 ${
@@ -518,37 +477,6 @@ const SidePanel = ({
 
         {/* === 1. 推演与操作区 === */}
         <div className={tabCls('game')}>
-
-        {/* 计时器 + 复盘 GIF */}
-        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-500" />
-            <span className="font-mono text-lg font-bold text-slate-800 tabular-nums">{formatTime(timerSeconds)}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {isSolvedStatus && (
-              <button
-                onClick={generateReplayGif}
-                disabled={isGeneratingGif}
-                className="px-2.5 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-violet-200 disabled:opacity-50 transition-colors"
-                title="生成这盘的复盘 GIF"
-              >
-                <Film className="w-3.5 h-3.5" /> {isGeneratingGif ? '生成中...' : '复盘GIF'}
-              </button>
-            )}
-            <button
-              onClick={togglePauseTimer}
-              className={`p-2 rounded-lg border transition-colors ${
-                timerRunning
-                  ? 'bg-amber-100 text-amber-700 border-amber-200'
-                  : 'bg-emerald-100 text-emerald-700 border-emerald-200'
-              }`}
-              title={timerRunning ? '暂停计时' : '继续计时'}
-            >
-              {timerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
 
 {mode === 'play' && (
           <Accordion title="推演与操作" icon={MousePointerClick} defaultOpen>
@@ -850,12 +778,6 @@ const SidePanel = ({
               </button>
             </div>
           </div>
-          <button
-            onClick={onOpenBrowse}
-            className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
-          >
-            <Library className="w-4 h-4" /> 题库浏览
-          </button>
         </Accordion>
         </div>
 

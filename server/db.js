@@ -47,6 +47,7 @@ db.exec(`
     density REAL NOT NULL DEFAULT 0,
     content_hash TEXT NOT NULL,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    name TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -68,6 +69,9 @@ db.exec(`
 const puzzlesCols = db.prepare('PRAGMA table_info(puzzles)').all().map((c) => c.name);
 if (!puzzlesCols.includes('user_id')) {
   db.exec('ALTER TABLE puzzles ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;');
+}
+if (!puzzlesCols.includes('name')) {
+  db.exec('ALTER TABLE puzzles ADD COLUMN name TEXT;');
 }
 const collectionsCols = db.prepare('PRAGMA table_info(collections)').all().map((c) => c.name);
 if (!collectionsCols.includes('puzzle_id')) {

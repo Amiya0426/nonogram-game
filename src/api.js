@@ -46,6 +46,8 @@ export const api = {
       method: 'POST',
       body: { puzzles },
     }),
+  renamePuzzle: (id, name) =>
+    request(`/api/puzzles/${id}/name`, { method: 'PUT', body: { name } }),
   completePuzzle: (id, grid) =>
     request(`/api/puzzles/${id}/complete`, {
       method: 'POST',

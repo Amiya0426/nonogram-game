@@ -113,6 +113,10 @@ async function main() {
   log(`题库浏览(已完成): ${r.status} total=${r.data?.total}`);
   check('题库浏览按完成筛选', r.data?.total === 1, `total=${r.data?.total}`);
 
+  r = await req(`/api/puzzles/${uniquePuzzleId}/name`, 'PUT', { name: '我的题' });
+  log(`题目改名: ${r.status} name=${r.data?.name}`);
+  check('自己导入的题可改名', r.data?.name === '我的题', `name=${r.data?.name}`);
+
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]] });
   log(`错误盘面(应400): ${r.status}`);
 

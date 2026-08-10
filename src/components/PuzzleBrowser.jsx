@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Check, PencilLine } from 'lucide-react';
 
 const SIZE_PRESETS = [
   { v: 'all', label: '全部尺寸' },
@@ -11,11 +11,12 @@ const SIZE_PRESETS = [
   { v: '30x30', label: '30×30' },
 ];
 
-/** 题目显示名：来源即名称，用户导入题显示“用户导入” */
+/** 题目显示名：优先自定义名称，其次来源，用户导入题显示“用户导入” */
 const displayName = (item) =>
-  item.source && item.source !== 'user-import'
+  item.name ||
+  (item.source && item.source !== 'user-import'
     ? item.source
-    : `用户导入 ${item.cols}×${item.rows}`;
+    : `用户导入 ${item.cols}×${item.rows}`);
 
 /** 题库浏览悬浮窗：盖在主界面上方，分页浏览题库并显示完成状态 */
 const PuzzleBrowser = ({
@@ -25,6 +26,8 @@ const PuzzleBrowser = ({
   onLoadPuzzles,
   onOpenPuzzle,
   userProgress,
+  user,
+  onRenamePuzzle,
 }) => {
   const [preset, setPreset] = useState('all');
   const [rowsInput, setRowsInput] = useState('');
@@ -230,6 +233,7 @@ const PuzzleBrowser = ({
                 const doneFlag =
                   item.completed ||
                   userProgress.some((p) => String(p.id) === String(item.id));
+                const canRename = user && String(item.user_id) === String(user.id);
                 return (
                   <button
                     key={item.id}
@@ -247,11 +251,33 @@ const PuzzleBrowser = ({
                       <span className="text-sm font-bold text-slate-800 truncate">
                         {displayName(item)}
                       </span>
-                      {doneFlag && (
-                        <span className="shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold">
-                          <Check className="w-3 h-3" /> 已完成
-                        </span>
-                      )}
+                      <span className="shrink-0 flex items-center gap-1">
+                        {canRename && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            title="修改名称"
+                            className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-indigo-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRenamePuzzle(item);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                onRenamePuzzle(item);
+                              }
+                            }}
+                          >
+                            <PencilLine className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        {doneFlag && (
+                          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold">
+                            <Check className="w-3 h-3" /> 已完成
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <span className="w-full text-[10px] text-slate-400 truncate">
                       {item.cols}×{item.rows}

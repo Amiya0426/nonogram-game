@@ -4,6 +4,7 @@ import useGameState from './hooks/useGameState.js';
 import Board from './components/Board.jsx';
 import SidePanel from './components/SidePanel.jsx';
 import PuzzleBrowser from './components/PuzzleBrowser.jsx';
+import FloatingTimer from './components/FloatingTimer.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import './App.css';
 
@@ -128,12 +129,7 @@ export default function NonogramApp() {
         onClearBoard={g.clearBoard}
         onAutoSolve={g.autoSolve}
         isSolvedStatus={g.isSolvedStatus}
-        timerSeconds={g.timerSeconds}
-        timerRunning={g.timerRunning}
-        togglePauseTimer={g.togglePauseTimer}
         userProgress={g.userProgress}
-        isGeneratingGif={g.isGeneratingGif}
-        generateReplayGif={g.generateReplayGif}
       />
 
       {/* 题库浏览悬浮窗 */}
@@ -147,6 +143,8 @@ export default function NonogramApp() {
           setBrowseOpen(false);
         }}
         userProgress={g.userProgress}
+        user={g.user}
+        onRenamePuzzle={g.renamePuzzle}
       />
 
       {/* 棋盘区域 */}
@@ -154,6 +152,16 @@ export default function NonogramApp() {
         className="flex-1 relative bg-slate-200/50 flex flex-col h-[calc(100vh-65px)] md:h-screen transition-all"
         onMouseLeave={g.handleGlobalLeave}
       >
+        {/* 计时 + 复盘 GIF 悬浮窗 */}
+        <FloatingTimer
+          timerSeconds={g.timerSeconds}
+          timerRunning={g.timerRunning}
+          togglePauseTimer={g.togglePauseTimer}
+          isSolvedStatus={g.isSolvedStatus}
+          generateReplayGif={g.generateReplayGif}
+          isGeneratingGif={g.isGeneratingGif}
+        />
+
         {g.isSolvedStatus && g.mode === 'play' && (
           <div className="absolute bottom-6 left-6 z-30 pointer-events-none">
             <div className="bg-emerald-500 text-white px-5 py-3 rounded-full font-bold text-lg shadow-[0_4px_20px_rgba(16,185,129,0.3)] flex items-center gap-2 animate-bounce border-2 border-white">

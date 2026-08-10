@@ -630,6 +630,36 @@ export default function useGameState() {
     [initBoard],
   );
 
+  /** 修改自己导入的题目名称（题库浏览内） */
+  const renamePuzzle = useCallback(
+    async (item) => {
+      if (!user) {
+        setAlertMsg('请先登录');
+        return;
+      }
+      if (String(item.user_id) !== String(user.id)) {
+        setAlertMsg('只能修改自己导入的题目名称');
+        return;
+      }
+      const newName = prompt('输入题目名称（留空清除自定义名称）：', item.name || '');
+      if (newName === null) return;
+      const name = newName.trim();
+      try {
+        const r = await api.renamePuzzle(item.id, name || null);
+        setBrowse((prev) => ({
+          ...prev,
+          items: prev.items.map((it) =>
+            it.id === item.id ? { ...it, name: r.name } : it,
+          ),
+        }));
+        setAlertMsg(name ? `✅ 已命名为 "${name}"` : '✅ 已清除自定义名称');
+      } catch (e) {
+        setAlertMsg(`❌ ${e.message}`);
+      }
+    },
+    [user],
+  );
+
   const generateRandom = useCallback(async () => {
     // 优先从服务器题库抽题（编辑-画盘面模式下仍使用本地随机图案）
     if (!(mode === 'edit' && editInputMode === 'pattern')) {
@@ -1783,6 +1813,7 @@ export default function useGameState() {
     generateRandom,
     loadPuzzles,
     openPuzzleFromBrowse,
+    renamePuzzle,
     timerSeconds,
     timerRunning,
     togglePauseTimer,
