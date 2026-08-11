@@ -38,37 +38,50 @@ nonogram-game/
 │   ├── constants.js         # 主题、预设题目、棋盘上限等常量
 │   ├── api.js               # 后端 API 封装
 │   ├── i18n/                # 多语言（简体中文 / 繁體中文 / English / 日本語，可扩展）
-│   ├── hooks/
-│   │   └── useGameState.js  # 全局状态与业务逻辑
+│   ├── hooks/                # 状态组合根 + 领域 hook
+│   │   ├── useGameState.js  # 组合根：装配各领域 hook，对外暴露统一 API
+│   │   ├── useAuth.js       # 用户 / 进度 / 登录注册登出
+│   │   ├── useBoardInput.js # 格子交互与操作记录
+│   │   ├── useGameActions.js# 初始化 / 随机 / 校验 / 提示 / 求解 / 缩放
+│   │   ├── useEditing.js    # 编辑模式
+│   │   ├── useImportExport.js # 导入导出
+│   │   └── ...              # 其余领域 hook（计时/题库/推演/复盘等）
 │   ├── logic/               # 纯函数逻辑（无 React 依赖）
 │   │   ├── board.js         # 棋盘数据工具
 │   │   ├── clues.js         # 线索解析 / 完成判定 / 自动高亮
 │   │   ├── solver.js        # 数织求解器（单行推导 + 全盘迭代）
+│   │   ├── moveHistory.js   # 操作记录合并（复盘数据源）
+│   │   ├── password.js      # 密码强度评分
 │   │   ├── importer.js      # 外部网页源码解析
 │   │   ├── exporter.js      # 存档 / JSON / 图片导出
 │   │   ├── gifReplay.js     # GIF 复盘生成
 │   │   ├── storage.js       # localStorage 封装
 │   │   └── theme.js         # 推演模式样式辅助
-│   └── components/          # 棋盘、侧边栏、线索条等组件
+│   └── components/          # 棋盘、侧边栏（用户区/游戏控制/视图设置/导入导出）、线索条等组件
+├── shared/
+│   └── puzzle-core.mjs      # 前后端共享求解/线索核心（唯一真源）
 ├── server/                  # 后端（Express + SQLite）
-│   ├── index.js             # API 路由（题库 / 浏览 / 用户 / 进度）
-│   ├── auth.js              # 会话与密码哈希
+│   ├── index.js             # API 路由（题库 / 浏览 / 用户 / 进度 / fetch-url）
+│   ├── auth.js              # 会话、密码哈希、限流/封禁/验证码（SQLite 持久化）
 │   ├── db.js                # SQLite schema 与连接
 │   ├── puzzle-lib.js        # 题目校验 / 唯一解判定 / 数字 ID
+│   ├── fetch-proxy.js       # 网页源码抓取代理（SSRF 防护）
+│   ├── trust-proxy.js       # Cloudflare 边缘网段判定（可用环境变量覆盖）
 │   ├── import-puzzles.mjs   # 批量导入题库脚本
 │   └── data/                # SQLite 数据文件（运行时生成，不入库）
 ├── tools/                   # 题库采集与构建脚本
 │   ├── fetch-webpbn.py      # webpbn 题库下载
 │   ├── convert-puzzlekit.py # puzzlekit 数据集转换
-│   ├── merge-puzzle-data.py # 多来源合并按尺寸分类
 │   ├── build-puzzle-db.mjs  # 校验唯一解并生成导入文件
 │   └── puzzle-data/         # 题库数据（JSONL）
-├── tests/                   # Playwright 端到端测试
+├── tests/                   # 测试
+│   ├── unit/                # Node 内置 test runner 单测（logic / shared）
 │   ├── e2e-load.mjs         # 页面加载零错误
 │   ├── e2e-flow.mjs         # 计时 / 随机抽题 / 暂停等交互
 │   ├── e2e-gif.mjs          # 完成状态与 GIF 下载
 │   ├── e2e-autosolve.mjs    # 一键解题不计入解题记录
 │   └── e2e-turn.mjs         # 轮换打叉操作记录合并
+├── .github/workflows/ci.yml # CI：lint + 单测 + 服务端冒烟
 ├── deploy/                  # 服务器部署辅助
 │   ├── nonogram.conf        # Nginx 配置（HTTP→HTTPS 跳转 / 反向代理 / SPA）
 │   ├── setup-server.sh      # 服务器初始化脚本
@@ -99,6 +112,7 @@ npm start          # 监听 3000 端口，自动创建 data/app.db 并建表
 ```bash
 npm run build      # 生产构建，输出 dist/
 npm run lint       # ESLint 检查
+npm run test:unit  # 逻辑单测（Node 内置 test runner）
 npm run test:e2e   # 端到端测试（需先部署或设置 TEST_BASE）
 ```
 

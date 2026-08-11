@@ -36,7 +36,7 @@ try { [System.IO.File]::Delete((Join-Path (Get-Location) 'dist.tar.gz')) } catch
 Write-Host "服务器部署完成" -ForegroundColor Green
 
 Write-Host "== 4/5 提交并推送 GitHub ==" -ForegroundColor Cyan
-git add AGENTS.md package.json package-lock.json eslint.config.js index.html vite.config.js tailwind.config.js postcss.config.js deploy.ps1 .gitignore .brooks-lint-history.json .github deploy public shared src server tests tools docs .codex
+git add AGENTS.md README.md package.json package-lock.json eslint.config.js index.html vite.config.js tailwind.config.js postcss.config.js deploy.ps1 .gitignore .brooks-lint-history.json .github deploy public shared src server tests tools docs .codex
 git diff --cached --quiet
 $hasChanges = ($LASTEXITCODE -ne 0)
 if ($hasChanges) {
