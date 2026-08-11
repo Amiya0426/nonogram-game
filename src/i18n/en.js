@@ -8,27 +8,11 @@ export default {
     solved: 'Solved!',
   },
   intro: {
-    title: 'Welcome to Nonogram',
-    subtitle: 'A logic puzzle: use the row and column number clues to deduce which cells must be filled. Complete all rows and columns to solve it.',
     howTitle: 'How to Play',
     how: [
       'Each number in a row/column tells the length of a consecutive run of filled cells; separate runs need at least one empty cell between them.',
       'Left-click cycles Fill → Cross → Clear; drag to paint continuously; right-click crosses directly.',
       'The puzzle is solved when every row and column matches its clues — you can then generate a replay GIF.',
-    ],
-    toolTitle: 'Features',
-    tools: [
-      'Deduction & Actions: check errors, restore checkpoints, smart hints, multi-level deduction, auto-solve.',
-      'Custom Puzzles: draw a pattern or upload an image to generate one, then save it to the library.',
-      'Puzzle Library: browse the server library with filters for size, my imports and completed puzzles.',
-      'Import & Export: import from page source / code / JSON; export save codes, JSON or high-resolution images.',
-      'Timer & Replay: timing starts on your first move; generate a move-by-move replay GIF after solving.',
-    ],
-    tipTitle: 'Tips',
-    tips: [
-      'The sidebar can be pinned/hidden; drag its edge to resize. The board supports mouse-wheel zoom.',
-      'UI languages: 简体中文 / 繁體中文 / English / 日本語.',
-      'Sign in to sync progress and browse the library.',
     ],
     close: 'Start Playing',
   },

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, Dices, Wrench, Lightbulb, Check } from 'lucide-react';
+import { X, Dices, Check } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 
 /** 新手引导 / 帮助弹窗：玩法规则、主要功能、小提示，可随时通过帮助按钮再次打开 */
@@ -18,12 +18,6 @@ const IntroModal = ({ open, onClose }) => {
 
   if (!open) return null;
 
-  const sections = [
-    { title: t('intro.howTitle'), Icon: Dices, items: t('intro.how') },
-    { title: t('intro.toolTitle'), Icon: Wrench, items: t('intro.tools') },
-    { title: t('intro.tipTitle'), Icon: Lightbulb, items: t('intro.tips') },
-  ];
-
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
@@ -34,10 +28,12 @@ const IntroModal = ({ open, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-violet-50">
-          <div>
-            <h2 className="text-lg font-bold text-indigo-900">{t('intro.title')}</h2>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{t('intro.subtitle')}</p>
-          </div>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-indigo-900">
+            <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-600">
+              <Dices className="w-4 h-4" />
+            </span>
+            {t('intro.howTitle')}
+          </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-slate-200 text-slate-500 shrink-0"
@@ -47,25 +43,15 @@ const IntroModal = ({ open, onClose }) => {
           </button>
         </div>
 
-        <div className="p-6 flex flex-col gap-5">
-          {sections.map(({ title, Icon, items }) => (
-            <section key={title}>
-              <h3 className="flex items-center gap-2 text-sm font-bold text-indigo-900">
-                <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-                  <Icon className="w-4 h-4" />
-                </span>
-                {title}
-              </h3>
-              <ul className="mt-2.5 flex flex-col gap-1.5 text-[13px] text-slate-600 leading-relaxed">
-                {(items || []).map((it, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-indigo-400 shrink-0">•</span>
-                    <span>{it}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+        <div className="p-6">
+          <ul className="flex flex-col gap-2 text-[13px] text-slate-600 leading-relaxed">
+            {(t('intro.how') || []).map((it, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="text-indigo-400 shrink-0">•</span>
+                <span>{it}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="px-6 pb-6">
