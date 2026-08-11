@@ -69,7 +69,57 @@ const t5 = (await timer.innerText()).trim();
 check('暂停不走秒', t4 === t5, `${t4} == ${t5}`);
 await pauseBtn.click();
 
-// 6) 随机抽题（展开"视图与棋盘设置"，点随机按钮）
+// 6) 注册/登录弹窗存在（未登录时，点侧边栏按钮打开）
+const authBtn = page.locator('[data-testid="auth-open-btn"]');
+check('登录按钮存在', await authBtn.isVisible());
+await authBtn.click();
+await page.waitForTimeout(300);
+const hasLoginForm = await page.locator('[data-testid="auth-username"]').isVisible().catch(() => false);
+check('登录弹窗可见', hasLoginForm);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+
+// 7) 注册并导入一道 5x5 唯一解题，保证随机抽题能命中服务器题库
+const email = `flow_${Date.now()}@test.local`;
+const codeRes = await page.evaluate(async (mail) => {
+  const r = await fetch('/api/auth/send-code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: mail, mode: 'register' }),
+    credentials: 'include',
+  });
+  return r.json();
+}, email);
+const reg = await page.evaluate(async ({ username, password, mail, code }) => {
+  const r = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, email: mail, code }),
+    credentials: 'include',
+  });
+  return r.json();
+}, { username: `flow_${Date.now()}`, password: 'Password123!', mail: email, code: codeRes.devCode });
+check('测试用户注册成功', !!reg.username);
+const imported = await page.evaluate(async () => {
+  const r = await fetch('/api/puzzles/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      puzzle: {
+        rows: 5,
+        cols: 5,
+        rowCluesStr: ['1.1', '1.1.1', '1.1', '1.1', '1'],
+        colCluesStr: ['2', '1.1', '1.1', '1.1', '2'],
+        grid: [[0, 1, 0, 1, 0], [1, 0, 1, 0, 1], [1, 0, 0, 0, 1], [0, 1, 0, 1, 0], [0, 0, 1, 0, 0]],
+      },
+    }),
+    credentials: 'include',
+  });
+  return r.json();
+});
+check('题库导入 5x5 唯一解题', imported.results?.[0]?.ok === true, JSON.stringify(imported));
+
+// 8) 随机抽题（展开"视图与棋盘设置"，点随机按钮）：成功后应重置计时器
 const viewAcc = page.locator('[data-testid="view-settings-accordion"]').first();
 if (await viewAcc.isVisible()) {
   await viewAcc.click();
@@ -87,17 +137,7 @@ await page
 const timerAfterRandom = (await timer.innerText()).trim();
 check('抽题后重置为 00:00 且不启动', timerAfterRandom === '00:00', timerAfterRandom);
 
-// 7) 注册/登录弹窗存在（未登录时，点侧边栏按钮打开）
-const authBtn = page.locator('[data-testid="auth-open-btn"]');
-check('登录按钮存在', await authBtn.isVisible());
-await authBtn.click();
-await page.waitForTimeout(300);
-const hasLoginForm = await page.locator('[data-testid="auth-username"]').isVisible().catch(() => false);
-check('登录弹窗可见', hasLoginForm);
-await page.keyboard.press('Escape');
-await page.waitForTimeout(300);
-
-// 8) 手机端底部导航（缩小视口）
+// 9) 手机端底部导航（缩小视口）
 await page.setViewportSize({ width: 420, height: 800 });
 await page.waitForTimeout(500);
 check('手机端底部导航存在', (await page.locator('[data-testid="nav-import"]').count()) > 0);

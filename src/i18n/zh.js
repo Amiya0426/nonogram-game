@@ -196,6 +196,7 @@ export default {
     nameCleared: '✅ 已清除自定义名称',
     randomLoaded: '✅ 已从服务器题库抽取 {rows} × {cols} 题目',
     randomPattern: '已生成随机图案，可直接拖拽修改。',
+    randomUnavailable: '❌ 随机抽题失败：题库暂不可用，请稍后再试',
     deductionEnter: '🔬 已进入 {n} 级推演模式，填涂将以新颜色显示。',
     deductionApply: '✅ 成功将 {n} 级推演应用到上级盘面。',
     deductionCancel: '🔙 已放弃 {n} 级推演，恢复上级盘面。',

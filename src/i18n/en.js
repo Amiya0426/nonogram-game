@@ -196,6 +196,7 @@ export default {
     nameCleared: '✅ Custom name cleared',
     randomLoaded: '✅ Drawn a {rows} × {cols} puzzle from the library',
     randomPattern: 'Random pattern generated, you can drag to adjust.',
+    randomUnavailable: '❌ Failed to draw a puzzle: the library is temporarily unavailable, please try again later',
     deductionEnter: '🔬 Entered deduction level {n}; new marks use a different color.',
     deductionApply: '✅ Applied deduction level {n} to the board.',
     deductionCancel: '🔙 Discarded deduction level {n} and restored the board.',

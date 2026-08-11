@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { parseClue } from '../logic/clues.js';
 import { cloneGrid } from '../logic/board.js';
-import { solveBoardLogic, solveLineFast } from '../logic/solver.js';
+import { solveBoardLogic, solveLineFast, solveBoard } from '../logic/solver.js';
 import { translate as tr } from '../i18n/index.js';
 
 /** 校验 / 恢复检查点 / 提示 / 自动求解 */
@@ -203,12 +203,19 @@ export default function useGameChecks({
   const autoSolve = useCallback(() => {
     setAlertMsg('');
     setHintInfo(null);
-    const solvedBoard = solveBoardLogic(rowCluesStr, colCluesStr, rows, cols);
-    if (!solvedBoard) {
+    // 完整求解：先逻辑传播，推不动时 DFS 回溯补齐（带超时/节点上限）
+    const res = solveBoard(
+      rowCluesStr.map(parseClue),
+      colCluesStr.map(parseClue),
+      rows,
+      cols,
+      { maxIterations: 200, timeoutMs: 4000, nodeLimit: 500000 },
+    );
+    if (!res) {
       setAlertMsg(tr('msg.noSolution'));
       return;
     }
-    const finalGrid = solvedBoard.map((row) =>
+    const finalGrid = res.board.map((row) =>
       row.map((cell) => (cell === 1 ? 1 : cell === 0 ? 2 : 0)),
     );
     const cells = [];
@@ -217,7 +224,7 @@ export default function useGameChecks({
     setGrid(finalGrid);
     // 一键解题不计入解题记录：标记为已处理，避免完成状态触发服务器上报
     if (currentPuzzleId) markHandled(currentPuzzleId);
-    if (solvedBoard.some((row) => row.includes(-1))) {
+    if (!res.complete) {
       setAlertMsg(tr('msg.autoSolvePartial'));
     }
     setDeductionLevel(0);

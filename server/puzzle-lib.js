@@ -1,6 +1,6 @@
 // 题目校验 / 唯一解判定 / 内容指纹与唯一数字 ID
 import crypto from 'node:crypto';
-import { canFit, propagateBoard, getLineClue } from '../shared/puzzle-core.mjs';
+import { canFit, propagateBoard, getLineClue, generateLineCandidates } from '../shared/puzzle-core.mjs';
 
 export const MAX_BOARD = 80;
 export const MIN_BOARD = 3;
@@ -70,41 +70,6 @@ export const contentHash = (p) => {
 export const puzzleIdFromHash = (hash) => BigInt(`0x${hash.slice(0, 16)}`).toString();
 
 // ---------- 唯一解判定 ----------
-
-/** 生成一行候选：宽度 w、线索 runs，返回二进制数组列表 */
-const generateLineCandidates = (w, runs, limit = 50000) => {
-  const blocks = runs.filter((n) => n > 0);
-  if (blocks.length === 0) return [new Array(w).fill(0)];
-  const total = blocks.reduce((a, b) => a + b, 0);
-  const free = w - total;
-  if (free < 0) return [];
-  const k = blocks.length;
-  const out = [];
-  // gaps[0..k]：除固定块间分隔（每对块之间 1 格）外的额外空位分配
-  const gaps = new Array(k + 1).fill(0);
-  const rec = (idx, remaining) => {
-    if (out.length >= limit) return;
-    if (idx === k) {
-      gaps[k] = remaining;
-      const row = new Array(w).fill(0);
-      let pos = 0;
-      for (let i = 0; i < k; i++) {
-        pos += gaps[i];
-        for (let j = 0; j < blocks[i]; j++) row[pos++] = 1;
-        if (i < k - 1) pos += 1; // 块间至少一个空
-      }
-      out.push(row);
-      return;
-    }
-    for (let g = 0; g <= remaining; g++) {
-      gaps[idx] = g;
-      rec(idx + 1, remaining - g);
-      if (out.length >= limit) return;
-    }
-  };
-  rec(0, Math.max(0, free - (k - 1))); // 减去固定的块间分隔
-  return out;
-};
 
 /**
  * 唯一解判定：逐行 DFS + 列约束剪枝。

@@ -196,6 +196,7 @@ export default {
     nameCleared: '✅ カスタム名をクリアしました',
     randomLoaded: '✅ サーバーのライブラリから {rows} × {cols} のパズルを取得しました',
     randomPattern: 'ランダムなパターンを生成しました。ドラッグで調整できます。',
+    randomUnavailable: '❌ ランダム抽選に失敗しました：ライブラリが一時的に利用できません。後ほどお試しください',
     deductionEnter: '🔬 レベル{n}の推論モードに入りました。新しく塗ったマスは別の色で表示されます。',
     deductionApply: '✅ レベル{n}の推論を盤面に適用しました。',
     deductionCancel: '🔙 レベル{n}の推論を破棄し、盤面を復元しました。',

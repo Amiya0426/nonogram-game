@@ -4,7 +4,6 @@ import {
   MIN_CELL_SIZE,
   MAX_CELL_SIZE,
 } from '../constants.js';
-import { getLineClue } from '../logic/clues.js';
 import { createGrid } from '../logic/board.js';
 import { api } from '../api.js';
 import { translate as tr } from '../i18n/index.js';
@@ -112,8 +111,9 @@ export default function useBoardSetup({
   );
 
   const generateRandom = useCallback(async () => {
-    // 优先从服务器题库抽题（编辑-画盘面模式下仍使用本地随机图案）
-    if (!(mode === 'edit' && editInputMode === 'pattern')) {
+    const isEditPattern = mode === 'edit' && editInputMode === 'pattern';
+    if (!isEditPattern) {
+      // 游玩模式：只从服务器题库抽唯一解题；失败不静默回退本地生成（本地题目未校验唯一解）
       try {
         const serverPuzzle = await api.randomPuzzle({
           rows,
@@ -135,12 +135,13 @@ export default function useBoardSetup({
         );
         return;
       } catch {
-        // 服务器不可用 / 题库为空时回退本地随机生成
         setCurrentPuzzleId(null);
+        setAlertMsg(tr('msg.randomUnavailable'));
+        return;
       }
-    } else {
-      setCurrentPuzzleId(null);
     }
+    setCurrentPuzzleId(null);
+    // 编辑-画盘面：本地随机图案作为设计稿（唯一解无要求，线索实时生成）
     const prob = 0.55;
 
     const randomGrid = Array.from({ length: rows }, () =>
@@ -176,18 +177,8 @@ export default function useBoardSetup({
         }
       }
     }
-    const newRowClues = randomGrid.map(getLineClue);
-    const newColClues = Array.from({ length: cols }, (_, colIdx) =>
-      getLineClue(randomGrid.map((row) => row[colIdx])),
-    );
-    // 编辑-画盘面模式下：直接把随机图案放到盘面上，线索按图案实时生成
-    if (mode === 'edit' && editInputMode === 'pattern') {
-      setGrid(randomGrid);
-      setAlertMsg(tr('msg.randomPattern'));
-      return;
-    }
-    initBoard(rows, cols, newRowClues, newColClues);
-    setGrid(createGrid(rows, cols));
+    setGrid(randomGrid);
+    setAlertMsg(tr('msg.randomPattern'));
   }, [rows, cols, initBoard, mode, editInputMode, user, setGrid, setAlertMsg, setCurrentPuzzleId]);
 
   const toggleMarkedRow = useCallback(

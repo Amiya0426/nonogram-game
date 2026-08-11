@@ -196,6 +196,7 @@ export default {
     nameCleared: '✅ 已清除自訂名稱',
     randomLoaded: '✅ 已從伺服器題庫抽取 {rows} × {cols} 題目',
     randomPattern: '已產生隨機圖案，可直接拖曳修改。',
+    randomUnavailable: '❌ 隨機抽題失敗：題庫暫不可用，請稍後再試',
     deductionEnter: '🔬 已進入 {n} 級推演模式，填塗將以新顏色顯示。',
     deductionApply: '✅ 成功將 {n} 級推演套用到上級盤面。',
     deductionCancel: '🔙 已放棄 {n} 級推演，恢復上級盤面。',
