@@ -65,6 +65,37 @@ db.exec(`
     sent_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS auth_attempts (
+    ip TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    reset_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS email_codes (
+    email TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    sent_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS ip_bans (
+    ip TEXT PRIMARY KEY,
+    until INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS auth_failures (
+    ip TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    window_start INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS send_violations (
+    ip TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    window_start INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_collections_user ON collections(user_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_hash ON puzzles(content_hash);
@@ -72,6 +103,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_progress_user ON user_progress(user_id);
   CREATE INDEX IF NOT EXISTS idx_email_sends_sent ON email_sends(sent_at);
   CREATE INDEX IF NOT EXISTS idx_email_sends_email ON email_sends(email);
+  CREATE INDEX IF NOT EXISTS idx_ip_bans_until ON ip_bans(until);
+  CREATE INDEX IF NOT EXISTS idx_email_codes_expires ON email_codes(expires_at);
 `);
 
 // 已有数据库迁移：补充 user_id / puzzle_id 列与索引

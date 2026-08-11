@@ -3,11 +3,11 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { BlockList, isIP } from 'node:net';
-import dns from 'node:dns/promises';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { db } from './db.js';
+import { fetchPageHtml } from './fetch-proxy.js';
+import { createTrustProxyChecker } from './trust-proxy.js';
 import {
   normalizePuzzle,
   validatePuzzle,
@@ -36,6 +36,7 @@ import {
   recordAuthFailure,
   clearAuthFailures,
   recordSendViolation,
+  cleanupAuthState,
 } from './auth.js';
 import { sendEmailCode, isStubMailer } from './mailer.js';
 import { msg } from './i18n.js';
@@ -63,113 +64,6 @@ const runSolverInWorker = (puzzle, options) =>
       resolve({ count: 0, timeout: true });
     });
   });
-
-// ---------- 网页源码抓取代理（供“URL 导入”，带 SSRF 防护） ----------
-const FETCH_URL_MAX_BYTES = 2 * 1024 * 1024;
-const FETCH_URL_TIMEOUT_MS = 10000;
-const FETCH_URL_MAX_REDIRECTS = 3;
-
-/** 判断 IP 是否属于内网/回环/链路本地/保留段，是则不允许代理访问 */
-const isBlockedIp = (ip) => {
-  if (isIP(ip) === 4) {
-    const [a, b] = ip.split('.').map(Number);
-    if (a === 10 || a === 127) return true;
-    if (a === 169 && b === 254) return true; // link-local
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-    if (a === 0 || a >= 224) return true; // 保留/组播/广播
-    return false;
-  }
-  if (isIP(ip) === 6) {
-    const lower = ip.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;
-    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    if (mapped) return isBlockedIp(mapped[1]);
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7 ULA
-    if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // fe80::/10
-    if (lower.startsWith('2001:db8')) return true; // 文档段
-    return false;
-  }
-  return true;
-};
-
-const fetchUrlError = (i18nKey) => Object.assign(new Error(i18nKey), { i18nKey });
-
-/** 校验目标 URL 协议与主机，禁止访问内网/回环地址 */
-const assertSafeFetchUrl = async (url) => {
-  let u;
-  try {
-    u = new URL(url);
-  } catch {
-    throw fetchUrlError('puzzle.fetch_url_invalid');
-  }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-    throw fetchUrlError('puzzle.fetch_url_invalid');
-  }
-  if (u.username || u.password) {
-    throw fetchUrlError('puzzle.fetch_url_invalid');
-  }
-
-  const hostname = u.hostname.replace(/^\[|\]$/g, '');
-  if (isIP(hostname)) {
-    if (isBlockedIp(hostname)) throw fetchUrlError('puzzle.fetch_url_blocked');
-    return;
-  }
-
-  let addrs;
-  try {
-    addrs = await dns.lookup(hostname, { all: true });
-  } catch {
-    throw fetchUrlError('puzzle.fetch_url_failed');
-  }
-  if (!addrs.length || addrs.some(({ address }) => isBlockedIp(address))) {
-    throw fetchUrlError('puzzle.fetch_url_blocked');
-  }
-};
-
-/** 抓取网页源码（限重定向次数、限响应大小），返回 HTML 文本 */
-const fetchPageHtml = async (url) => {
-  let target = url;
-  for (let i = 0; i <= FETCH_URL_MAX_REDIRECTS; i++) {
-    await assertSafeFetchUrl(target);
-    const res = await fetch(target, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(FETCH_URL_TIMEOUT_MS),
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NonogramBot/1.0)',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-    });
-    const location = res.headers.get('location');
-    if (res.status >= 300 && res.status < 400 && location) {
-      await res.body?.cancel().catch(() => {});
-      target = new URL(location, target).toString();
-      continue;
-    }
-    if (!res.ok) {
-      await res.body?.cancel().catch(() => {});
-      throw fetchUrlError('puzzle.fetch_url_failed');
-    }
-
-    const reader = res.body?.getReader();
-    if (!reader) throw fetchUrlError('puzzle.fetch_url_failed');
-    const chunks = [];
-    let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      total += value.byteLength;
-      if (total > FETCH_URL_MAX_BYTES) {
-        await reader.cancel().catch(() => {});
-        throw fetchUrlError('puzzle.fetch_url_too_large');
-      }
-      chunks.push(value);
-    }
-    return Buffer.concat(chunks).toString('utf8');
-  }
-  throw fetchUrlError('puzzle.fetch_url_failed');
-};
 
 /**
  * 校验并写入共享题库（带用户归属）。供导入接口与收藏夹保存共用：
@@ -229,39 +123,29 @@ app.disable('x-powered-by');
 // 只信任本机 Nginx 与 Cloudflare 边缘节点，其余 X-Forwarded-For 一律视为伪造。
 // Node 已绑定 127.0.0.1，只有 Nginx 能连进来；Nginx 用 $proxy_add_x_forwarded_for
 // 在右侧追加真实对端 IP，因此 req.ip 会取到真实客户端（经 Cloudflare 时取到 CF-Connecting-IP 对应地址）。
-const CLOUDFLARE_IPS = new BlockList();
-for (const [ip, prefix, family] of [
-  ['173.245.48.0', 20, 'ipv4'],
-  ['103.21.244.0', 22, 'ipv4'],
-  ['103.22.200.0', 22, 'ipv4'],
-  ['103.31.4.0', 22, 'ipv4'],
-  ['141.101.64.0', 18, 'ipv4'],
-  ['108.162.192.0', 18, 'ipv4'],
-  ['190.93.240.0', 20, 'ipv4'],
-  ['188.114.96.0', 20, 'ipv4'],
-  ['197.234.240.0', 22, 'ipv4'],
-  ['198.41.128.0', 17, 'ipv4'],
-  ['162.158.0.0', 15, 'ipv4'],
-  ['104.16.0.0', 13, 'ipv4'],
-  ['104.24.0.0', 14, 'ipv4'],
-  ['172.64.0.0', 13, 'ipv4'],
-  ['131.0.72.0', 22, 'ipv4'],
-  ['2400:cb00::', 32, 'ipv6'],
-  ['2606:4700::', 32, 'ipv6'],
-  ['2803:f800::', 32, 'ipv6'],
-  ['2405:b500::', 32, 'ipv6'],
-  ['2405:8100::', 32, 'ipv6'],
-  ['2a06:98c0::', 29, 'ipv6'],
-  ['2c0f:f248::', 32, 'ipv6'],
-]) {
-  CLOUDFLARE_IPS.addSubnet(ip, prefix, family);
-}
-app.set('trust proxy', (address) => {
-  const normalized = address.startsWith('::ffff:') ? address.slice(7) : address;
-  return normalized === '127.0.0.1' || normalized === '::1' || CLOUDFLARE_IPS.check(address);
-});
+// Cloudflare 网段可用 CLOUDFLARE_IPS 环境变量覆盖（见 trust-proxy.js）。
+app.set('trust proxy', createTrustProxyChecker());
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
+
+// 题库导入限流：唯一解校验是 CPU 密集路径，按用户（未登录按 IP）每小时 30 次。
+// 说明：进程内存态，单实例部署够用；如需多实例可迁到数据库。
+const importLimits = new Map();
+const IMPORT_LIMIT_PER_HOUR = 30;
+const importRateLimit = (req, res, next) => {
+  const key = req.user?.id ? `u${req.user.id}` : `ip${req.ip || 'unknown'}`;
+  const now = Date.now();
+  const rec = importLimits.get(key);
+  if (!rec || rec.resetAt < now) {
+    importLimits.set(key, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    return next();
+  }
+  rec.count += 1;
+  if (rec.count > IMPORT_LIMIT_PER_HOUR) {
+    return res.status(429).json({ error: msg(req, 'auth.rate_limited') });
+  }
+  next();
+};
 
 // ---------- 认证 ----------
 app.post('/api/auth/register', authRateLimit, (req, res) => {
@@ -298,6 +182,11 @@ app.post('/api/auth/send-code', authRateLimit, async (req, res) => {
   const emailErr = validateEmail(email);
   if (emailErr) return res.status(400).json({ error: msg(req, emailErr) });
   const normalized = email.trim().toLowerCase();
+
+  // 生产环境未配置邮件服务时 fail-closed：绝不降级为桩模式泄露验证码
+  if (process.env.NODE_ENV === 'production' && isStubMailer) {
+    return res.status(503).json({ error: msg(req, 'auth.email_not_configured') });
+  }
 
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalized);
   if (mode === 'reset') {
@@ -539,7 +428,7 @@ app.get('/api/puzzles', resolveUser, (req, res) => {
 });
 
 /** 导入题目：{ puzzle } 或 { puzzles: [...] }；校验合法且唯一解后入库（自动去重） */
-app.post('/api/puzzles/import', requireAuth, async (req, res) => {
+app.post('/api/puzzles/import', requireAuth, importRateLimit, async (req, res) => {
   const body = req.body || {};
   const items = Array.isArray(body.puzzles)
     ? body.puzzles
@@ -665,6 +554,16 @@ app.use((err, req, res, _next) => {
   console.error(err);
   res.status(500).json({ error: msg(req, 'api.internal_error') });
 });
+
+// 启动时清理过期会话、旧发送记录与认证状态（避免表无限增长）
+try {
+  const now = Date.now();
+  db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now);
+  db.prepare('DELETE FROM email_sends WHERE sent_at <= ?').run(now - 90 * 24 * 60 * 60 * 1000);
+  cleanupAuthState();
+} catch (e) {
+  console.error('启动清理失败:', e);
+}
 
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`nonogram API listening on :${PORT}`);

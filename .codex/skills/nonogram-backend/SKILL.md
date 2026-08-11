@@ -27,7 +27,7 @@ description: Nonogram 服务端 API、认证、会话与 SQLite。用于修改 s
 ## 数据安全
 
 - `server/data/app.db` 是运行时产物（gitignore）；任何测试用独立 `DATA_DIR`（见 smoke-test.mjs / progress-test.mjs 用法）。
-- 注意：`api-smoke.mjs` 仍引用 `/api/collections`，当前 index.js 已无该路由——使用前先核对断言与路由，必要时更新脚本，不要盲目运行。
+- 过时的 `api-smoke.mjs` 已删除；服务端验证统一走 `smoke-test.mjs` / `progress-test.mjs`（独立 `DATA_DIR`）。
 - `import-puzzles.mjs` 直接写题库表；导入前备份数据库，先在 staging/副本执行。
 
 ## 验证

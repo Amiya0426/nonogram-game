@@ -75,7 +75,7 @@
 2. 构建：`npm run build`。
 3. 逻辑改动：`npm run test:unit`（`tests/unit/` 覆盖 `src/logic` 纯函数）。
 4. E2E：`npm run preview` 后 `npm run test:e2e`（`TEST_BASE` 可覆盖为其他环境）。
-5. 后端改动：用独立 `DATA_DIR` 跑 `server/smoke-test.mjs`、`server/progress-test.mjs`；注意 `api-smoke.mjs` 断言可能过时。
+5. 后端改动：用独立 `DATA_DIR` 跑 `server/smoke-test.mjs`、`server/progress-test.mjs`。
 6. 题库改动：`node tools/build-puzzle-db.mjs` 检查统计；改唯一解/ID 前先确认影响面。
 7. 部署：按 `nonogram-release` 门禁执行；数据库迁移前备份。
 

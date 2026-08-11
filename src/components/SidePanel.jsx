@@ -376,7 +376,10 @@ const SidePanel = ({
         )}
 
         {alertMsg && (
-          <div className="p-2 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-200 font-medium text-center shrink-0">
+          <div
+            data-testid="alert-msg"
+            className="p-2 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-200 font-medium text-center shrink-0"
+          >
             {alertMsg}
           </div>
         )}

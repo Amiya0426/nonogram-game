@@ -62,7 +62,7 @@ const download = await downloadPromise;
 check('GIF 文件下载触发', !!download, download ? download.suggestedFilename() : '');
 
 // 5 条黑块操作 + 1 条打叉（不生成帧）= 初始帧 + 5 + 完成帧 = 7 帧
-const frameMsg = page.getByText(/复盘 GIF 已生成/);
+const frameMsg = page.locator('[data-testid="alert-msg"]');
 await frameMsg.waitFor({ state: 'visible', timeout: 8000 });
 check('帧数提示正确（打叉不生成帧）', (await frameMsg.textContent()).includes('7 帧'), await frameMsg.textContent());
 
