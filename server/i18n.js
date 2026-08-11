@@ -1,7 +1,7 @@
 // 服务端错误消息本地化：根据请求 Accept-Language 返回对应语言
 const zh = {
   'auth.username_invalid': '用户名需为 2-32 位字母、数字、下划线或中文',
-  'auth.password_invalid': '密码长度需为 6-72 位',
+  'auth.password_invalid': '密码长度需为 8-72 位',
   'auth.user_exists': '用户名已存在，请直接登录',
   'auth.credentials_required': '请输入用户名和密码',
   'auth.wrong_credentials': '用户名或密码错误',
@@ -34,7 +34,7 @@ const zh = {
 
 const zhHant = {
   'auth.username_invalid': '使用者名稱需為 2-32 位字母、數字、底線或中文',
-  'auth.password_invalid': '密碼長度需為 6-72 位',
+  'auth.password_invalid': '密碼長度需為 8-72 位',
   'auth.user_exists': '使用者名稱已存在，請直接登入',
   'auth.credentials_required': '請輸入使用者名稱和密碼',
   'auth.wrong_credentials': '使用者名稱或密碼錯誤',
@@ -67,7 +67,7 @@ const zhHant = {
 
 const en = {
   'auth.username_invalid': 'Username must be 2-32 letters, digits, underscores or Chinese characters',
-  'auth.password_invalid': 'Password must be 6-72 characters',
+  'auth.password_invalid': 'Password must be 8-72 characters',
   'auth.user_exists': 'Username already exists, please sign in directly',
   'auth.credentials_required': 'Please enter username and password',
   'auth.wrong_credentials': 'Incorrect username or password',
@@ -100,7 +100,7 @@ const en = {
 
 const ja = {
   'auth.username_invalid': 'ユーザー名は 2〜32 文字の英字・数字・アンダースコア・日本語にしてください',
-  'auth.password_invalid': 'パスワードは 6〜72 文字にしてください',
+  'auth.password_invalid': 'パスワードは 8〜72 文字にしてください',
   'auth.user_exists': 'このユーザー名は既に登録されています。そのままログインしてください',
   'auth.credentials_required': 'ユーザー名とパスワードを入力してください',
   'auth.wrong_credentials': 'ユーザー名またはパスワードが正しくありません',

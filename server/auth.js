@@ -94,7 +94,7 @@ export const validateCredentials = (username, password) => {
 };
 
 export const validatePassword = (password) => {
-  if (typeof password !== 'string' || password.length < 6 || password.length > 72) {
+  if (typeof password !== 'string' || password.length < 8 || password.length > 72) {
     return 'auth.password_invalid';
   }
   return null;
@@ -127,7 +127,7 @@ export const sendEmailVerificationCode = (email) => {
     };
   }
   const code = String(crypto.randomInt(100000, 1000000));
-  emailCodes.set(email, { code, sentAt: now, expiresAt: now + EMAIL_CODE_TTL });
+  emailCodes.set(email, { code, sentAt: now, expiresAt: now + EMAIL_CODE_TTL, attempts: 0 });
   // 顺手清理过期记录，避免内存无限增长
   for (const [k, v] of emailCodes) {
     if (v.expiresAt < now) emailCodes.delete(k);
@@ -135,11 +135,15 @@ export const sendEmailVerificationCode = (email) => {
   return { ok: true, code };
 };
 
-/** 校验并一次性消费验证码 */
+/** 校验并一次性消费验证码；连续失败超过 5 次作废，需重新发送 */
 export const verifyEmailCode = (email, code) => {
   const rec = emailCodes.get(email);
   if (!rec || rec.expiresAt < Date.now()) return false;
-  if (String(code) !== rec.code) return false;
+  if (String(code) !== rec.code) {
+    rec.attempts = (rec.attempts || 0) + 1;
+    if (rec.attempts >= 5) emailCodes.delete(email);
+    return false;
+  }
   emailCodes.delete(email);
   return true;
 };

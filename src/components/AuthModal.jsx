@@ -13,6 +13,17 @@ import { useI18n } from '../i18n/index.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const getPasswordStrength = (pwd) => {
+  if (!pwd) return 0;
+  let score = 0;
+  if (pwd.length >= 8) score += 1;
+  if (pwd.length >= 12) score += 1;
+  if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score += 1;
+  if (/\d/.test(pwd)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
+  return Math.min(5, score);
+};
+
 const AuthModal = ({
   open,
   onClose,
@@ -102,6 +113,10 @@ const AuthModal = ({
       setAuthMsg({ type: 'error', text: t('msg.emailInvalid') });
       return;
     }
+    if (password.length < 8) {
+      setAuthMsg({ type: 'error', text: t('msg.passwordTooShort') });
+      return;
+    }
     if (!code.trim()) {
       setAuthMsg({ type: 'error', text: t('msg.codeRequired') });
       return;
@@ -126,7 +141,7 @@ const AuthModal = ({
       setAuthMsg({ type: 'error', text: t('msg.codeRequired') });
       return;
     }
-    if (password.length < 6) {
+    if (password.length < 8) {
       setAuthMsg({ type: 'error', text: t('msg.passwordTooShort') });
       return;
     }
@@ -193,6 +208,32 @@ const AuthModal = ({
       >
         {codeCountdown > 0 ? `${codeCountdown}s` : t('panel.sendCode')}
       </button>
+    </div>
+  );
+
+  const strength = getPasswordStrength(password);
+  const strengthMeta =
+    strength <= 1
+      ? { label: t('msg.pwdWeak'), bar: 'bg-rose-500', text: 'text-rose-600', bars: 1 }
+      : strength <= 4
+        ? { label: t('msg.pwdMedium'), bar: 'bg-amber-500', text: 'text-amber-600', bars: 2 }
+        : { label: t('msg.pwdStrong'), bar: 'bg-emerald-500', text: 'text-emerald-600', bars: 3 };
+
+  const strengthMeter = (
+    <div className="flex items-center gap-2">
+      <div className="flex gap-1 flex-1">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full ${
+              i <= strengthMeta.bars ? strengthMeta.bar : 'bg-slate-200'
+            }`}
+          />
+        ))}
+      </div>
+      <span className={`text-[10px] font-bold shrink-0 ${strengthMeta.text}`}>
+        {t('msg.passwordStrength')}: {strengthMeta.label}
+      </span>
     </div>
   );
 
@@ -320,6 +361,7 @@ const AuthModal = ({
                 setShowRegPwd,
                 () => {},
               )}
+              {password && strengthMeter}
               {passwordInput(
                 confirm,
                 setConfirm,
@@ -343,6 +385,7 @@ const AuthModal = ({
                 setShowRegPwd,
                 () => {},
               )}
+              {password && strengthMeter}
               {passwordInput(
                 confirm,
                 setConfirm,

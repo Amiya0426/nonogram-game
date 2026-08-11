@@ -112,6 +112,7 @@ async function upsertPuzzleIntoLibrary(raw, userId) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', true);
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
@@ -498,6 +499,6 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: msg(req, 'api.internal_error') });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`nonogram API listening on :${PORT}`);
 });
