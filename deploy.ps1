@@ -28,7 +28,7 @@ if ($LASTEXITCODE -ne 0) { throw 'dist 上传失败' }
 ssh -o BatchMode=yes -o ConnectTimeout=15 "${REMOTE}" "mkdir -p $APP/shared"
 scp -o BatchMode=yes shared/puzzle-core.mjs "${REMOTE}:$APP/shared/"
 if ($LASTEXITCODE -ne 0) { throw 'shared 文件上传失败' }
-scp -o BatchMode=yes server/index.js server/auth.js server/db.js server/env.js server/i18n.js server/mailer.js server/puzzle-lib.js server/solve-worker.mjs server/import-puzzles.mjs server/fetch-proxy.js server/trust-proxy.js server/package.json server/package-lock.json "${REMOTE}:$APP/server/"
+scp -o BatchMode=yes server/index.js server/auth.js server/db.js server/env.js server/i18n.js server/mailer.js server/puzzle-lib.js server/solve-worker.mjs server/import-puzzles.mjs server/audit-unique.mjs server/fetch-proxy.js server/trust-proxy.js server/package.json server/package-lock.json "${REMOTE}:$APP/server/"
 if ($LASTEXITCODE -ne 0) { throw 'server 文件上传失败' }
 ssh -o BatchMode=yes "${REMOTE}" "cd $APP/server && npm install --omit=dev --no-audit --no-fund >/dev/null 2>&1; rm -rf $APP/dist && mkdir -p $APP/dist && tar -xzf /tmp/nonogram-dist.tar.gz -C $APP/dist && rm -f /tmp/nonogram-dist.tar.gz && pm2 restart nonogram-api >/dev/null 2>&1 && sleep 1 && echo SERVER_DEPLOY_OK && curl -s http://127.0.0.1:3000/api/health"
 if ($LASTEXITCODE -ne 0) { throw '服务器部署失败' }

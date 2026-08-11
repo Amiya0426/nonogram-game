@@ -89,6 +89,7 @@ async function upsertPuzzleIntoLibrary(raw, userId) {
   if (sol.timeout) return { ok: false, reason: '唯一解校验超时，暂无法入库' };
   if (sol.count === 0) return { ok: false, reason: '题目无解' };
   if (sol.count >= 2) return { ok: false, reason: '题目存在多个解，不符合唯一解要求' };
+  if (p.grid && !gridMatchesClues(p)) return { ok: false, reason: '题目答案与线索不一致' };
 
   const id = puzzleIdFromHash(hash);
   const blackCells = p.grid ? p.grid.flat().filter(Boolean).length : null;
