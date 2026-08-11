@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react';
-import {
-  X,
-  Eye,
-  EyeOff,
-  LogIn,
-  UserRound,
-  KeyRound,
-  ChevronLeft,
-  Mail,
-} from 'lucide-react';
+import { X, LogIn, UserRound, KeyRound, ChevronLeft } from 'lucide-react';
+import AuthLoginForm from './AuthLoginForm.jsx';
+import AuthRegisterForm from './AuthRegisterForm.jsx';
+import AuthForgotForm from './AuthForgotForm.jsx';
 import { useI18n } from '../i18n/index.js';
-import { getPasswordStrength } from '../logic/password.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** 登录/注册/忘记密码弹窗容器：持有表单状态与提交逻辑，视图拆为三个子表单 */
 const AuthModal = ({
   open,
   onClose,
@@ -161,86 +155,6 @@ const AuthModal = ({
       view === key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
     }`;
 
-  const passwordInput = (value, setValue, placeholder, show, setShow, onEnter) => (
-    <div className="relative">
-      <input
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') onEnter();
-        }}
-        placeholder={placeholder}
-        className="w-full pr-9 px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-      />
-      <button
-        type="button"
-        onClick={() => setShow(!show)}
-        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-indigo-600 rounded"
-        title={show ? t('panel.hidePassword') : t('panel.showPassword')}
-      >
-        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
-  );
-
-  const codeRow = (onSend) => (
-    <div className="flex gap-2">
-      <input
-        type="text"
-        inputMode="numeric"
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        placeholder={t('panel.emailCodePlaceholder')}
-        className="flex-1 min-w-0 px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-      />
-      <button
-        type="button"
-        onClick={onSend}
-        disabled={codeSending || codeCountdown > 0 || authBusy}
-        className="shrink-0 px-3 py-2 text-xs font-bold rounded-lg border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {codeCountdown > 0
-          ? `${Math.floor(codeCountdown / 60)}:${String(codeCountdown % 60).padStart(2, '0')}`
-          : t('panel.sendCode')}
-      </button>
-    </div>
-  );
-
-  const strength = getPasswordStrength(password);
-  const strengthMeta =
-    strength <= 1
-      ? { label: t('msg.pwdWeak'), bar: 'bg-rose-500', text: 'text-rose-600', bars: 1 }
-      : strength <= 4
-        ? { label: t('msg.pwdMedium'), bar: 'bg-amber-500', text: 'text-amber-600', bars: 2 }
-        : { label: t('msg.pwdStrong'), bar: 'bg-emerald-500', text: 'text-emerald-600', bars: 3 };
-
-  const strengthMeter = (
-    <div className="flex items-center gap-2">
-      <div className="flex gap-1 flex-1">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`h-1.5 flex-1 rounded-full ${
-              i <= strengthMeta.bars ? strengthMeta.bar : 'bg-slate-200'
-            }`}
-          />
-        ))}
-      </div>
-      <span className={`text-[10px] font-bold shrink-0 ${strengthMeta.text}`}>
-        {t('msg.passwordStrength')}: {strengthMeta.label}
-      </span>
-    </div>
-  );
-
-  const ruleLengthOk = password.length >= 8 && password.length <= 16;
-  const ruleSpecialOk = /[^A-Za-z0-9]/.test(password);
-  const ruleCheck = (ok, label) => (
-    <span className={ok ? 'text-emerald-600' : 'text-rose-500'}>
-      {ok ? '✓' : '✗'} {label}
-    </span>
-  );
-
   const titles = {
     login: t('panel.login'),
     register: t('panel.register'),
@@ -295,123 +209,63 @@ const AuthModal = ({
             </div>
           )}
 
-          {view === 'forgot' && (
-            <p className="text-xs text-slate-500 leading-relaxed">
-              {t('msg.passwordResetHint')}
-            </p>
-          )}
-
-          {view !== 'login' && (
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('panel.emailPlaceholder')}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-              />
-            </div>
-          )}
-
-          {view === 'register' && (
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder={t('panel.usernamePlaceholder')}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
+          {view === 'login' && (
+            <AuthLoginForm
+              username={username}
+              setUsername={setUsername}
+              password={password}
+              setPassword={setPassword}
+              showPwd={showLoginPwd}
+              setShowPwd={setShowLoginPwd}
+              submitLogin={submitLogin}
+              onForgot={() => setView('forgot')}
             />
           )}
 
-          {view === 'login' && (
-            <>
-              <input
-                data-testid="auth-username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={t('panel.usernamePlaceholder')}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:border-indigo-500 bg-white"
-              />
-              {passwordInput(
-                password,
-                setPassword,
-                t('panel.passwordPlaceholder'),
-                showLoginPwd,
-                setShowLoginPwd,
-                submitLogin,
-              )}
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    setView('forgot');
-                    setAuthMsg(null);
-                  }}
-                  className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline"
-                >
-                  {t('panel.forgotPassword')}
-                </button>
-              </div>
-            </>
-          )}
-
           {view === 'register' && (
-            <>
-              {passwordInput(
-                password,
-                setPassword,
-                t('panel.passwordPlaceholder'),
-                showRegPwd,
-                setShowRegPwd,
-                () => {},
-              )}
-              {password && strengthMeter}
-              {password && (
-                <div className="flex flex-col gap-0.5 text-[10px]">
-                  {ruleCheck(ruleLengthOk, t('msg.pwdRuleLength'))}
-                  {ruleCheck(ruleSpecialOk, t('msg.pwdRuleSpecial'))}
-                </div>
-              )}
-              {passwordInput(
-                confirm,
-                setConfirm,
-                t('panel.confirmPassword'),
-                showConfirm,
-                setShowConfirm,
-                submitRegister,
-              )}
-              {codeRow(() => handleSendCode('register'))}
-            </>
+            <AuthRegisterForm
+              email={email}
+              setEmail={setEmail}
+              username={username}
+              setUsername={setUsername}
+              password={password}
+              setPassword={setPassword}
+              showPwd={showRegPwd}
+              setShowPwd={setShowRegPwd}
+              confirm={confirm}
+              setConfirm={setConfirm}
+              showConfirm={showConfirm}
+              setShowConfirm={setShowConfirm}
+              code={code}
+              setCode={setCode}
+              onSendCode={() => handleSendCode('register')}
+              codeSending={codeSending}
+              codeCountdown={codeCountdown}
+              authBusy={authBusy}
+              submitRegister={submitRegister}
+            />
           )}
 
           {view === 'forgot' && (
-            <>
-              {codeRow(() => handleSendCode('reset'))}
-              {passwordInput(
-                password,
-                setPassword,
-                t('panel.newPasswordPlaceholder'),
-                showRegPwd,
-                setShowRegPwd,
-                () => {},
-              )}
-              {password && strengthMeter}
-              {password && (
-                <div className="flex flex-col gap-0.5 text-[10px]">
-                  {ruleCheck(ruleLengthOk, t('msg.pwdRuleLength'))}
-                  {ruleCheck(ruleSpecialOk, t('msg.pwdRuleSpecial'))}
-                </div>
-              )}
-              {passwordInput(
-                confirm,
-                setConfirm,
-                t('panel.confirmPassword'),
-                showConfirm,
-                setShowConfirm,
-                submitReset,
-              )}
-            </>
+            <AuthForgotForm
+              email={email}
+              setEmail={setEmail}
+              code={code}
+              setCode={setCode}
+              password={password}
+              setPassword={setPassword}
+              showPwd={showRegPwd}
+              setShowPwd={setShowRegPwd}
+              confirm={confirm}
+              setConfirm={setConfirm}
+              showConfirm={showConfirm}
+              setShowConfirm={setShowConfirm}
+              onSendCode={() => handleSendCode('reset')}
+              codeSending={codeSending}
+              codeCountdown={codeCountdown}
+              authBusy={authBusy}
+              submitReset={submitReset}
+            />
           )}
 
           {authMsg && (

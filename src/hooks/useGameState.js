@@ -1,14 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  PRESETS,
-  DEFAULT_SETTINGS,
-  MAX_BOARD,
-  DEFAULT_CELL_SIZE,
-} from '../constants.js';
-import { createGrid } from '../logic/board.js';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { MAX_BOARD } from '../constants.js';
 import { loadJSON, saveJSON } from '../logic/storage.js';
 import { api } from '../api.js';
 import { translate as tr } from '../i18n/index.js';
+import useBoardState from './useBoardState.js';
 import useAuth from './useAuth.js';
 import useTimer from './useTimer.js';
 import usePuzzleLibrary from './usePuzzleLibrary.js';
@@ -19,7 +14,8 @@ import useDeduction from './useDeduction.js';
 import useAutofillCross from './useAutofillCross.js';
 import useReplay from './useReplay.js';
 import useProgressReporting from './useProgressReporting.js';
-import useGameActions from './useGameActions.js';
+import useBoardSetup from './useBoardSetup.js';
+import useGameChecks from './useGameChecks.js';
 import useEditing from './useEditing.js';
 import useImportExport from './useImportExport.js';
 
@@ -51,73 +47,66 @@ const loadSavedState = () => {
 };
 
 /**
- * 全局状态组合根：装配各领域 hook，对外暴露与拆分前一致的 API。
- * 棋盘/UI 基础状态由本文件持有，领域逻辑分别位于 useAuth / useTimer /
- * usePuzzleLibrary / useAnalysis / useHoverMeasure / useBoardInput /
- * useDeduction / useAutofillCross / useReplay / useProgressReporting /
- * useGameActions / useEditing / useImportExport。
+ * 全局状态组合根：装配领域 hook，对外暴露与拆分前一致的 API。
+ * - useBoardState      基础棋盘/UI 状态
+ * - useBoardSetup      初始化/清空/随机/缩放
+ * - useGameChecks      校验/提示/自动求解
+ * - 其余领域 hook      认证/计时/题库/分析/hover/交互/推演/自动打叉/复盘/上报/编辑/导入导出
  */
 export default function useGameState() {
-  // ==========================================
-  // 1. 初始状态：从 localStorage 恢复上次游玩设置与棋盘进度
-  // ==========================================
   const savedState = useMemo(() => loadSavedState(), []);
-
-  const [mode, setMode] = useState(savedState?.mode === 'edit' ? 'edit' : 'play');
-  const [editInputMode, setEditInputMode] = useState(
-    savedState?.editInputMode === 'manual' ? 'manual' : 'pattern',
-  );
-  const [rows, setRows] = useState(savedState?.rows || PRESETS.heart.rows);
-  const [cols, setCols] = useState(savedState?.cols || PRESETS.heart.cols);
-  const [rowCluesStr, setRowCluesStr] = useState(
-    savedState?.rowCluesStr || PRESETS.heart.rowClues.map((c) => c.join(' ')),
-  );
-  const [colCluesStr, setColCluesStr] = useState(
-    savedState?.colCluesStr || PRESETS.heart.colClues.map((c) => c.join('\n')),
-  );
-  const [grid, setGrid] = useState(
-    savedState?.grid || createGrid(PRESETS.heart.rows, PRESETS.heart.cols),
-  );
-  const [cellSize, setCellSize] = useState(
-    savedState?.cellSize || DEFAULT_CELL_SIZE,
-  );
-  const [interactionMode, setInteractionMode] = useState(
-    savedState?.interactionMode === 'paint' ? 'paint' : 'toggle',
-  );
-  const [currentBrush, setCurrentBrush] = useState(
-    [0, 1, 2].includes(savedState?.currentBrush) ? savedState.currentBrush : 1,
-  );
-  const [alertMsg, setAlertMsg] = useState('');
-  const [hintInfo, setHintInfo] = useState(null);
-  const [deductionLevel, setDeductionLevel] = useState(
-    Math.max(0, Math.min(3, savedState?.deductionLevel || 0)),
-  );
-  const [backupGrids, setBackupGrids] = useState(savedState?.backupGrids || []);
-  const [showLeftPanel, setShowLeftPanel] = useState(false);
-  const [isPanelPinned, setIsPanelPinned] = useState(true);
-  const [isPanelHovered, setIsPanelHovered] = useState(false);
-  const [gameSettings, setGameSettings] = useState({
-    ...DEFAULT_SETTINGS,
-    ...(savedState?.gameSettings || {}),
-  });
-  const [markedRowClues, setMarkedRowClues] = useState(
-    savedState?.markedRowClues || {},
-  );
-  const [markedColClues, setMarkedColClues] = useState(
-    savedState?.markedColClues || {},
-  );
-  const [lastCorrectSnapshot, setLastCorrectSnapshot] = useState(
-    savedState?.lastCorrectSnapshot || null,
-  );
-  const [currentPuzzleId, setCurrentPuzzleId] = useState(
-    typeof savedState?.currentPuzzleId === 'string' ? savedState.currentPuzzleId : null,
-  );
-  const [moveHistory, setMoveHistory] = useState(
-    Array.isArray(savedState?.moveHistory) ? savedState.moveHistory : [],
-  );
+  const board = useBoardState(savedState);
+  const {
+    mode,
+    setMode,
+    editInputMode,
+    setEditInputMode,
+    rows,
+    setRows,
+    cols,
+    setCols,
+    rowCluesStr,
+    setRowCluesStr,
+    colCluesStr,
+    setColCluesStr,
+    grid,
+    setGrid,
+    cellSize,
+    setCellSize,
+    interactionMode,
+    setInteractionMode,
+    currentBrush,
+    setCurrentBrush,
+    alertMsg,
+    setAlertMsg,
+    hintInfo,
+    setHintInfo,
+    deductionLevel,
+    setDeductionLevel,
+    backupGrids,
+    setBackupGrids,
+    showLeftPanel,
+    setShowLeftPanel,
+    isPanelPinned,
+    setIsPanelPinned,
+    isPanelHovered,
+    setIsPanelHovered,
+    gameSettings,
+    setGameSettings,
+    markedRowClues,
+    setMarkedRowClues,
+    markedColClues,
+    setMarkedColClues,
+    lastCorrectSnapshot,
+    setLastCorrectSnapshot,
+    currentPuzzleId,
+    setCurrentPuzzleId,
+    moveHistory,
+    setMoveHistory,
+  } = board;
 
   // ==========================================
-  // 2. 领域子 hook 装配
+  // 领域 hook 装配
   // ==========================================
   const auth = useAuth({ setAlertMsg });
   const {
@@ -251,18 +240,13 @@ export default function useGameState() {
     setAlertMsg,
   });
 
-  const actions = useGameActions({
+  const setup = useBoardSetup({
     mode,
     editInputMode,
     rows,
     cols,
-    rowCluesStr,
-    colCluesStr,
-    grid,
-    user: auth.user,
-    currentPuzzleId,
-    lastCorrectSnapshot,
-    isSolvedStatus,
+    cellSize,
+    user,
     setRows,
     setCols,
     setRowCluesStr,
@@ -278,7 +262,25 @@ export default function useGameState() {
     setLastCorrectSnapshot,
     setCurrentPuzzleId,
     setMoveHistory,
-    resetTimer: timer.resetTimer,
+    resetTimer,
+  });
+
+  const checks = useGameChecks({
+    mode,
+    rows,
+    cols,
+    rowCluesStr,
+    colCluesStr,
+    grid,
+    currentPuzzleId,
+    lastCorrectSnapshot,
+    isSolvedStatus,
+    setGrid,
+    setAlertMsg,
+    setHintInfo,
+    setLastCorrectSnapshot,
+    setDeductionLevel,
+    setBackupGrids,
     recordMove,
     markHandled: progress.markHandled,
   });
@@ -407,11 +409,11 @@ export default function useGameState() {
     setMode,
     onApplyPuzzle: applyImportedData,
     onSubmitToLibrary: submitToLibrary,
-    onInitBoard: actions.initBoard,
+    onInitBoard: setup.initBoard,
   });
 
   // ==========================================
-  // 3. 自动存档 / 登录恢复 / 计时暂停
+  // 自动存档 / 登录恢复 / 计时暂停
   // ==========================================
   useEffect(() => {
     const autosave = setTimeout(() => {
@@ -486,7 +488,7 @@ export default function useGameState() {
   }, [isSolvedStatus, mode, stopTimer]);
 
   // ==========================================
-  // 4. 对外 API（与拆分前保持一致）
+  // 对外 API（与拆分前保持一致）
   // ==========================================
   return {
     // state
@@ -543,14 +545,14 @@ export default function useGameState() {
     setLocalImportData: io.setLocalImportData,
     setExportFilename: io.setExportFilename,
     setExportRemark: io.setExportRemark,
-    initBoard: actions.initBoard,
-    clearBoard: actions.clearBoard,
-    clearClues: actions.clearClues,
-    generateRandom: actions.generateRandom,
+    initBoard: setup.initBoard,
+    clearBoard: setup.clearBoard,
+    clearClues: setup.clearClues,
+    generateRandom: setup.generateRandom,
     loadPuzzles: library.loadPuzzles,
-    openPuzzleFromBrowse: actions.openPuzzleFromBrowse,
+    openPuzzleFromBrowse: setup.openPuzzleFromBrowse,
     renamePuzzle: library.renamePuzzle,
-    zoomBoard: actions.zoomBoard,
+    zoomBoard: setup.zoomBoard,
     applyPatternImage: editing.applyPatternImage,
     timerSeconds,
     timerRunning,
@@ -560,10 +562,10 @@ export default function useGameState() {
     refreshUserProgress,
     isGeneratingGif: replay.isGeneratingGif,
     generateReplayGif: replay.generateReplayGif,
-    toggleMarkedRow: actions.toggleMarkedRow,
-    toggleMarkedCol: actions.toggleMarkedCol,
-    editRowClue: actions.editRowClue,
-    editColClue: actions.editColClue,
+    toggleMarkedRow: setup.toggleMarkedRow,
+    toggleMarkedCol: setup.toggleMarkedCol,
+    editRowClue: setup.editRowClue,
+    editColClue: setup.editColClue,
     handleCellMouseDown,
     handleCellMouseEnter,
     startTouchPaint,
@@ -573,10 +575,10 @@ export default function useGameState() {
     startDeduction: deduction.startDeduction,
     applyDeduction: deduction.applyDeduction,
     cancelDeduction: deduction.cancelDeduction,
-    validateGrid: actions.validateGrid,
-    restoreLastCorrect: actions.restoreLastCorrect,
-    provideHint: actions.provideHint,
-    autoSolve: actions.autoSolve,
+    validateGrid: checks.validateGrid,
+    restoreLastCorrect: checks.restoreLastCorrect,
+    provideHint: checks.provideHint,
+    autoSolve: checks.autoSolve,
     handleExportCode: io.handleExportCode,
     handleExportJSON: io.handleExportJSON,
     exportAsImage: io.exportAsImage,
@@ -591,7 +593,7 @@ export default function useGameState() {
     sendCode: auth.sendCode,
     resetPassword: auth.resetPassword,
     logout: auth.logout,
-    fitToWidth: actions.fitToWidth,
+    fitToWidth: setup.fitToWidth,
     setMode,
   };
 }

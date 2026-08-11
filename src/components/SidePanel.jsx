@@ -1,29 +1,20 @@
 import { useRef, useState } from 'react';
 import {
-  Dices,
-  Check,
-  PencilLine,
-  Pin,
-  PinOff,
   ChevronRight,
   HelpCircle,
   AlertCircle,
   Lightbulb,
-  Eraser,
-  X,
+  Check,
   MousePointerClick,
   FileSymlink,
-  Braces,
-  ImagePlus,
-  PaintRoller,
-  Square,
-  XSquare,
 } from 'lucide-react';
-import LanguageSwitcher from './LanguageSwitcher.jsx';
+import SidePanelHeader from './SidePanelHeader.jsx';
+import SidePanelEditToolbar from './SidePanelEditToolbar.jsx';
 import SidePanelUserArea from './SidePanelUserArea.jsx';
 import SidePanelGameControls from './SidePanelGameControls.jsx';
 import SidePanelViewSettings from './SidePanelViewSettings.jsx';
 import SidePanelImportExport from './SidePanelImportExport.jsx';
+import SidePanelFooter from './SidePanelFooter.jsx';
 import { useI18n } from '../i18n/index.js';
 
 /** GitHub 图标（lucide 已移除品牌图标，内联 SVG） */
@@ -34,12 +25,15 @@ const GithubIcon = ({ className }) => (
 );
 
 /**
- * 左侧控制面板容器：持有面板级状态（固定/悬停/宽度/移动端 Tab），
- * 并把内容按职责分发给四个子组件：
- * - SidePanelUserArea     用户区
- * - SidePanelGameControls 游戏控制
- * - SidePanelViewSettings 视图设置
- * - SidePanelImportExport 导入导出
+ * 左侧控制面板容器：面板级状态（固定/悬停/宽度/移动端 Tab）与布局装配。
+ * 内容按职责分发：
+ * - SidePanelHeader        头部（标题/语言/固定 + 编辑横幅）
+ * - SidePanelEditToolbar   编辑模式工具栏
+ * - SidePanelUserArea      用户区
+ * - SidePanelGameControls  游戏控制
+ * - SidePanelViewSettings  视图设置
+ * - SidePanelImportExport  导入导出
+ * - SidePanelFooter        底部操作区
  */
 const SidePanel = ({
   showLeftPanel,
@@ -197,149 +191,23 @@ const SidePanel = ({
       style={{ '--panel-w': `${panelWidth}px` }}
     >
       <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
-        {/* 模式头部：游玩 = 主界面；自定义题目 = 独立编辑视图 */}
-        {mode === 'play' ? (
-          <div className="hidden md:flex pb-2 border-b border-slate-100 justify-between items-center">
-            <div>
-              <h1
-                data-testid="panel-title"
-                className="text-2xl font-bold flex items-center gap-2 text-indigo-900"
-              >
-                <Dices className="w-7 h-7 text-indigo-500" /> {t('app.title')}
-              </h1>
-              <p className="text-[10px] text-slate-400 mt-0.5">{t('app.playMode')}</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <LanguageSwitcher />
-              <button
-                onClick={() => {
-                  setIsPanelPinned(!isPanelPinned);
-                  setIsPanelHovered(true);
-                }}
-                className={`p-1.5 rounded-lg transition-colors shrink-0 ${
-                  !isPanelPinned
-                    ? 'bg-indigo-100 text-indigo-600'
-                    : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'
-                }`}
-                title={isPanelPinned ? t('panel.unpinPanel') : t('panel.pinPanel')}
-              >
-                {isPanelPinned ? <PinOff className="w-5 h-5" /> : <Pin className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-orange-50 rounded-xl border border-orange-200 p-3 flex flex-col gap-2.5 shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="p-1.5 rounded-lg bg-orange-100 text-orange-600 shrink-0">
-                  <PencilLine className="w-4 h-4" />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-sm font-bold text-orange-900">{t('panel.customTitle')}</div>
-                  <div className="text-[9px] text-orange-600/70 truncate">
-                    {t('panel.customSubtitle')}
-                  </div>
-                </div>
-              </div>
-            </div>
+        <SidePanelHeader
+          mode={mode}
+          isPanelPinned={isPanelPinned}
+          setIsPanelPinned={setIsPanelPinned}
+          setIsPanelHovered={setIsPanelHovered}
+        />
 
-            {/* 输入方式：画盘面 / 手动输入 */}
-            <div className="flex bg-white/80 p-1 rounded-lg">
-              <button
-                onClick={() => setEditInputMode('pattern')}
-                className={`flex-1 py-1.5 rounded-md text-[11px] font-bold flex justify-center items-center gap-1.5 transition-all ${
-                  editInputMode === 'pattern'
-                    ? 'bg-orange-500 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <MousePointerClick className="w-3.5 h-3.5" /> {t('panel.pattern')}
-              </button>
-              <button
-                onClick={() => setEditInputMode('manual')}
-                className={`flex-1 py-1.5 rounded-md text-[11px] font-bold flex justify-center items-center gap-1.5 transition-all ${
-                  editInputMode === 'manual'
-                    ? 'bg-orange-500 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <Braces className="w-3.5 h-3.5" /> {t('panel.manual')}
-              </button>
-            </div>
-
-            <button
-              onClick={onOpenImageImport}
-              className="w-full py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-orange-200"
-            >
-              <ImagePlus className="w-4 h-4" /> {t('panel.fromImage')}
-            </button>
-
-            {/* 画笔工具（画盘面模式） */}
-            {editInputMode === 'pattern' && (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => setInteractionMode('toggle')}
-                    className={`flex-1 py-1.5 text-[11px] rounded-lg border font-medium flex items-center justify-center gap-1 transition-all ${
-                      interactionMode === 'toggle'
-                        ? 'bg-white text-orange-700 border-orange-300 shadow-sm'
-                        : 'bg-white/60 text-slate-500 border-slate-200 hover:bg-white'
-                    }`}
-                  >
-                    <MousePointerClick className="w-3.5 h-3.5" /> {t('panel.rotate')}
-                  </button>
-                  <button
-                    onClick={() => setInteractionMode('paint')}
-                    className={`flex-1 py-1.5 text-[11px] rounded-lg border font-medium flex items-center justify-center gap-1 transition-all ${
-                      interactionMode === 'paint'
-                        ? 'bg-white text-orange-700 border-orange-300 shadow-sm'
-                        : 'bg-white/60 text-slate-500 border-slate-200 hover:bg-white'
-                    }`}
-                  >
-                    <PaintRoller className="w-3.5 h-3.5" /> {t('panel.place')}
-                  </button>
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => setCurrentBrush(1)}
-                    className={`flex-1 py-1.5 rounded-lg flex justify-center items-center gap-1 text-[11px] font-medium transition-all ${
-                      currentBrush === 1
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'bg-white/60 text-slate-400 hover:bg-white border border-slate-200'
-                    }`}
-                  >
-                    <Square fill="currentColor" className="w-3.5 h-3.5" /> {t('panel.fill')}
-                  </button>
-                  <button
-                    onClick={() => setCurrentBrush(2)}
-                    className={`flex-1 py-1.5 rounded-lg flex justify-center items-center gap-1 text-[11px] font-medium transition-all ${
-                      currentBrush === 2
-                        ? 'bg-red-50 text-red-500 shadow-sm border border-red-200'
-                        : 'bg-white/60 text-slate-400 hover:bg-white border border-slate-200'
-                    }`}
-                  >
-                    <XSquare className="w-3.5 h-3.5" /> {t('panel.cross')}
-                  </button>
-                  <button
-                    onClick={() => setCurrentBrush(0)}
-                    className={`flex-1 py-1.5 rounded-lg flex justify-center items-center gap-1 text-[11px] font-medium transition-all ${
-                      currentBrush === 0
-                        ? 'bg-white text-slate-700 shadow-sm border border-slate-200'
-                        : 'bg-white/60 text-slate-400 hover:bg-white border border-slate-200'
-                    }`}
-                  >
-                    <Eraser className="w-3.5 h-3.5" /> {t('panel.erase')}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <p className="text-[10px] text-orange-800/80 leading-relaxed">
-              {editInputMode === 'pattern'
-                ? t('panel.patternHint')
-                : t('panel.manualHint')}
-            </p>
-          </div>
+        {mode === 'edit' && (
+          <SidePanelEditToolbar
+            editInputMode={editInputMode}
+            setEditInputMode={setEditInputMode}
+            onOpenImageImport={onOpenImageImport}
+            interactionMode={interactionMode}
+            setInteractionMode={setInteractionMode}
+            currentBrush={currentBrush}
+            setCurrentBrush={setCurrentBrush}
+          />
         )}
 
         {mode === 'play' && (
@@ -437,52 +305,14 @@ const SidePanel = ({
             onExportImage={onExportImage}
           />
 
-          <div className="mt-auto pt-2 flex flex-col gap-2 shrink-0">
-            <button
-              onClick={onClearBoard}
-              className="w-full py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
-            >
-              <Eraser className="w-4 h-4" />{' '}
-              {mode === 'edit' ? t('panel.clearBoardPattern') : t('panel.clearBoard')}
-            </button>
-            {mode === 'edit' ? (
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={onCancelEditing}
-                  className="py-2.5 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors text-sm"
-                  title={t('panel.cancelEditTitle')}
-                >
-                  <X className="w-4 h-4" /> {t('panel.cancelEdit')}
-                </button>
-                <button
-                  onClick={onFinishEditing}
-                  className="py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
-                >
-                  <Check className="w-4 h-4" /> {t('panel.finishPlay')}
-                </button>
-              </div>
-            ) : (
-              <button
-                data-testid="autosolve-btn"
-                onClick={onAutoSolve}
-                className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
-              >
-                <Check className="w-4 h-4" /> {t('panel.autoSolve')}
-              </button>
-            )}
-            <div className="flex items-center gap-1 pt-1.5 mt-1 border-t border-slate-100">
-              {footerActions.map(({ key, Icon, title, onClick }) => (
-                <button
-                  key={key}
-                  onClick={onClick}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                  title={title}
-                >
-                  <Icon className="w-4 h-4" />
-                </button>
-              ))}
-            </div>
-          </div>
+          <SidePanelFooter
+            mode={mode}
+            onClearBoard={onClearBoard}
+            onCancelEditing={onCancelEditing}
+            onFinishEditing={onFinishEditing}
+            onAutoSolve={onAutoSolve}
+            footerActions={footerActions}
+          />
         </div>
       </div>
 

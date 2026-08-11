@@ -42,7 +42,8 @@ nonogram-game/
 │   │   ├── useGameState.js  # 组合根：装配各领域 hook，对外暴露统一 API
 │   │   ├── useAuth.js       # 用户 / 进度 / 登录注册登出
 │   │   ├── useBoardInput.js # 格子交互与操作记录
-│   │   ├── useGameActions.js# 初始化 / 随机 / 校验 / 提示 / 求解 / 缩放
+│   │   ├── useBoardSetup.js # 初始化 / 清空 / 随机 / 缩放
+│   │   ├── useGameChecks.js # 校验 / 提示 / 自动求解
 │   │   ├── useEditing.js    # 编辑模式
 │   │   ├── useImportExport.js # 导入导出
 │   │   └── ...              # 其余领域 hook（计时/题库/推演/复盘等）
