@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { updateCell } from '../logic/board.js';
+import { appendMove } from '../logic/moveHistory.js';
 
 /** 棋盘格子的鼠标/触摸交互与操作记录（GIF 复盘数据源） */
 export default function useBoardInput({
@@ -25,33 +26,7 @@ export default function useBoardInput({
   const recordMove = useCallback(
     (type, cells) => {
       if (!cells || cells.length === 0) return;
-      // 压缩本次记录中同一格子的重复操作（拖拽/画笔划过同格时取最后值）
-      const dedup = [];
-      for (const cell of cells) {
-        const idx = dedup.findIndex((x) => x.r === cell.r && x.c === cell.c);
-        if (idx >= 0) dedup[idx] = cell;
-        else dedup.push(cell);
-      }
-      if (dedup.length === 0) return;
-
-      setMoveHistory((prev) => {
-        const last = prev[prev.length - 1];
-        // 轮换模式合并：上一条是单格 fill 且与本次同格时，合并为一条（取本次最终值）
-        if (
-          type === 'fill' &&
-          last &&
-          last.type === 'fill' &&
-          last.cells.length === 1 &&
-          dedup.length === 1 &&
-          last.cells[0].r === dedup[0].r &&
-          last.cells[0].c === dedup[0].c
-        ) {
-          const merged = [...prev];
-          merged[merged.length - 1] = { ...last, cells: [{ ...dedup[0] }] };
-          return merged;
-        }
-        return [...prev, { type, at: Date.now(), cells: dedup }];
-      });
+      setMoveHistory((prev) => appendMove(prev, type, cells));
     },
     [setMoveHistory],
   );

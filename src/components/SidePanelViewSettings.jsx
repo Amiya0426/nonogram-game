@@ -47,7 +47,12 @@ const SidePanelViewSettings = ({
   };
 
   return (
-    <Accordion title={t('panel.viewBoardTitle')} icon={ZoomIn} defaultOpen={mode === 'edit'}>
+    <Accordion
+      title={t('panel.viewBoardTitle')}
+      icon={ZoomIn}
+      defaultOpen={mode === 'edit'}
+      testId="view-settings-accordion"
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <label className="text-xs font-semibold text-slate-500">{t('panel.rowsLabel')}</label>
@@ -126,6 +131,7 @@ const SidePanelViewSettings = ({
         </div>
         <div className="flex ml-auto gap-1">
           <button
+            data-testid="random-btn"
             onClick={onGenerateRandom}
             className="p-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded transition-colors"
             title={t('panel.randomGenerate')}

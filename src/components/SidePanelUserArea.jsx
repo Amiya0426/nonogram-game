@@ -12,6 +12,7 @@ const SidePanelUserArea = ({ user, userProgress, onLogout, onOpenAuth, onOpenBro
           <UserRound className="w-3.5 h-3.5" /> {t('panel.loginHint')}
         </div>
         <button
+          data-testid="auth-open-btn"
           onClick={onOpenAuth}
           className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex justify-center items-center gap-1.5 shadow-sm"
         >
@@ -43,6 +44,7 @@ const SidePanelUserArea = ({ user, userProgress, onLogout, onOpenAuth, onOpenBro
         </button>
       </div>
       <button
+        data-testid="browse-btn"
         onClick={onOpenBrowse}
         className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
       >

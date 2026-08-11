@@ -109,6 +109,7 @@ const FloatingTimer = ({
     <div ref={containerRef} className="absolute inset-0 pointer-events-none">
       <div
         ref={widgetRef}
+        data-testid="floating-timer"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -118,10 +119,14 @@ const FloatingTimer = ({
       >
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
-          <span className="font-mono text-base font-bold text-slate-800 tabular-nums">
+          <span
+            data-testid="timer-text"
+            className="font-mono text-base font-bold text-slate-800 tabular-nums"
+          >
             {formatTime(timerSeconds)}
           </span>
           <button
+            data-testid="timer-pause-btn"
             onClick={togglePauseTimer}
             className={`p-1.5 rounded-lg border transition-colors ${
               timerRunning
@@ -135,6 +140,7 @@ const FloatingTimer = ({
         </div>
         {isSolvedStatus && (
           <button
+            data-testid="replay-gif-btn"
             onClick={generateReplayGif}
             disabled={isGeneratingGif}
             className="w-full px-2.5 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-violet-200 disabled:opacity-50 transition-colors"

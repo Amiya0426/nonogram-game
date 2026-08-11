@@ -337,6 +337,7 @@ const AuthModal = ({
           {view === 'login' && (
             <>
               <input
+                data-testid="auth-username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}

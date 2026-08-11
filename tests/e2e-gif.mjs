@@ -53,7 +53,7 @@ const check = (name, ok, extra = '') => {
   results.push(`${ok ? 'PASS' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`);
 };
 
-const gifBtn = page.getByTitle('生成这盘的复盘 GIF');
+const gifBtn = page.locator('[data-testid="replay-gif-btn"]');
 check('完成状态出现复盘GIF按钮', await gifBtn.isVisible());
 
 const downloadPromise = page.waitForEvent('download', { timeout: 20000 }).catch(() => null);

@@ -201,7 +201,10 @@ const SidePanel = ({
         {mode === 'play' ? (
           <div className="hidden md:flex pb-2 border-b border-slate-100 justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2 text-indigo-900">
+              <h1
+                data-testid="panel-title"
+                className="text-2xl font-bold flex items-center gap-2 text-indigo-900"
+              >
                 <Dices className="w-7 h-7 text-indigo-500" /> {t('app.title')}
               </h1>
               <p className="text-[10px] text-slate-400 mt-0.5">{t('app.playMode')}</p>
@@ -457,6 +460,7 @@ const SidePanel = ({
               </div>
             ) : (
               <button
+                data-testid="autosolve-btn"
                 onClick={onAutoSolve}
                 className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
               >
@@ -487,6 +491,7 @@ const SidePanel = ({
         ].map(({ key, label, Icon }) => (
           <button
             key={key}
+            data-testid={`nav-${key}`}
             onClick={() => setActiveTab(key)}
             className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors ${
               activeTab === key ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'

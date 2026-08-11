@@ -73,7 +73,7 @@ await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
 
 // 3) 一键解题
-await page.getByRole('button', { name: '一键解题' }).click();
+await page.locator('[data-testid="autosolve-btn"]').click();
 await page.waitForTimeout(2000);
 
 // 4) 一键解题执行后无报错（部分题需试错，可能不会立即进入完成状态，此处只验证不崩溃）
