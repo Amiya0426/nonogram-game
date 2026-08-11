@@ -184,7 +184,7 @@ export default function NonogramApp() {
         onMouseLeave={g.handleGlobalLeave}
       >
         {/* 计时 + 复盘 GIF 悬浮窗（仅游玩模式） */}
-        {g.mode === 'play' && (
+        {g.mode === 'play' && g.gameSettings.showTimer && (
           <FloatingTimer
             timerSeconds={g.timerSeconds}
             timerRunning={g.timerRunning}

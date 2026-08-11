@@ -107,6 +107,7 @@ export default {
     pinPanel: 'Pin panel',
     unpinPanel: 'Unpin (auto-hide)',
     createPuzzleTitle: 'Create or edit your own puzzle',
+    showTimer: 'Show timer',
   },
   browse: {
     title: 'Puzzle Library',

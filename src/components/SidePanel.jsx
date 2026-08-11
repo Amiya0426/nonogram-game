@@ -560,6 +560,15 @@ const SidePanel = ({
               <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
                 <input
                   type="checkbox"
+                  checked={gameSettings.showTimer}
+                  onChange={(e) => setGameSettings((p) => ({ ...p, showTimer: e.target.checked }))}
+                  className="accent-indigo-600 w-3 h-3"
+                />{' '}
+                {t('panel.showTimer')}
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
+                <input
+                  type="checkbox"
                   checked={gameSettings.completeLineStyle === 'highlight'}
                   onChange={(e) =>
                     setGameSettings((p) => ({

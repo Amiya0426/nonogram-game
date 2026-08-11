@@ -107,6 +107,7 @@ export default {
     pinPanel: '固定侧边栏',
     unpinPanel: '取消固定 (自动隐藏)',
     createPuzzleTitle: '创建或修改自己的题目',
+    showTimer: '显示计时器',
   },
   browse: {
     title: '题库浏览',

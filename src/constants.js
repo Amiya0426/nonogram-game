@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   hoverColClues: true,
   autoFillCross: true,
   showClueSums: true,
+  showTimer: true,
 };
 
 export const PRESETS = {

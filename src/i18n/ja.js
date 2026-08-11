@@ -107,6 +107,7 @@ export default {
     pinPanel: 'サイドバーを固定',
     unpinPanel: '固定解除（自動で隠れる）',
     createPuzzleTitle: '自分のパズルを作成・編集',
+    showTimer: 'タイマーを表示',
   },
   browse: {
     title: 'パズルライブラリ',

@@ -44,7 +44,8 @@ const FloatingTimer = ({
     if (c && w) setPos({ left: c.clientWidth - w.offsetWidth - 12, top: 12 });
   }, [pos]);
 
-  // 位置约束：widget 尺寸变化（如出现复盘按钮）或窗口缩放时，防止被顶出可视区域
+  // 位置约束：widget 或棋盘容器尺寸变化（复盘按钮出现、固定/取消固定侧边栏、窗口缩放）时，
+  // 自动把位置拉回棋盘可视区域内，防止被顶出屏幕
   useEffect(() => {
     const container = containerRef.current;
     const widget = widgetRef.current;
@@ -64,6 +65,7 @@ const FloatingTimer = ({
     };
     const ro = new ResizeObserver(clamp);
     ro.observe(widget);
+    ro.observe(container);
     window.addEventListener('resize', clamp);
     return () => {
       ro.disconnect();
