@@ -209,6 +209,7 @@ export default {
     libraryAdded: '✅ 题目已校验唯一解并加入服务器题库',
     libraryExists: '✅ 题目已在服务器题库中（重复导入）',
     libraryFailed: '⚠️ 题目已载入游玩，但未能入库：{reason}',
+    librarySubmitFailed: '⚠️ 入库失败：网络或服务器异常，请稍后再试',
     welcomeBack: '✅ 欢迎回来，{name}！',
     loginFailed: '❌ 登录失败：{msg}',
     registered: '✅ 注册成功，{name}！',

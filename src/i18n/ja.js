@@ -209,6 +209,7 @@ export default {
     libraryAdded: '✅ 一意解を確認し、サーバーのライブラリに追加しました',
     libraryExists: '✅ このパズルは既にサーバーのライブラリにあります（重複インポート）',
     libraryFailed: '⚠️ パズルはプレイできる状態ですが、ライブラリに追加できませんでした：{reason}',
+    librarySubmitFailed: '⚠️ ライブラリへの追加に失敗しました：ネットワークまたはサーバーエラーです。後ほどお試しください',
     welcomeBack: '✅ おかえりなさい、{name}さん！',
     loginFailed: '❌ ログインに失敗しました：{msg}',
     registered: '✅ 登録が完了しました、{name}さん！',

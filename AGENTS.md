@@ -28,6 +28,7 @@
 | `src/i18n/**` | 前端多语言（zh / zh-Hant / en / ja） | 文案不硬编码 |
 | `src/api.js` | 后端 API 客户端 | 前端唯一网络入口 |
 | `src/constants.js` | 共享常量 | UI 与 core 共用，修改需双向验证 |
+| `shared/puzzle-core.mjs` | 前后端共享求解/线索核心 | 唯一真源，禁止任一侧复制实现 |
 | `server/**` | Express API、SQLite、认证、唯一解 worker | 唯一允许访问数据库的层 |
 | `tools/**` | 题库采集/转换/合并/构建流水线 | 只产出 JSONL，不写生产数据库 |
 | `tests/**` | Playwright E2E | 测用户行为，不测实现细节 |
@@ -37,6 +38,7 @@
 ## Architecture boundaries（不能互相污染）
 
 - `src/logic` 不 import React、不调用 `src/api.js`、不读写数据库；浏览器能力仅限 `exporter.js` / `gifReplay.js`。
+- 求解器与线索提取等前后端共用逻辑只允许存在于 `shared/puzzle-core.mjs`，`src/logic` 与 `server` 一律从这里导入，禁止各自复制实现。
 - `src/components` 不复制领域规则，业务状态一律从 `useGameState` 获取。
 - `server` 不 import `src/**`；前端不直接访问 SQLite。
 - `tools` 不修改源码；`tools` 不直接写生产数据库。

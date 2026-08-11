@@ -209,6 +209,7 @@ export default {
     libraryAdded: '✅ 題目已驗證唯一解並加入伺服器題庫',
     libraryExists: '✅ 題目已在伺服器題庫中（重複匯入）',
     libraryFailed: '⚠️ 題目已載入遊玩，但未能入庫：{reason}',
+    librarySubmitFailed: '⚠️ 入庫失敗：網路或伺服器異常，請稍後再試',
     welcomeBack: '✅ 歡迎回來，{name}！',
     loginFailed: '❌ 登入失敗：{msg}',
     registered: '✅ 註冊成功，{name}！',

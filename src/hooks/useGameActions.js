@@ -4,7 +4,7 @@ import {
   MIN_CELL_SIZE,
   MAX_CELL_SIZE,
 } from '../constants.js';
-import { parseClue } from '../logic/clues.js';
+import { parseClue, getLineClue } from '../logic/clues.js';
 import { createGrid, cloneGrid } from '../logic/board.js';
 import { solveBoardLogic, solveLineFast } from '../logic/solver.js';
 import { api } from '../api.js';
@@ -185,22 +185,9 @@ export default function useGameActions({
         }
       }
     }
-    const extractClues = (line) => {
-      const clues = [];
-      let count = 0;
-      for (let v of line) {
-        if (v === 1) count++;
-        else if (count > 0) {
-          clues.push(count);
-          count = 0;
-        }
-      }
-      if (count > 0) clues.push(count);
-      return clues.length > 0 ? clues : [0];
-    };
-    const newRowClues = randomGrid.map(extractClues);
+    const newRowClues = randomGrid.map(getLineClue);
     const newColClues = Array.from({ length: cols }, (_, colIdx) =>
-      extractClues(randomGrid.map((row) => row[colIdx])),
+      getLineClue(randomGrid.map((row) => row[colIdx])),
     );
     // 编辑-画盘面模式下：直接把随机图案放到盘面上，线索按图案实时生成
     if (mode === 'edit' && editInputMode === 'pattern') {

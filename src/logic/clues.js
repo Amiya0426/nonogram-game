@@ -1,4 +1,7 @@
 // 线索解析、行/列状态判定与自动高亮逻辑
+import { getLineClue } from '../../shared/puzzle-core.mjs';
+
+export { getLineClue };
 
 /** 将线索文本解析为数字数组；无法解析时返回 [0] */
 export const parseClue = (str) => {
@@ -9,21 +12,6 @@ export const parseClue = (str) => {
     .map((n) => parseInt(n, 10))
     .filter((n) => !isNaN(n) && n > 0);
   return parsed.length > 0 ? parsed : [0];
-};
-
-/** 根据当前盘面值提取“已形成的连续块”线索 */
-export const getLineClue = (line) => {
-  const clues = [];
-  let count = 0;
-  for (let i = 0; i < line.length; i++) {
-    if (line[i] % 2 === 1) count++;
-    else if (count > 0) {
-      clues.push(count);
-      count = 0;
-    }
-  }
-  if (count > 0) clues.push(count);
-  return clues.length > 0 ? clues : [0];
 };
 
 export const arraysEqual = (a, b) =>

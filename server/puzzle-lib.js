@@ -1,5 +1,6 @@
 // 题目校验 / 唯一解判定 / 内容指纹与唯一数字 ID
 import crypto from 'node:crypto';
+import { canFit, propagateBoard, getLineClue } from '../shared/puzzle-core.mjs';
 
 export const MAX_BOARD = 80;
 export const MIN_BOARD = 3;
@@ -105,92 +106,6 @@ const generateLineCandidates = (w, runs, limit = 50000) => {
   return out;
 };
 
-/** 判断部分行是否能满足线索（记忆化 DP，0=白 1=黑 -1=未知） */
-const canFit = (line, clues) => {
-  const valid = clues.filter((c) => c > 0);
-  const memo = new Map();
-  const dp = (li, ci) => {
-    if (ci === valid.length) {
-      for (let i = li; i < line.length; i++) if (line[i] === 1) return false;
-      return true;
-    }
-    if (li >= line.length) return false;
-    const key = li * 1000 + ci;
-    if (memo.has(key)) return memo.get(key);
-    let ok = false;
-    if (line[li] !== 1) ok = dp(li + 1, ci);
-    if (!ok) {
-      const len = valid[ci];
-      if (li + len <= line.length) {
-        let place = true;
-        for (let i = 0; i < len; i++) if (line[li + i] === 0) { place = false; break; }
-        if (place && li + len < line.length && line[li + len] === 1) place = false;
-        if (place) ok = dp(li + len + 1, ci + 1);
-      }
-    }
-    memo.set(key, ok);
-    return ok;
-  };
-  return dp(0, 0);
-};
-
-/** 单行逻辑推导：返回能确定的格子（null=矛盾，{newLine, changed}） */
-const solveLineFast = (line, clues) => {
-  const validClues = clues.filter((c) => c > 0);
-  if (!canFit(line, validClues)) return null;
-  let changed = false;
-  const newLine = [...line];
-  for (let i = 0; i < line.length; i++) {
-    if (newLine[i] === -1) {
-      newLine[i] = 1;
-      const canBe1 = canFit(newLine, validClues);
-      newLine[i] = 0;
-      const canBe0 = canFit(newLine, validClues);
-      newLine[i] = -1;
-      if (canBe1 && !canBe0) {
-        newLine[i] = 1;
-        changed = true;
-      } else if (!canBe1 && canBe0) {
-        newLine[i] = 0;
-        changed = true;
-      } else if (!canBe1 && !canBe0) {
-        return null;
-      }
-    }
-  }
-  return { newLine, changed };
-};
-
-/** 全盘逻辑传播：行/列交替推导直到收敛；null=矛盾 */
-const propagateBoard = (rows, cols, rowClues, colClues) => {
-  const board = Array.from({ length: rows }, () => new Array(cols).fill(-1));
-  let changed = true;
-  let iter = 0;
-  while (changed && iter < 300) {
-    changed = false;
-    iter++;
-    for (let r = 0; r < rows; r++) {
-      const res = solveLineFast(board[r], rowClues[r]);
-      if (!res) return null;
-      if (res.changed) {
-        board[r] = res.newLine;
-        changed = true;
-      }
-    }
-    for (let c = 0; c < cols; c++) {
-      const line = new Array(rows);
-      for (let r = 0; r < rows; r++) line[r] = board[r][c];
-      const res = solveLineFast(line, colClues[c]);
-      if (!res) return null;
-      if (res.changed) {
-        for (let r = 0; r < rows; r++) board[r][c] = res.newLine[r];
-        changed = true;
-      }
-    }
-  }
-  return board;
-};
-
 /**
  * 唯一解判定：逐行 DFS + 列约束剪枝。
  * 返回 { count: 解的数量（0/1/2，2 表示 >=2）, timeout: boolean }
@@ -201,7 +116,7 @@ export const countSolutions = (p, { timeoutMs = 15000, limit = 2, nodeLimit = 12
   const deadline = Date.now() + timeoutMs;
 
   // 1) 逻辑传播：全部确定 -> 必为唯一解；矛盾 -> 无解
-  const propagated = propagateBoard(rows, cols, rowClues, colClues);
+  const propagated = propagateBoard(rowClues, colClues, rows, cols, 300);
   if (propagated === null) return { count: 0, timeout: false };
   if (propagated.every((row) => row.every((v) => v !== -1))) {
     return { count: 1, timeout: false };
@@ -268,25 +183,15 @@ export const countSolutions = (p, { timeoutMs = 15000, limit = 2, nodeLimit = 12
 export const gridMatchesClues = (p) => {
   const grid = p.grid;
   if (!grid || !Array.isArray(grid) || grid.length !== p.rows) return false;
-  const lineClues = (line) => {
-    const runs = [];
-    let run = 0;
-    for (const v of line) {
-      if (v) run++;
-      else if (run) { runs.push(run); run = 0; }
-    }
-    if (run) runs.push(run);
-    return runs.length ? runs : [0];
-  };
   for (let r = 0; r < p.rows; r++) {
     const row = grid[r];
     if (!Array.isArray(row) || row.length !== p.cols) return false;
-    if (JSON.stringify(lineClues(row)) !== JSON.stringify(p.rowClues[r])) return false;
+    if (JSON.stringify(getLineClue(row)) !== JSON.stringify(p.rowClues[r])) return false;
   }
   for (let c = 0; c < p.cols; c++) {
     const col = new Array(p.rows);
     for (let r = 0; r < p.rows; r++) col[r] = grid[r][c];
-    if (JSON.stringify(lineClues(col)) !== JSON.stringify(p.colClues[c])) return false;
+    if (JSON.stringify(getLineClue(col)) !== JSON.stringify(p.colClues[c])) return false;
   }
   return true;
 };

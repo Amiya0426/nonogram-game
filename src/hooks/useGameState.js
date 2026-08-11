@@ -312,7 +312,7 @@ export default function useGameState() {
             setAlertMsg(tr('msg.libraryFailed', { reason: r.results[0].reason }));
           }
         })
-        .catch(() => {});
+        .catch(() => setAlertMsg(tr('msg.librarySubmitFailed')));
     },
     [user, setAlertMsg, setCurrentPuzzleId],
   );

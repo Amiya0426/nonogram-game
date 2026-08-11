@@ -38,7 +38,6 @@ const outItems = [];
 fs.writeFileSync(OUT, ''); // 清空输出文件（同步）
 
 for (const file of files) {
-  const dim = file.replace('.jsonl', '');
   const fileStart = Date.now();
   const lines = fs.readFileSync(path.join(SRC, file), 'utf8').split('\n').filter(Boolean);
   for (const line of lines) {

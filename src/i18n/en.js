@@ -209,6 +209,7 @@ export default {
     libraryAdded: '✅ Puzzle verified with a unique solution and added to the library',
     libraryExists: '✅ Puzzle is already in the library (duplicate import)',
     libraryFailed: '⚠️ Puzzle loaded for playing, but could not be added to the library: {reason}',
+    librarySubmitFailed: '⚠️ Failed to add to the library: network or server error, please try again later',
     welcomeBack: '✅ Welcome back, {name}!',
     loginFailed: '❌ Sign in failed: {msg}',
     registered: '✅ Signed up successfully, {name}!',
