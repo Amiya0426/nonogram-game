@@ -31,7 +31,13 @@ export const api = {
       method: 'POST',
       body: { username, password, email, code },
     }),
-  sendCode: (email) => request('/api/auth/send-code', { method: 'POST', body: { email } }),
+  sendCode: (email, mode = 'register') =>
+    request('/api/auth/send-code', { method: 'POST', body: { email, mode } }),
+  resetPassword: (email, code, newPassword) =>
+    request('/api/auth/reset-password', {
+      method: 'POST',
+      body: { email, code, newPassword },
+    }),
   login: (username, password) =>
     request('/api/auth/login', { method: 'POST', body: { username, password } }),
   logout: () => request('/api/auth/logout', { method: 'POST' }),

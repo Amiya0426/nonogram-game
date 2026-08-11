@@ -395,18 +395,6 @@ export default function useGameState() {
     });
   }, []);
 
-  /** 正常填入：合并同一次拖拽/画笔的连续操作 */
-  const recordFill = useCallback(
-    (r, c, val, batchRef) => {
-      if (batchRef?.current) {
-        batchRef.current.cells.push({ r, c, val });
-        return;
-      }
-      recordMove('fill', [{ r, c, val }]);
-    },
-    [recordMove],
-  );
-
   const flushDragBatch = useCallback(() => {
     if (dragBatchRef.current) {
       if (dragBatchRef.current.cells.length) {
@@ -489,7 +477,7 @@ export default function useGameState() {
     } else if (!isSolvedStatus) {
       completedRef.current = null;
     }
-  }, [isSolvedStatus, user, currentPuzzleId, grid]);
+  }, [isSolvedStatus, user, currentPuzzleId, grid, rows, cols]);
 
 
   // ==========================================
@@ -505,6 +493,7 @@ export default function useGameState() {
 
   // 完成或切换模式时自动暂停
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- isSolvedStatus 是派生值，无法在事件处理中统一拦截，需在 effect 中同步暂停计时
     if (isSolvedStatus || mode !== 'play') setTimerRunning(false);
   }, [isSolvedStatus, mode]);
 
@@ -872,7 +861,7 @@ export default function useGameState() {
       if (!dragBatchRef.current) dragBatchRef.current = { cells: [] };
       updateCellValue(r, c, dragAction);
     },
-    [dragAction, mode, editInputMode, scheduleHover, updateCellValue],
+    [dragAction, mode, editInputMode, scheduleHover, updateCellValue, flushDragBatch],
   );
 
   /** 触摸拖画：长按进入绘制后使用同一操作值连续填充 */
@@ -1335,8 +1324,10 @@ export default function useGameState() {
       setUser(me);
       refreshUserProgress();
       setAlertMsg(tr('msg.welcomeBack', { name: me.username }));
+      return { ok: true };
     } catch (e) {
       setAlertMsg(tr('msg.loginFailed', { msg: e.message }));
+      return { ok: false, msg: e.message };
     } finally {
       setAuthBusy(false);
     }
@@ -1349,17 +1340,34 @@ export default function useGameState() {
       setUser(me);
       refreshUserProgress();
       setAlertMsg(tr('msg.registered', { name: me.username }));
+      return { ok: true };
     } catch (e) {
       setAlertMsg(tr('msg.registerFailed', { msg: e.message }));
+      return { ok: false, msg: e.message };
     } finally {
       setAuthBusy(false);
     }
   }, [refreshUserProgress]);
 
   /** 发送邮箱验证码（搭架子阶段返回 devCode 供前端展示） */
-  const sendCode = useCallback(async (email) => {
-    const data = await api.sendCode(email);
+  const sendCode = useCallback(async (email, mode = 'register') => {
+    const data = await api.sendCode(email, mode);
     return data;
+  }, []);
+
+  /** 忘记密码：验证码 + 新密码重置 */
+  const resetPassword = useCallback(async (email, code, newPassword) => {
+    setAuthBusy(true);
+    try {
+      await api.resetPassword(email, code, newPassword);
+      setAlertMsg(tr('msg.resetDone'));
+      return { ok: true };
+    } catch (e) {
+      setAlertMsg(tr('msg.resetFailed', { msg: e.message }));
+      return { ok: false, msg: e.message };
+    } finally {
+      setAuthBusy(false);
+    }
   }, []);
 
   const logout = useCallback(async () => {
@@ -1919,6 +1927,7 @@ export default function useGameState() {
     login,
     register,
     sendCode,
+    resetPassword,
     logout,
     fitToWidth,
     setMode,

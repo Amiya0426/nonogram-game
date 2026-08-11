@@ -90,6 +90,10 @@ export const validateCredentials = (username, password) => {
   if (typeof username !== 'string' || !/^[\w\u4e00-\u9fa5-]{2,32}$/.test(username)) {
     return 'auth.username_invalid';
   }
+  return validatePassword(password);
+};
+
+export const validatePassword = (password) => {
   if (typeof password !== 'string' || password.length < 6 || password.length > 72) {
     return 'auth.password_invalid';
   }

@@ -78,9 +78,15 @@ await page.waitForTimeout(1200);
 const timerAfterRandom = (await timer.innerText()).trim();
 check('抽题后重置为 00:00 且不启动', timerAfterRandom === '00:00', timerAfterRandom);
 
-// 7) 注册/登录表单存在（未登录时）
+// 7) 注册/登录弹窗存在（未登录时，点侧边栏按钮打开）
+const authBtn = page.getByRole('button', { name: /登录 \/ 注册/ });
+check('登录按钮存在', await authBtn.isVisible());
+await authBtn.click();
+await page.waitForTimeout(300);
 const hasLoginForm = await page.getByPlaceholder('用户名').isVisible().catch(() => false);
-check('登录表单可见', hasLoginForm);
+check('登录弹窗可见', hasLoginForm);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
 
 // 8) 手机端底部导航（缩小视口）
 await page.setViewportSize({ width: 420, height: 800 });

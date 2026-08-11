@@ -8,6 +8,7 @@ import FloatingTimer from './components/FloatingTimer.jsx';
 import ImageToPuzzle from './components/ImageToPuzzle.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import LanguageSwitcher from './components/LanguageSwitcher.jsx';
+import AuthModal from './components/AuthModal.jsx';
 import './App.css';
 import { useI18n } from './i18n/index.js';
 
@@ -16,6 +17,7 @@ export default function NonogramApp() {
   const { t } = useI18n();
   const [browseOpen, setBrowseOpen] = useState(false);
   const [imageImportOpen, setImageImportOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const showTooltip = g.showMeasure || g.showHoverRow || g.showHoverCol;
   const hoverOnlyRow = g.showHoverRow && !g.showHoverCol;
@@ -90,9 +92,7 @@ export default function NonogramApp() {
         onOpenImageImport={() => setImageImportOpen(true)}
         user={g.user}
         authBusy={g.authBusy}
-        onLogin={g.login}
-        onRegister={g.register}
-        onSendCode={g.sendCode}
+        onOpenAuth={() => setAuthOpen(true)}
         onLogout={g.logout}
         hintInfo={g.hintInfo}
         alertMsg={g.alertMsg}
@@ -164,6 +164,19 @@ export default function NonogramApp() {
           setImageImportOpen(false);
         }}
       />
+
+      {/* 登录 / 注册 / 忘记密码 弹窗 */}
+      {authOpen && (
+        <AuthModal
+          open={authOpen}
+          onClose={() => setAuthOpen(false)}
+          onLogin={g.login}
+          onRegister={g.register}
+          onSendCode={g.sendCode}
+          onResetPassword={g.resetPassword}
+          authBusy={g.authBusy}
+        />
+      )}
 
       {/* 棋盘区域 */}
       <div

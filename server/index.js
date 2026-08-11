@@ -24,6 +24,7 @@ import {
   hashPassword,
   verifyPassword,
   validateCredentials,
+  validatePassword,
   validateEmail,
   sendEmailVerificationCode,
   verifyEmailCode,
@@ -145,13 +146,19 @@ app.post('/api/auth/register', authRateLimit, (req, res) => {
 
 // 邮箱验证码（搭架子）：生成验证码并通过 mailer 占位发送
 app.post('/api/auth/send-code', authRateLimit, async (req, res) => {
-  const { email } = req.body || {};
+  const { email, mode = 'register' } = req.body || {};
   const emailErr = validateEmail(email);
   if (emailErr) return res.status(400).json({ error: msg(req, emailErr) });
   const normalized = email.trim().toLowerCase();
 
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalized);
-  if (exists) return res.status(409).json({ error: msg(req, 'auth.email_exists') });
+  if (mode === 'reset') {
+    // 忘记密码：邮箱必须已注册
+    if (!exists) return res.status(404).json({ error: msg(req, 'auth.email_not_found') });
+  } else if (exists) {
+    // 注册：邮箱必须未注册
+    return res.status(409).json({ error: msg(req, 'auth.email_exists') });
+  }
 
   // 滥用防护：IP 每小时上限 / 每邮箱每日上限 / 全局每日与每月额度
   const guard = checkSendCodeLimits(req, normalized);
@@ -177,6 +184,33 @@ app.post('/api/auth/send-code', authRateLimit, async (req, res) => {
     // 测试模式（未接入真实邮件服务）下把验证码直接返回给前端，方便联调；接入后移除
     ...(isStubMailer ? { devCode: sent.code } : {}),
   });
+});
+
+// 忘记密码：验证邮箱验证码后重置密码，并强制下线所有旧会话
+app.post('/api/auth/reset-password', authRateLimit, (req, res) => {
+  const { email, code, newPassword } = req.body || {};
+  const emailErr = validateEmail(email);
+  if (emailErr) return res.status(400).json({ error: msg(req, emailErr) });
+  const passwordErr = validatePassword(newPassword);
+  if (passwordErr) return res.status(400).json({ error: msg(req, passwordErr) });
+
+  const normalized = email.trim().toLowerCase();
+  const user = db.prepare('SELECT id, email FROM users WHERE email = ?').get(normalized);
+  if (!user) return res.status(404).json({ error: msg(req, 'auth.email_not_found') });
+  if (typeof code !== 'string' || !code.trim()) {
+    return res.status(400).json({ error: msg(req, 'auth.code_required') });
+  }
+  if (!verifyEmailCode(normalized, code.trim())) {
+    return res.status(400).json({ error: msg(req, 'auth.code_invalid') });
+  }
+
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+    hashPassword(newPassword),
+    user.id,
+  );
+  // 安全：重置密码后使该用户所有会话失效
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+  res.json({ ok: true });
 });
 
 app.post('/api/auth/login', authRateLimit, (req, res) => {
@@ -234,7 +268,7 @@ app.get('/api/puzzles/random', resolveUser, (req, res) => {
   const minCols = numParam(q.minCols);
   const maxCols = numParam(q.maxCols);
 
-  let where = '';
+  let where;
   const params = [];
   if (rows !== null && cols !== null) {
     where = 'WHERE rows = ? AND cols = ?';
@@ -251,7 +285,7 @@ app.get('/api/puzzles/random', resolveUser, (req, res) => {
   const excludeCompleted = q.excludeCompleted === '1' && req.user;
   const uid = req.user?.id;
 
-  let row = null;
+  let row;
   if (excludeCompleted) {
     row = db
       .prepare(
