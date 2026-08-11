@@ -1,3 +1,4 @@
+import './env.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +27,9 @@ import {
   validateEmail,
   sendEmailVerificationCode,
   verifyEmailCode,
+  clearEmailCode,
+  checkSendCodeLimits,
+  recordEmailSent,
 } from './auth.js';
 import { sendEmailCode, isStubMailer } from './mailer.js';
 import { msg } from './i18n.js';
@@ -140,7 +144,7 @@ app.post('/api/auth/register', authRateLimit, (req, res) => {
 });
 
 // 邮箱验证码（搭架子）：生成验证码并通过 mailer 占位发送
-app.post('/api/auth/send-code', authRateLimit, (req, res) => {
+app.post('/api/auth/send-code', authRateLimit, async (req, res) => {
   const { email } = req.body || {};
   const emailErr = validateEmail(email);
   if (emailErr) return res.status(400).json({ error: msg(req, emailErr) });
@@ -149,14 +153,25 @@ app.post('/api/auth/send-code', authRateLimit, (req, res) => {
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalized);
   if (exists) return res.status(409).json({ error: msg(req, 'auth.email_exists') });
 
+  // 滥用防护：IP 每小时上限 / 每邮箱每日上限 / 全局每日与每月额度
+  const guard = checkSendCodeLimits(req, normalized);
+  if (!guard.ok) {
+    return res.status(429).json({ error: msg(req, guard.reason) });
+  }
+
   const sent = sendEmailVerificationCode(normalized);
   if (!sent.ok) {
     return res.status(429).json({ error: msg(req, sent.reason) });
   }
-  // 占位发送：真实邮件服务接入后此调用会真正发信
-  sendEmailCode(normalized, sent.code).catch((e) =>
-    console.error('[mailer] 发送失败:', e),
-  );
+  // 发送验证码邮件（Resend；未配置 API Key 时自动降级为桩模式）
+  try {
+    await sendEmailCode(normalized, sent.code);
+  } catch (e) {
+    console.error('[mailer] 发送失败:', e);
+    clearEmailCode(normalized);
+    return res.status(502).json({ error: msg(req, 'auth.email_send_failed') });
+  }
+  recordEmailSent(normalized, req.ip);
   res.json({
     ok: true,
     // 测试模式（未接入真实邮件服务）下把验证码直接返回给前端，方便联调；接入后移除

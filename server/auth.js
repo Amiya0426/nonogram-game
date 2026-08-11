@@ -139,3 +139,78 @@ export const verifyEmailCode = (email, code) => {
   emailCodes.delete(email);
   return true;
 };
+
+/** 发送失败时清除已生成的验证码，允许立即重试 */
+export const clearEmailCode = (email) => {
+  emailCodes.delete(email);
+};
+
+// ---------------- 发送滥用防护 ----------------
+// 1) 每 IP 每小时最多 RESEND_IP_HOURLY_LIMIT（默认 5）封
+// 2) 每邮箱每天最多 5 封
+// 3) 全局每日 / 每月上限（默认对齐 Resend 免费额度 100 / 3000）
+
+const IP_HOURLY_LIMIT = Number(process.env.RESEND_IP_HOURLY_LIMIT || 5);
+const IP_WINDOW = 60 * 60 * 1000;
+const PER_EMAIL_DAILY_LIMIT = Number(process.env.RESEND_EMAIL_DAILY_LIMIT || 5);
+const sentByIp = new Map(); // ip -> [timestamps]
+
+const startOfUtcDay = (ts) => {
+  const d = new Date(ts);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const startOfUtcMonth = (ts) => {
+  const d = new Date(ts);
+  d.setUTCDate(1);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+/** 发送前检查：返回 { ok: true } 或 { ok: false, reason } */
+export const checkSendCodeLimits = (req, email) => {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+
+  const list = (sentByIp.get(ip) || []).filter((t) => now - t < IP_WINDOW);
+  if (list.length >= IP_HOURLY_LIMIT) {
+    return { ok: false, reason: 'auth.send_too_many' };
+  }
+
+  const perEmail = db
+    .prepare('SELECT COUNT(*) AS n FROM email_sends WHERE email = ? AND sent_at >= ?')
+    .get(email, startOfUtcDay(now)).n;
+  if (perEmail >= PER_EMAIL_DAILY_LIMIT) {
+    return { ok: false, reason: 'auth.code_too_frequent' };
+  }
+
+  const dailyLimit = Number(process.env.RESEND_DAILY_LIMIT || 100);
+  const monthlyLimit = Number(process.env.RESEND_MONTHLY_LIMIT || 3000);
+  const daily = db
+    .prepare('SELECT COUNT(*) AS n FROM email_sends WHERE sent_at >= ?')
+    .get(startOfUtcDay(now)).n;
+  const monthly = db
+    .prepare('SELECT COUNT(*) AS n FROM email_sends WHERE sent_at >= ?')
+    .get(startOfUtcMonth(now)).n;
+  if (daily >= dailyLimit || monthly >= monthlyLimit) {
+    return { ok: false, reason: 'auth.email_quota' };
+  }
+
+  sentByIp.set(ip, list);
+  return { ok: true };
+};
+
+/** 发送成功后记录（计入额度与 IP 限流） */
+export const recordEmailSent = (email, ip) => {
+  const now = Date.now();
+  db.prepare('INSERT INTO email_sends (email, ip, sent_at) VALUES (?, ?, ?)').run(
+    email,
+    ip || null,
+    now,
+  );
+  const key = ip || 'unknown';
+  const list = sentByIp.get(key) || [];
+  list.push(now);
+  sentByIp.set(key, list);
+};

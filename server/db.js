@@ -58,11 +58,20 @@ db.exec(`
     PRIMARY KEY (user_id, puzzle_id)
   );
 
+  CREATE TABLE IF NOT EXISTS email_sends (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    ip TEXT,
+    sent_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_collections_user ON collections(user_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_puzzles_hash ON puzzles(content_hash);
   CREATE INDEX IF NOT EXISTS idx_puzzles_size ON puzzles(rows, cols);
   CREATE INDEX IF NOT EXISTS idx_progress_user ON user_progress(user_id);
+  CREATE INDEX IF NOT EXISTS idx_email_sends_sent ON email_sends(sent_at);
+  CREATE INDEX IF NOT EXISTS idx_email_sends_email ON email_sends(email);
 `);
 
 // 已有数据库迁移：补充 user_id / puzzle_id 列与索引
