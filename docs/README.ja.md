@@ -2,7 +2,7 @@
 
 機能が充実したブラウザ版ノノグラム（お絵かきロジック）パズルゲーム：プレイ、推論、カスタムパズル、パズルライブラリ、ユーザーアカウント、GIF リプレイをサポート。
 
-> **简体中文:** [../README.md](../README.md) · **English:** [README.en.md](README.en.md) · **繁體中文:** [README.zh-Hant.md](README.zh-Hant.md)
+> **[简体中文](../README.md)** · **[English](README.en.md)** · **[繁體中文](README.zh-Hant.md)**
 
 > オンライン: <https://nonogram.amiya1223.top>
 

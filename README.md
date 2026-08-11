@@ -2,7 +2,7 @@
 
 一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、题库浏览、用户体系与 GIF 复盘。
 
-> **English:** [docs/README.en.md](docs/README.en.md) · **繁體中文:** [docs/README.zh-Hant.md](docs/README.zh-Hant.md) · **日本語:** [docs/README.ja.md](docs/README.ja.md)
+> **[English](docs/README.en.md)** · **[繁體中文](docs/README.zh-Hant.md)** · **[日本語](docs/README.ja.md)**
 
 > 在线地址：<https://nonogram.amiya1223.top>
 

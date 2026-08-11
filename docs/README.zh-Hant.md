@@ -2,7 +2,7 @@
 
 一款功能完整的數織解謎網頁遊戲：支援遊玩、推演、自訂題目、題庫瀏覽、使用者體系與 GIF 覆盤。
 
-> **简体中文:** [../README.md](../README.md) · **English:** [README.en.md](README.en.md) · **日本語:** [README.ja.md](README.ja.md)
+> **[简体中文](../README.md)** · **[English](README.en.md)** · **[日本語](README.ja.md)**
 
 > 線上地址：<https://nonogram.amiya1223.top>
 

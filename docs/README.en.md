@@ -1,6 +1,6 @@
 # Nonogram
 
-> **简体中文:** [../README.md](../README.md) · **繁體中文:** [README.zh-Hant.md](README.zh-Hant.md) · **日本語:** [README.ja.md](README.ja.md)
+> **[简体中文](../README.md)** · **[繁體中文](README.zh-Hant.md)** · **[日本語](README.ja.md)**
 
 A complete browser-based Nonogram (Paint by Numbers) puzzle game: play, deduction, custom puzzles, puzzle library browsing, user accounts, and GIF replays.
 
