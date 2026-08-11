@@ -1,51 +1,29 @@
 import { useRef, useState } from 'react';
 import {
-  Check,
-  RefreshCw,
   Dices,
-  Eraser,
+  Check,
+  PencilLine,
+  Pin,
+  PinOff,
+  ChevronRight,
+  HelpCircle,
   AlertCircle,
-  ZoomIn,
+  Lightbulb,
+  Eraser,
+  X,
   MousePointerClick,
+  FileSymlink,
+  Braces,
+  ImagePlus,
   PaintRoller,
   Square,
   XSquare,
-  FileMinus,
-  Lightbulb,
-  Download,
-  SearchCheck,
-  Pin,
-  PinOff,
-  Maximize,
-  UploadCloud,
-  ClipboardCopy,
-  FileJson,
-  Image as ImageIcon,
-  GitBranch,
-  X,
-  Undo2,
-  FileSymlink,
-  ChevronRight,
-  Globe,
-  Wand2,
-  Braces,
-  FileUp,
-  ImagePlus,
-  PencilLine,
-  UserRound,
-  LogIn,
-  LogOut,
-  HelpCircle,
-  Upload,
-  ClipboardPaste,
-  Minus,
-  Plus,
-  Trophy,
-  Library,
 } from 'lucide-react';
-import Accordion from './Accordion.jsx';
-import FileDropZone from './FileDropZone.jsx';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
+import SidePanelUserArea from './SidePanelUserArea.jsx';
+import SidePanelGameControls from './SidePanelGameControls.jsx';
+import SidePanelViewSettings from './SidePanelViewSettings.jsx';
+import SidePanelImportExport from './SidePanelImportExport.jsx';
 import { useI18n } from '../i18n/index.js';
 
 /** GitHub 图标（lucide 已移除品牌图标，内联 SVG） */
@@ -55,7 +33,14 @@ const GithubIcon = ({ className }) => (
   </svg>
 );
 
-/** 左侧控制面板：所有折叠区与按钮 */
+/**
+ * 左侧控制面板容器：持有面板级状态（固定/悬停/宽度/移动端 Tab），
+ * 并把内容按职责分发给四个子组件：
+ * - SidePanelUserArea     用户区
+ * - SidePanelGameControls 游戏控制
+ * - SidePanelViewSettings 视图设置
+ * - SidePanelImportExport 导入导出
+ */
 const SidePanel = ({
   showLeftPanel,
   setShowLeftPanel,
@@ -119,28 +104,7 @@ const SidePanel = ({
   userProgress,
 }) => {
   const { t } = useI18n();
-  const [ioTab, setIoTab] = useState('import');
   const [activeTab, setActiveTab] = useState('game');
-
-  /** 左下角快捷按钮（可扩展） */
-  const footerActions = [
-    {
-      key: 'help',
-      Icon: HelpCircle,
-      title: t('panel.help'),
-      onClick: onOpenIntro,
-    },
-    {
-      key: 'github',
-      Icon: GithubIcon,
-      title: t('panel.github'),
-      onClick: () => window.open('https://github.com/Amiya0426/nonogram-game', '_blank', 'noopener'),
-    },
-  ];
-
-  const [imgScale, setImgScale] = useState('2');
-  const [imgJpegQuality, setImgJpegQuality] = useState('0.9');
-  const [imgDpi, setImgDpi] = useState('96');
   const [panelWidth, setPanelWidth] = useState(() => {
     try {
       const v = Number(localStorage.getItem('nonogram_panel_width'));
@@ -171,34 +135,22 @@ const SidePanel = ({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   };
-  const [rowText, setRowText] = useState(String(rows));
-  const [colText, setColText] = useState(String(cols));
-  const [prevRows, setPrevRows] = useState(rows);
-  const [prevCols, setPrevCols] = useState(cols);
-  if (prevRows !== rows) {
-    setPrevRows(rows);
-    setRowText(String(rows));
-  }
-  if (prevCols !== cols) {
-    setPrevCols(cols);
-    setColText(String(cols));
-  }
 
-  const clampBoard = (v) => Math.max(1, Math.min(80, v));
-  const commitRow = () => {
-    onInitBoard(clampBoard(parseInt(rowText, 10) || 1), cols);
-  };
-  const commitCol = () => {
-    onInitBoard(rows, clampBoard(parseInt(colText, 10) || 1));
-  };
-  const stepRow = (delta) => {
-    const base = parseInt(rowText, 10);
-    onInitBoard(clampBoard((Number.isNaN(base) ? rows : base) + delta), cols);
-  };
-  const stepCol = (delta) => {
-    const base = parseInt(colText, 10);
-    onInitBoard(rows, clampBoard((Number.isNaN(base) ? cols : base) + delta));
-  };
+  /** 左下角快捷按钮（可扩展） */
+  const footerActions = [
+    {
+      key: 'help',
+      Icon: HelpCircle,
+      title: t('panel.help'),
+      onClick: onOpenIntro,
+    },
+    {
+      key: 'github',
+      Icon: GithubIcon,
+      title: t('panel.github'),
+      onClick: () => window.open('https://github.com/Amiya0426/nonogram-game', '_blank', 'noopener'),
+    },
+  ];
 
   /** tab 显示控制：手机端只显示当前 tab，桌面端全部显示 */
   const tabCls = (tab) =>
@@ -388,51 +340,13 @@ const SidePanel = ({
         )}
 
         {mode === 'play' && (
-        <>
-        <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 to-violet-50/80 p-3 flex flex-col gap-2 shrink-0">
-          {user ? (
-            <>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                {String(user.username || '?')[0].toUpperCase()}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold text-slate-800 truncate">{user.username}</div>
-                <div className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
-                  <Trophy className="w-3 h-3 text-amber-500" />
-                  {t('panel.solvedCount', { n: userProgress.length })}
-                </div>
-              </div>
-              <button
-                onClick={onLogout}
-                className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                title={t('panel.logout')}
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-            <button
-              onClick={onOpenBrowse}
-              className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
-            >
-              <Library className="w-4 h-4" /> {t('panel.browse')}
-            </button>
-            </>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-800">
-                <UserRound className="w-3.5 h-3.5" /> {t('panel.loginHint')}
-              </div>
-              <button
-                onClick={onOpenAuth}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex justify-center items-center gap-1.5 shadow-sm"
-              >
-                <LogIn className="w-3.5 h-3.5" /> {t('panel.login')} / {t('panel.register')}
-              </button>
-            </div>
-          )}
-        </div>
-        </>
+          <SidePanelUserArea
+            user={user}
+            userProgress={userProgress}
+            onLogout={onLogout}
+            onOpenAuth={onOpenAuth}
+            onOpenBrowse={onOpenBrowse}
+          />
         )}
 
         {hintInfo && mode === 'play' && (
@@ -464,624 +378,131 @@ const SidePanel = ({
           </div>
         )}
 
-        {/* === 1. 推演与操作区 === */}
+        {/* === 游戏控制 + 视图设置（game tab） === */}
         <div className={tabCls('game')}>
-
-{mode === 'play' && (
-          <Accordion title={t('panel.deductionTitle')} icon={MousePointerClick} defaultOpen>
-            <div className="flex flex-col gap-1.5">
-              <div className="grid grid-cols-2 gap-1.5">
-                {deductionLevel < 3 && (
-                  <button
-                    onClick={onStartDeduction}
-                    className={`col-span-2 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border
-                      ${deductionLevel === 0 ? 'bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 border-fuchsia-200' : ''}
-                      ${deductionLevel === 1 ? 'bg-blue-100 hover:bg-blue-200 text-blue-700 border-blue-200' : ''}
-                      ${deductionLevel === 2 ? 'bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-200' : ''}
-                    `}
-                  >
-                    <GitBranch className="w-4 h-4" />
-                    {deductionLevel === 0
-                      ? t('panel.startDeduction')
-                      : t('panel.deepenDeduction', { n: deductionLevel + 1 })}
-                  </button>
-                )}
-                {deductionLevel > 0 && (
-                  <>
-                    <button
-                      onClick={onApplyDeduction}
-                      className="py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-emerald-200"
-                    >
-                      <Check className="w-4 h-4" /> {t('panel.applyDeduction', { n: deductionLevel })}
-                    </button>
-                    <button
-                      onClick={onCancelDeduction}
-                      className="py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm border border-rose-200"
-                    >
-                      <X className="w-4 h-4" /> {t('panel.cancelDeduction', { n: deductionLevel })}
-                    </button>
-                  </>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  onClick={onValidate}
-                  className="py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-blue-200"
-                >
-                  <SearchCheck className="w-4 h-4" /> {t('panel.checkErrors')}
-                </button>
-                <button
-                  onClick={onRestore}
-                  disabled={!lastCorrectSnapshot}
-                  className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-slate-200"
-                  title={t('panel.restoreCheckpointTitle')}
-                >
-                  <Undo2 className="w-4 h-4" /> {t('panel.restoreCheckpoint')}
-                </button>
-              </div>
-
-              <button
-                onClick={onProvideHint}
-                className="py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-amber-200"
-              >
-                <Lightbulb className="w-4 h-4" /> {t('panel.giveHint')}
-              </button>
-            </div>
-
-            <div className="flex gap-1.5 mt-1.5 p-1 bg-slate-100 rounded-lg">
-              <button
-                onClick={() => setInteractionMode('toggle')}
-                className={`flex-1 py-1.5 text-xs rounded-md font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  interactionMode === 'toggle'
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'text-slate-600 hover:bg-white'
-                }`}
-              >
-                <MousePointerClick className="w-3.5 h-3.5" /> {t('panel.rotate')}
-              </button>
-              <button
-                onClick={() => setInteractionMode('paint')}
-                className={`flex-1 py-1.5 text-xs rounded-md font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  interactionMode === 'paint'
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'text-slate-600 hover:bg-white'
-                }`}
-              >
-                <PaintRoller className="w-3.5 h-3.5" /> {t('panel.place')}
-              </button>
-            </div>
-
-            {interactionMode === 'paint' && (
-              <div className="flex gap-2 p-1 bg-slate-50 rounded-lg border border-slate-200">
-                <button
-                  onClick={() => setCurrentBrush(1)}
-                  className={`flex-1 py-2 rounded flex justify-center ${
-                    currentBrush === 1 ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-200'
-                  }`}
-                >
-                  <Square fill="currentColor" className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setCurrentBrush(2)}
-                  className={`flex-1 py-2 rounded flex justify-center ${
-                    currentBrush === 2 ? 'bg-red-50 text-red-500 shadow-sm border border-red-200' : 'text-slate-400 hover:bg-slate-200'
-                  }`}
-                >
-                  <XSquare className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setCurrentBrush(0)}
-                  className={`flex-1 py-2 rounded flex justify-center ${
-                    currentBrush === 0 ? 'bg-white text-slate-700 shadow-sm border border-slate-200' : 'text-slate-400 hover:bg-slate-200'
-                  }`}
-                >
-                  <Eraser className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            {/* 辅助设置（原“游戏辅助”，已合并） */}
-            <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2">
-              <span className="text-[10px] font-bold text-slate-400">{t('panel.assistSettings')}</span>
-              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.showTimer}
-                  onChange={(e) => setGameSettings((p) => ({ ...p, showTimer: e.target.checked }))}
-                  className="accent-indigo-600 w-3 h-3"
-                />{' '}
-                {t('panel.showTimer')}
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.completeLineStyle === 'highlight'}
-                  onChange={(e) =>
-                    setGameSettings((p) => ({
-                      ...p,
-                      completeLineStyle: e.target.checked ? 'highlight' : 'fade',
-                    }))
-                  }
-                  className="accent-indigo-600 w-3 h-3"
-                />{' '}
-                {t('panel.completeLineHighlight')}
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.autoMarkNumbers}
-                  onChange={(e) => setGameSettings((p) => ({ ...p, autoMarkNumbers: e.target.checked }))}
-                  className="accent-indigo-600 w-3 h-3"
-                />{' '}
-                {t('panel.autoMarkNumbers')}
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={gameSettings.autoFillCross}
-                  onChange={(e) => setGameSettings((p) => ({ ...p, autoFillCross: e.target.checked }))}
-                  className="accent-indigo-600 w-3 h-3"
-                />{' '}
-                {t('panel.autoFillCross')}
-              </label>
-              <div className="border-t border-slate-100 pt-2 mt-1 flex flex-col gap-1.5">
-                <span className="text-[9px] font-bold text-slate-400">{t('panel.hoverHints')}</span>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={gameSettings.hoverRowClues}
-                      onChange={(e) => setGameSettings((p) => ({ ...p, hoverRowClues: e.target.checked }))}
-                      className="accent-indigo-600 w-3 h-3"
-                    />
-                    {t('panel.hoverRow')}
-                  </label>
-                  <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={gameSettings.hoverColClues}
-                      onChange={(e) => setGameSettings((p) => ({ ...p, hoverColClues: e.target.checked }))}
-                      className="accent-indigo-600 w-3 h-3"
-                    />
-                    {t('panel.hoverCol')}
-                  </label>
-                  <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={gameSettings.showClueSums}
-                      onChange={(e) => setGameSettings((p) => ({ ...p, showClueSums: e.target.checked }))}
-                      className="accent-indigo-600 w-3 h-3"
-                    />
-                    {t('panel.clueSum')}
-                  </label>
-                </div>
-              </div>
-            </div>
-          </Accordion>
-        )}
-
-        {/* === 2. 视图与棋盘设置 === */}
-        <Accordion title={t('panel.viewBoardTitle')} icon={ZoomIn} defaultOpen={mode === 'edit'}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-slate-500">{t('panel.rowsLabel')}</label>
-              <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => stepRow(-1)}
-                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title={t('panel.decreaseRows')}
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  max="80"
-                  value={rowText}
-                  onChange={(e) => setRowText(e.target.value)}
-                  onBlur={commitRow}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      commitRow();
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onWheel={(e) => (e.deltaY < 0 ? stepRow(1) : stepRow(-1))}
-                  className="w-11 px-0.5 py-1 text-xs outline-none focus:bg-indigo-50 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => stepRow(1)}
-                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title={t('panel.increaseRows')}
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-            <span className="text-slate-300 text-xs">×</span>
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-slate-500">{t('panel.colsLabel')}</label>
-              <div className="flex items-center rounded-lg border border-slate-300 bg-white overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => stepCol(-1)}
-                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title={t('panel.decreaseCols')}
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  max="80"
-                  value={colText}
-                  onChange={(e) => setColText(e.target.value)}
-                  onBlur={commitCol}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      commitCol();
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onWheel={(e) => (e.deltaY < 0 ? stepCol(1) : stepCol(-1))}
-                  className="w-11 px-0.5 py-1 text-xs outline-none focus:bg-indigo-50 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => stepCol(1)}
-                  className="w-6 h-6 flex items-center justify-center text-slate-500 hover:bg-slate-100"
-                  title={t('panel.increaseCols')}
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-            <div className="flex ml-auto gap-1">
-              <button
-                onClick={onGenerateRandom}
-                className="p-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded transition-colors"
-                title={t('panel.randomGenerate')}
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              {mode === 'edit' && (
-                <button
-                  onClick={onClearClues}
-                  className="p-1 bg-red-100 text-red-700 hover:bg-red-200 rounded transition-colors"
-                  title={t('panel.clearClues')}
-                >
-                  <FileMinus className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-2 pt-2">
-            <span className="text-xs font-semibold text-slate-500">{t('panel.zoom')}</span>
-            <div className="flex items-center gap-2 flex-1 ml-2">
-              <input
-                type="range"
-                min="12"
-                max="80"
-                value={cellSize}
-                onChange={(e) => setCellSize(Number(e.target.value))}
-                className="w-full accent-indigo-500 cursor-ew-resize"
-              />
-              <button
-                onClick={onFitToWidth}
-                className="p-1 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors border border-indigo-100"
-                title={t('panel.fitWidth')}
-              >
-                <Maximize className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          {mode === 'play' && (
-            <button
-              onClick={() => onModeChange('edit')}
-              className="w-full mt-2 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-orange-200 transition-colors"
-              title={t('panel.createPuzzleTitle')}
-            >
-              <PencilLine className="w-3.5 h-3.5" /> {t('panel.customTitle')}
-            </button>
-          )}
-        </Accordion>
+          <SidePanelGameControls
+            mode={mode}
+            deductionLevel={deductionLevel}
+            onStartDeduction={onStartDeduction}
+            onApplyDeduction={onApplyDeduction}
+            onCancelDeduction={onCancelDeduction}
+            onValidate={onValidate}
+            onRestore={onRestore}
+            lastCorrectSnapshot={lastCorrectSnapshot}
+            onProvideHint={onProvideHint}
+            interactionMode={interactionMode}
+            setInteractionMode={setInteractionMode}
+            currentBrush={currentBrush}
+            setCurrentBrush={setCurrentBrush}
+            gameSettings={gameSettings}
+            setGameSettings={setGameSettings}
+          />
+          <SidePanelViewSettings
+            mode={mode}
+            rows={rows}
+            cols={cols}
+            onInitBoard={onInitBoard}
+            onGenerateRandom={onGenerateRandom}
+            onClearClues={onClearClues}
+            cellSize={cellSize}
+            setCellSize={setCellSize}
+            onFitToWidth={onFitToWidth}
+            onModeChange={onModeChange}
+          />
         </div>
 
-        {/* === 5. 导入与导出 === */}
-
+        {/* === 导入导出（import tab） === */}
         <div className={tabCls('import')}>
-<Accordion title={t('panel.importExportTitle')} icon={FileSymlink} defaultOpen={false}>
-          {/* 导入 / 导出 Tab 切换 */}
-          <div className="flex bg-slate-100 p-1 rounded-lg shrink-0">
-            <button
-              onClick={() => setIoTab('import')}
-              className={`flex-1 py-1.5 rounded-md text-xs font-bold flex justify-center items-center gap-1.5 transition-all ${
-                ioTab === 'import'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Download className="w-3.5 h-3.5" /> {t('panel.importTab')}
-            </button>
-            <button
-              onClick={() => setIoTab('export')}
-              className={`flex-1 py-1.5 rounded-md text-xs font-bold flex justify-center items-center gap-1.5 transition-all ${
-                ioTab === 'export'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" /> {t('panel.exportTab')}
-            </button>
-          </div>
+          <SidePanelImportExport
+            importData={importData}
+            setImportData={setImportData}
+            onImport={onImport}
+            isImporting={isImporting}
+            localImportData={localImportData}
+            setLocalImportData={setLocalImportData}
+            onLocalImport={onLocalImport}
+            onImportFile={onImportFile}
+            exportFilename={exportFilename}
+            setExportFilename={setExportFilename}
+            exportRemark={exportRemark}
+            setExportRemark={setExportRemark}
+            onExportCode={onExportCode}
+            onExportJSON={onExportJSON}
+            onExportImage={onExportImage}
+          />
 
-          {ioTab === 'import' ? (
-            <>
-              {/* 网页解析 */}
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
-                    <Globe className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">{t('panel.webParseTitle')}</div>
-                    <div className="text-[9px] text-slate-400 truncate">{t('panel.webParseHint')}</div>
-                  </div>
-                </div>
-                <textarea
-                  rows={2}
-                  value={importData}
-                  onChange={(e) => setImportData(e.target.value)}
-                  placeholder={t('panel.webParsePlaceholder')}
-                  className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-indigo-500 font-mono bg-white"
-                />
+          <div className="mt-auto pt-2 flex flex-col gap-2 shrink-0">
+            <button
+              onClick={onClearBoard}
+              className="w-full py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+            >
+              <Eraser className="w-4 h-4" />{' '}
+              {mode === 'edit' ? t('panel.clearBoardPattern') : t('panel.clearBoard')}
+            </button>
+            {mode === 'edit' ? (
+              <div className="grid grid-cols-2 gap-1.5">
                 <button
-                  onClick={onImport}
-                  disabled={isImporting || !importData.trim()}
-                  className="py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex justify-center items-center gap-1.5 shadow-sm"
+                  onClick={onCancelEditing}
+                  className="py-2.5 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors text-sm"
+                  title={t('panel.cancelEditTitle')}
                 >
-                  <Wand2 className="w-3.5 h-3.5" /> {t('panel.extract')}
+                  <X className="w-4 h-4" /> {t('panel.cancelEdit')}
+                </button>
+                <button
+                  onClick={onFinishEditing}
+                  className="py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
+                >
+                  <Check className="w-4 h-4" /> {t('panel.finishPlay')}
                 </button>
               </div>
-
-              {/* 存档恢复 */}
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
-                    <UploadCloud className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">{t('panel.restoreTitle')}</div>
-                    <div className="text-[9px] text-slate-400 truncate">{t('panel.restoreHint')}</div>
-                  </div>
-                </div>
-                <div className="flex gap-1.5">
-                  <input
-                    type="text"
-                    value={localImportData}
-                    onChange={(e) => setLocalImportData(e.target.value)}
-                    placeholder={t('panel.codePlaceholder')}
-                    className="flex-1 min-w-0 px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-emerald-500 font-mono bg-white"
-                  />
-                  <button
-                    onClick={onLocalImport}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
-                    title={t('panel.importCodeTitle')}
-                  >
-                    <ClipboardPaste className="w-3.5 h-3.5" /> {t('panel.import')}
-                  </button>
-                </div>
-                <FileDropZone
-                  onFiles={(files) => onImportFile(files[0])}
-                  icon={FileUp}
-                  buttonText={t('dropzone.choose')}
-                  hint={t('dropzone.jsonHint')}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* 存档导出 */}
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
-                    <FileJson className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">{t('panel.exportTitle')}</div>
-                    <div className="text-[9px] text-slate-400 truncate">{t('panel.exportHint')}</div>
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  value={exportFilename}
-                  onChange={(e) => setExportFilename(e.target.value)}
-                  placeholder={t('panel.filenamePlaceholder')}
-                  className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-emerald-500 bg-white"
-                />
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={onExportCode}
-                    className="py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 flex justify-center items-center gap-1.5 transition-colors"
-                  >
-                    <ClipboardCopy className="w-3.5 h-3.5" /> {t('panel.copyCode')}
-                  </button>
-                  <button
-                    onClick={onExportJSON}
-                    className="py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 flex justify-center items-center gap-1.5 transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" /> JSON
-                  </button>
-                </div>
-              </div>
-
-              {/* 图片导出 */}
-              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 shrink-0">
-                    <ImageIcon className="w-3.5 h-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-700">{t('panel.imageExportTitle')}</div>
-                    <div className="text-[9px] text-slate-400 truncate">{t('panel.imageExportHint')}</div>
-                  </div>
-                </div>
-                <input
-                  type="text"
-                  value={exportRemark}
-                  onChange={(e) => setExportRemark(e.target.value)}
-                  placeholder={t('panel.remarkPlaceholder')}
-                  className="w-full px-2 py-1.5 text-xs rounded border border-slate-300 outline-none focus:border-blue-500 bg-white"
-                />
-                <div className="grid grid-cols-3 gap-1.5">
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-slate-500">{t('panel.quality')}</span>
-                    <select
-                      name="img-scale"
-                      value={imgScale}
-                      onChange={(e) => setImgScale(e.target.value)}
-                      className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
-                    >
-                      <option value="1">{t('panel.std')} 1x</option>
-                      <option value="2">{t('panel.hd')}</option>
-                      <option value="3">{t('panel.ultra')}</option>
-                      <option value="4">{t('panel.k4')}</option>
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-slate-500">{t('panel.jpegQuality')}</span>
-                    <select
-                      name="img-jpeg-quality"
-                      value={imgJpegQuality}
-                      onChange={(e) => setImgJpegQuality(e.target.value)}
-                      className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
-                    >
-                      <option value="0.95">{t('panel.high')}</option>
-                      <option value="0.9">{t('panel.std')}</option>
-                      <option value="0.7">{t('panel.low')}</option>
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-slate-500">{t('panel.dpiLabel')}</span>
-                    <select
-                      name="img-dpi"
-                      value={imgDpi}
-                      onChange={(e) => setImgDpi(e.target.value)}
-                      className="text-[10px] rounded border border-slate-200 bg-white text-slate-600 px-1 py-1 outline-none"
-                    >
-                      <option value="72">72</option>
-                      <option value="96">96</option>
-                      <option value="150">150</option>
-                      <option value="300">300</option>
-                    </select>
-                  </label>
-                </div>
-                <p className="text-[9px] text-slate-400 leading-relaxed">
-                  {t('panel.dpiHint')}
-                </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() =>
-                      onExportImage('png', { scale: Number(imgScale), dpi: Number(imgDpi) })
-                    }
-                    className="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 flex justify-center items-center gap-1.5 transition-colors"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" /> PNG
-                  </button>
-                  <button
-                    onClick={() =>
-                      onExportImage('jpeg', {
-                        scale: Number(imgScale),
-                        jpegQuality: Number(imgJpegQuality),
-                        dpi: Number(imgDpi),
-                      })
-                    }
-                    className="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 flex justify-center items-center gap-1.5 transition-colors"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" /> JPG
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </Accordion>
-
-        <div className="mt-auto pt-2 flex flex-col gap-2 shrink-0">
-          <button
-            onClick={onClearBoard}
-            className="w-full py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 font-bold rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
-          >
-            <Eraser className="w-4 h-4" />{' '}
-            {mode === 'edit' ? t('panel.clearBoardPattern') : t('panel.clearBoard')}
-          </button>
-          {mode === 'edit' ? (
-            <div className="grid grid-cols-2 gap-1.5">
+            ) : (
               <button
-                onClick={onCancelEditing}
-                className="py-2.5 bg-white hover:bg-slate-100 text-slate-600 font-bold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors text-sm"
-                title={t('panel.cancelEditTitle')}
+                onClick={onAutoSolve}
+                className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
               >
-                <X className="w-4 h-4" /> {t('panel.cancelEdit')}
+                <Check className="w-4 h-4" /> {t('panel.autoSolve')}
               </button>
-              <button
-                onClick={onFinishEditing}
-                className="py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
-              >
-                <Check className="w-4 h-4" /> {t('panel.finishPlay')}
-              </button>
+            )}
+            <div className="flex items-center gap-1 pt-1.5 mt-1 border-t border-slate-100">
+              {footerActions.map(({ key, Icon, title, onClick }) => (
+                <button
+                  key={key}
+                  onClick={onClick}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  title={title}
+                >
+                  <Icon className="w-4 h-4" />
+                </button>
+              ))}
             </div>
-          ) : (
-            <button
-              onClick={onAutoSolve}
-              className="w-full py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors text-sm"
-            >
-              <Check className="w-4 h-4" /> {t('panel.autoSolve')}
-            </button>
-          )}
-          <div className="flex items-center gap-1 pt-1.5 mt-1 border-t border-slate-100">
-            {footerActions.map(({ key, Icon, title, onClick }) => (
-              <button
-                key={key}
-                onClick={onClick}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                title={title}
-              >
-                <Icon className="w-4 h-4" />
-              </button>
-            ))}
           </div>
         </div>
       </div>
 
-        </div>
-
-        {/* 移动端底部导航 */}
-        <div className="md:hidden flex border-t border-slate-200 bg-white shrink-0 sticky bottom-0">
-          {[
-            { key: 'game', label: t('panel.tabs.game'), Icon: MousePointerClick },
-            { key: 'import', label: t('panel.tabs.import'), Icon: FileSymlink },
-          ].map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors ${
-                activeTab === key ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          ))}
-        </div>
-        {/* 桌面端：拖拽调整侧边栏宽度 */}
-        <div
-          onPointerDown={startResize}
-          className="hidden md:block absolute top-0 right-0 h-full w-1.5 cursor-col-resize z-50 bg-transparent hover:bg-indigo-300/60 active:bg-indigo-400/60 transition-colors"
-          title={t('panel.dragPanel')}
-        />
+      {/* 移动端底部导航 */}
+      <div className="md:hidden flex border-t border-slate-200 bg-white shrink-0 sticky bottom-0">
+        {[
+          { key: 'game', label: t('panel.tabs.game'), Icon: MousePointerClick },
+          { key: 'import', label: t('panel.tabs.import'), Icon: FileSymlink },
+        ].map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex-1 py-2.5 flex flex-col items-center gap-0.5 text-[10px] font-bold transition-colors ${
+              activeTab === key ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+      {/* 桌面端：拖拽调整侧边栏宽度 */}
+      <div
+        onPointerDown={startResize}
+        className="hidden md:block absolute top-0 right-0 h-full w-1.5 cursor-col-resize z-50 bg-transparent hover:bg-indigo-300/60 active:bg-indigo-400/60 transition-colors"
+        title={t('panel.dragPanel')}
+      />
     </div>
     </>
   );
