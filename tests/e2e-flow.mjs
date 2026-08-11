@@ -20,7 +20,9 @@ const check = (name, ok, extra = '') => {
 };
 
 await page.goto(BASE, { waitUntil: 'networkidle', timeout: 30000 });
-await page.waitForTimeout(1500);
+await page.evaluate(() => localStorage.setItem('nonogram_intro_seen', '1'));
+await page.reload({ waitUntil: 'networkidle', timeout: 30000 });
+await page.waitForTimeout(800);
 
 // 0) 侧边栏默认固定可见，供后续步骤直接操作
 const panelTitle = page.locator('h1', { hasText: '数织解谜' });

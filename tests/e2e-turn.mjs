@@ -24,6 +24,7 @@ const check = (name, ok, extra = '') => {
 const emptyGrid = Array.from({ length: 5 }, () => new Array(5).fill(0));
 await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
 await page.evaluate((grid) => {
+  localStorage.setItem('nonogram_intro_seen', '1');
   localStorage.setItem('nonogram_master_save', JSON.stringify({
     mode: 'play',
     rows: 5,

@@ -9,6 +9,7 @@ import ImageToPuzzle from './components/ImageToPuzzle.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import LanguageSwitcher from './components/LanguageSwitcher.jsx';
 import AuthModal from './components/AuthModal.jsx';
+import IntroModal from './components/IntroModal.jsx';
 import './App.css';
 import { useI18n } from './i18n/index.js';
 
@@ -18,6 +19,17 @@ export default function NonogramApp() {
   const [browseOpen, setBrowseOpen] = useState(false);
   const [imageImportOpen, setImageImportOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [introOpen, setIntroOpen] = useState(() => {
+    try {
+      if (!localStorage.getItem('nonogram_intro_seen')) {
+        localStorage.setItem('nonogram_intro_seen', '1');
+        return true;
+      }
+    } catch {
+      // 忽略存储失败
+    }
+    return false;
+  });
 
   const showTooltip = g.showMeasure || g.showHoverRow || g.showHoverCol;
   const hoverOnlyRow = g.showHoverRow && !g.showHoverCol;
@@ -90,6 +102,7 @@ export default function NonogramApp() {
         onCancelEditing={g.cancelEditing}
         onFinishEditing={g.finishEditing}
         onOpenImageImport={() => setImageImportOpen(true)}
+        onOpenIntro={() => setIntroOpen(true)}
         user={g.user}
         authBusy={g.authBusy}
         onOpenAuth={() => setAuthOpen(true)}
@@ -177,6 +190,9 @@ export default function NonogramApp() {
           authBusy={g.authBusy}
         />
       )}
+
+      {/* 新手引导 / 帮助 */}
+      <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} />
 
       {/* 棋盘区域 */}
       <div

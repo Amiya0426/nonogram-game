@@ -35,6 +35,8 @@ import {
   UserRound,
   LogIn,
   LogOut,
+  HelpCircle,
+  Upload,
   ClipboardPaste,
   Minus,
   Plus,
@@ -45,6 +47,13 @@ import Accordion from './Accordion.jsx';
 import FileDropZone from './FileDropZone.jsx';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
 import { useI18n } from '../i18n/index.js';
+
+/** GitHub 图标（lucide 已移除品牌图标，内联 SVG） */
+const GithubIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2.17c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.83 1.18 3.09 0 4.42-2.69 5.39-5.25 5.68.41.35.78 1.05.78 2.12v3.14c0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
+  </svg>
+);
 
 /** 左侧控制面板：所有折叠区与按钮 */
 const SidePanel = ({
@@ -61,6 +70,7 @@ const SidePanel = ({
   onCancelEditing,
   onFinishEditing,
   onOpenImageImport,
+  onOpenIntro,
   user,
   onOpenAuth,
   onLogout,
@@ -111,6 +121,23 @@ const SidePanel = ({
   const { t } = useI18n();
   const [ioTab, setIoTab] = useState('import');
   const [activeTab, setActiveTab] = useState('game');
+
+  /** 左下角快捷按钮（可扩展） */
+  const footerActions = [
+    {
+      key: 'help',
+      Icon: HelpCircle,
+      title: t('panel.help'),
+      onClick: onOpenIntro,
+    },
+    {
+      key: 'github',
+      Icon: GithubIcon,
+      title: t('panel.github'),
+      onClick: () => window.open('https://github.com/Amiya0426/nonogram-game', '_blank', 'noopener'),
+    },
+  ];
+
   const [imgScale, setImgScale] = useState('2');
   const [imgJpegQuality, setImgJpegQuality] = useState('0.9');
   const [imgDpi, setImgDpi] = useState('96');
@@ -787,7 +814,7 @@ const SidePanel = ({
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <ClipboardCopy className="w-3.5 h-3.5" /> {t('panel.exportTab')}
+              <Upload className="w-3.5 h-3.5" /> {t('panel.exportTab')}
             </button>
           </div>
 
@@ -1014,6 +1041,18 @@ const SidePanel = ({
               <Check className="w-4 h-4" /> {t('panel.autoSolve')}
             </button>
           )}
+          <div className="flex items-center gap-1 pt-1.5 mt-1 border-t border-slate-100">
+            {footerActions.map(({ key, Icon, title, onClick }) => (
+              <button
+                key={key}
+                onClick={onClick}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                title={title}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

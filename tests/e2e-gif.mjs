@@ -42,6 +42,7 @@ const solved = {
 
 await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
 await page.evaluate((save) => {
+  localStorage.setItem('nonogram_intro_seen', '1');
   localStorage.setItem('nonogram_master_save', JSON.stringify(save));
 }, solved);
 await page.reload({ waitUntil: 'networkidle' });
