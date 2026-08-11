@@ -44,6 +44,33 @@ const FloatingTimer = ({
     if (c && w) setPos({ left: c.clientWidth - w.offsetWidth - 12, top: 12 });
   }, [pos]);
 
+  // 位置约束：widget 尺寸变化（如出现复盘按钮）或窗口缩放时，防止被顶出可视区域
+  useEffect(() => {
+    const container = containerRef.current;
+    const widget = widgetRef.current;
+    if (!container || !widget) return undefined;
+    const clamp = () => {
+      setPos((p) => {
+        if (!p) return p;
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+        const ww = widget.offsetWidth;
+        const wh = widget.offsetHeight;
+        const left = Math.min(Math.max(0, p.left), Math.max(0, cw - ww - 12));
+        const top = Math.min(Math.max(0, p.top), Math.max(0, ch - wh - 12));
+        if (left === p.left && top === p.top) return p;
+        return { left, top };
+      });
+    };
+    const ro = new ResizeObserver(clamp);
+    ro.observe(widget);
+    window.addEventListener('resize', clamp);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', clamp);
+    };
+  }, []);
+
   const onPointerDown = (e) => {
     if (e.target.closest('button')) return;
     const p = posRef.current;
@@ -84,29 +111,31 @@ const FloatingTimer = ({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         style={pos ? { left: pos.left, top: pos.top } : { top: 12, right: 12 }}
-        className="absolute z-20 pointer-events-auto flex items-center gap-2 bg-white border border-slate-200 rounded-xl shadow-md px-3 py-2 cursor-move select-none"
+        className="absolute z-20 pointer-events-auto flex flex-col gap-1.5 bg-white border border-slate-200 rounded-xl shadow-md px-3 py-2 cursor-move select-none"
         title={t('timer.drag')}
       >
-        <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
-        <span className="font-mono text-base font-bold text-slate-800 tabular-nums">
-          {formatTime(timerSeconds)}
-        </span>
-        <button
-          onClick={togglePauseTimer}
-          className={`p-1.5 rounded-lg border transition-colors ${
-            timerRunning
-              ? 'bg-amber-100 text-amber-700 border-amber-200'
-              : 'bg-emerald-100 text-emerald-700 border-emerald-200'
-          }`}
-          title={timerRunning ? t('timer.pause') : t('timer.resume')}
-        >
-          {timerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
+          <span className="font-mono text-base font-bold text-slate-800 tabular-nums">
+            {formatTime(timerSeconds)}
+          </span>
+          <button
+            onClick={togglePauseTimer}
+            className={`p-1.5 rounded-lg border transition-colors ${
+              timerRunning
+                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+            }`}
+            title={timerRunning ? t('timer.pause') : t('timer.resume')}
+          >
+            {timerRunning ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          </button>
+        </div>
         {isSolvedStatus && (
           <button
             onClick={generateReplayGif}
             disabled={isGeneratingGif}
-            className="px-2.5 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg text-xs font-bold flex items-center gap-1 border border-violet-200 disabled:opacity-50 transition-colors"
+            className="w-full px-2.5 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border border-violet-200 disabled:opacity-50 transition-colors"
             title={t('timer.gifTitle')}
           >
             <Film className="w-3.5 h-3.5" />{' '}
