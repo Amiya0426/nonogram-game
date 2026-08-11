@@ -1584,22 +1584,32 @@ export default function useGameState() {
     try {
       if (data.startsWith('http://') || data.startsWith('https://')) {
         setAlertMsg(tr('msg.proxying'));
-        const proxies = [
-          `https://api.allorigins.win/get?url=${encodeURIComponent(data)}`,
-          `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(data)}`,
-        ];
         let html = null;
-        for (const proxy of proxies) {
-          try {
-            const response = await fetch(proxy);
-            if (response.ok) {
-              html = proxy.includes('allorigins')
-                ? (await response.json()).contents
-                : await response.text();
-              if (html && html.includes('<html')) break;
+        // 生产环境由后端 /api/fetch-url 代理（CSP connect-src 保持 'self'）
+        try {
+          const r = await api.fetchUrl(data);
+          html = r.html;
+        } catch (e) {
+          // 后端明确拒绝（如非法/受限地址）时直接报错；仅在后端不可达时回退第三方代理
+          if (e.status) throw e;
+        }
+        if (!html) {
+          const proxies = [
+            `https://api.allorigins.win/get?url=${encodeURIComponent(data)}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(data)}`,
+          ];
+          for (const proxy of proxies) {
+            try {
+              const response = await fetch(proxy);
+              if (response.ok) {
+                html = proxy.includes('allorigins')
+                  ? (await response.json()).contents
+                  : await response.text();
+                if (html && html.includes('<html')) break;
+              }
+            } catch {
+              console.warn('Proxy fetch attempt failed, trying next proxy.');
             }
-          } catch {
-            console.warn('Proxy fetch attempt failed, trying next proxy.');
           }
         }
         if (!html || !html.includes('<html')) {

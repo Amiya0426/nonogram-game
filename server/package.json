@@ -7,7 +7,10 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test:smoke": "node smoke-test.mjs",
+    "test:progress": "node progress-test.mjs",
+    "test": "node smoke-test.mjs && node progress-test.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

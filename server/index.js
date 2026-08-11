@@ -3,7 +3,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { BlockList } from 'node:net';
+import { BlockList, isIP } from 'node:net';
+import dns from 'node:dns/promises';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { db } from './db.js';
@@ -62,6 +63,113 @@ const runSolverInWorker = (puzzle, options) =>
       resolve({ count: 0, timeout: true });
     });
   });
+
+// ---------- 网页源码抓取代理（供“URL 导入”，带 SSRF 防护） ----------
+const FETCH_URL_MAX_BYTES = 2 * 1024 * 1024;
+const FETCH_URL_TIMEOUT_MS = 10000;
+const FETCH_URL_MAX_REDIRECTS = 3;
+
+/** 判断 IP 是否属于内网/回环/链路本地/保留段，是则不允许代理访问 */
+const isBlockedIp = (ip) => {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true; // link-local
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a === 0 || a >= 224) return true; // 保留/组播/广播
+    return false;
+  }
+  if (isIP(ip) === 6) {
+    const lower = ip.toLowerCase();
+    if (lower === '::' || lower === '::1') return true;
+    const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) return isBlockedIp(mapped[1]);
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7 ULA
+    if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // fe80::/10
+    if (lower.startsWith('2001:db8')) return true; // 文档段
+    return false;
+  }
+  return true;
+};
+
+const fetchUrlError = (i18nKey) => Object.assign(new Error(i18nKey), { i18nKey });
+
+/** 校验目标 URL 协议与主机，禁止访问内网/回环地址 */
+const assertSafeFetchUrl = async (url) => {
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    throw fetchUrlError('puzzle.fetch_url_invalid');
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw fetchUrlError('puzzle.fetch_url_invalid');
+  }
+  if (u.username || u.password) {
+    throw fetchUrlError('puzzle.fetch_url_invalid');
+  }
+
+  const hostname = u.hostname.replace(/^\[|\]$/g, '');
+  if (isIP(hostname)) {
+    if (isBlockedIp(hostname)) throw fetchUrlError('puzzle.fetch_url_blocked');
+    return;
+  }
+
+  let addrs;
+  try {
+    addrs = await dns.lookup(hostname, { all: true });
+  } catch {
+    throw fetchUrlError('puzzle.fetch_url_failed');
+  }
+  if (!addrs.length || addrs.some(({ address }) => isBlockedIp(address))) {
+    throw fetchUrlError('puzzle.fetch_url_blocked');
+  }
+};
+
+/** 抓取网页源码（限重定向次数、限响应大小），返回 HTML 文本 */
+const fetchPageHtml = async (url) => {
+  let target = url;
+  for (let i = 0; i <= FETCH_URL_MAX_REDIRECTS; i++) {
+    await assertSafeFetchUrl(target);
+    const res = await fetch(target, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(FETCH_URL_TIMEOUT_MS),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NonogramBot/1.0)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+    });
+    const location = res.headers.get('location');
+    if (res.status >= 300 && res.status < 400 && location) {
+      await res.body?.cancel().catch(() => {});
+      target = new URL(location, target).toString();
+      continue;
+    }
+    if (!res.ok) {
+      await res.body?.cancel().catch(() => {});
+      throw fetchUrlError('puzzle.fetch_url_failed');
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw fetchUrlError('puzzle.fetch_url_failed');
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > FETCH_URL_MAX_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw fetchUrlError('puzzle.fetch_url_too_large');
+      }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  }
+  throw fetchUrlError('puzzle.fetch_url_failed');
+};
 
 /**
  * 校验并写入共享题库（带用户归属）。供导入接口与收藏夹保存共用：
@@ -477,27 +585,25 @@ app.put('/api/puzzles/:id/name', requireAuth, (req, res) => {
   res.json({ ok: true, id, name: newName });
 });
 
-/** 标记题目已完成（可选提交盘面，服务器用答案校验） */
+/** 标记题目已完成：必须提交盘面，服务器校验与线索一致后记录 */
 app.post('/api/puzzles/:id/complete', requireAuth, (req, res) => {
   const id = String(req.params.id || '');
   const row = db.prepare('SELECT * FROM puzzles WHERE id = ?').get(id);
   if (!row) return res.status(404).json({ error: msg(req, 'puzzle.not_found') });
 
   const grid = req.body?.grid;
-  if (grid) {
-    const p = normalizePuzzle({
-      rows: row.rows,
-      cols: row.cols,
-      rowClues: JSON.parse(row.row_clues),
-      colClues: JSON.parse(row.col_clues),
-      grid,
-    });
-    const stored = p ? gridMatchesClues(p) : false;
-    const answer = row.grid ? JSON.parse(row.grid) : null;
-    const matchesAnswer = answer ? JSON.stringify(answer) === JSON.stringify(grid) : false;
-    if (!stored && !matchesAnswer) {
-      return res.status(400).json({ error: msg(req, 'puzzle.grid_mismatch') });
-    }
+  if (!Array.isArray(grid)) {
+    return res.status(400).json({ error: msg(req, 'puzzle.grid_required') });
+  }
+  const p = normalizePuzzle({
+    rows: row.rows,
+    cols: row.cols,
+    rowClues: JSON.parse(row.row_clues),
+    colClues: JSON.parse(row.col_clues),
+    grid,
+  });
+  if (!p || !gridMatchesClues(p)) {
+    return res.status(400).json({ error: msg(req, 'puzzle.grid_mismatch') });
   }
 
   db.prepare(
@@ -522,6 +628,21 @@ app.get('/api/user/progress', requireAuth, (req, res) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
+});
+
+/** 网页源码抓取代理：让前端保持 connect-src 'self'，同时避免在浏览器里直连第三方 */
+app.post('/api/fetch-url', async (req, res) => {
+  const { url } = req.body || {};
+  if (typeof url !== 'string' || !/^https?:\/\//i.test(url.trim())) {
+    return res.status(400).json({ error: msg(req, 'puzzle.fetch_url_invalid') });
+  }
+  try {
+    const html = await fetchPageHtml(url.trim());
+    res.json({ ok: true, html });
+  } catch (e) {
+    const key = e?.i18nKey || 'puzzle.fetch_url_failed';
+    res.status(400).json({ error: msg(req, key) });
+  }
 });
 
 // ---------- 静态托管（直连 Express 时可用；生产走 Nginx） ----------

@@ -21,17 +21,29 @@ const check = (name, ok, extra = '') => {
 
 await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-// 1) 注册新用户（同源 API，带 cookie）
+// 1) 注册新用户（同源 API，带 cookie；先发验证码再注册）
 const uname = `auto_${Date.now()}`;
-const reg = await page.evaluate(async (u) => {
-  const r = await fetch('/api/auth/register', {
+const email = `auto_${Date.now()}@test.local`;
+const codeRes = await page.evaluate(async (mail) => {
+  const r = await fetch('/api/auth/send-code', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: u, password: 'Password123!' }),
+    body: JSON.stringify({ email: mail, mode: 'register' }),
     credentials: 'include',
   });
   return r.json();
-}, uname);
+}, email);
+check('发送验证码成功', !!codeRes.devCode, JSON.stringify(codeRes));
+
+const reg = await page.evaluate(async ({ username, password, mail, code }) => {
+  const r = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password, email: mail, code }),
+    credentials: 'include',
+  });
+  return r.json();
+}, { username: uname, password: 'Password123!', mail: email, code: codeRes.devCode });
 check('注册成功', !!reg.username);
 
 await page.reload({ waitUntil: 'networkidle' });
@@ -75,8 +87,27 @@ const progress = await page.evaluate(async () => {
 check('一键解题不计入解题记录', Array.isArray(progress) && progress.length === 0,
   `progress=${JSON.stringify(progress)}`);
 
-// 6) 对照：手动调用 complete 接口应能正常记录（验证记录机制本身没坏）
-const comp = await page.evaluate(async (id) => {
+// 6) 对照：导入一道带答案的题并手动 complete（验证记录机制本身没坏；空盘面应被拒绝）
+const knownPuzzle = {
+  rows: 5,
+  cols: 5,
+  rowCluesStr: ['1.1', '1.1.1', '1.1', '1.1', '1'],
+  colCluesStr: ['2', '1.1', '1.1', '1.1', '2'],
+  grid: [[0, 1, 0, 1, 0], [1, 0, 1, 0, 1], [1, 0, 0, 0, 1], [0, 1, 0, 1, 0], [0, 0, 1, 0, 0]],
+};
+const imported = await page.evaluate(async (p) => {
+  const r = await fetch('/api/puzzles/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ puzzle: p }),
+    credentials: 'include',
+  });
+  return r.json();
+}, knownPuzzle);
+const knownId = imported.results?.[0]?.id;
+check('带答案题目导入成功', !!knownId, JSON.stringify(imported));
+
+const rejected = await page.evaluate(async (id) => {
   const r = await fetch(`/api/puzzles/${id}/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,7 +115,20 @@ const comp = await page.evaluate(async (id) => {
     credentials: 'include',
   });
   return r.json();
-}, puzzle.id);
+}, knownId);
+check('空盘面完成被拒绝', !rejected.ok && !!rejected.error, JSON.stringify(rejected));
+
+const comp = await page.evaluate(async ({ id, grid }) => {
+  const r = await fetch(`/api/puzzles/${id}/complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grid }),
+    credentials: 'include',
+  });
+  return r.json();
+}, { id: knownId, grid: knownPuzzle.grid });
+check('手动完成可正常记录', comp.ok === true, JSON.stringify(comp));
+
 const progress2 = await page.evaluate(async () => {
   const r = await fetch('/api/user/progress', { credentials: 'include' });
   return r.json();

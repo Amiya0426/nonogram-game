@@ -43,6 +43,10 @@ export const api = {
   logout: () => request('/api/auth/logout', { method: 'POST' }),
   me: () => request('/api/auth/me'),
 
+  // 网页源码抓取（后端代理，避免浏览器直连第三方导致 CSP 拦截）
+  fetchUrl: (url) =>
+    request('/api/fetch-url', { method: 'POST', body: { url } }),
+
   // 题库
   listPuzzles: (params = {}) => {
     const qs = new URLSearchParams();

@@ -45,8 +45,16 @@ async function main() {
     log(`${ok ? 'PASS' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`);
   };
 
-  const uname = `smoke_${Date.now()}`;
-  let r = await req('/api/auth/register', 'POST', { username: uname, password: 'Password123!' });
+  const uname = `smk_${Date.now()}`;
+  const email = `smk_${Date.now()}@test.local`;
+  let r = await req('/api/auth/send-code', 'POST', { email, mode: 'register' });
+  log(`发码: ${r.status} devCode=${!!r.data.devCode}`);
+  r = await req('/api/auth/register', 'POST', {
+    username: uname,
+    password: 'Password123!',
+    email,
+    code: r.data.devCode,
+  });
   log(`注册: ${r.status}`);
   const uid = r.data?.id;
 
@@ -104,6 +112,9 @@ async function main() {
   );
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: uniquePuzzle.grid });
   log(`完成标记: ${r.status}`);
+  r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', {});
+  log(`空盘面完成(应400): ${r.status}`);
+  check('空盘面完成被拒绝', r.status === 400, `status=${r.status}`);
 
   r = await req('/api/puzzles?rows=5&cols=5&mine=1');
   log(`题库浏览(我导入): ${r.status} total=${r.data?.total}`);
@@ -116,6 +127,14 @@ async function main() {
   r = await req(`/api/puzzles/${uniquePuzzleId}/name`, 'PUT', { name: '我的题' });
   log(`题目改名: ${r.status} name=${r.data?.name}`);
   check('自己导入的题可改名', r.data?.name === '我的题', `name=${r.data?.name}`);
+
+  r = await req('/api/fetch-url', 'POST', { url: `http://127.0.0.1:${PORT}/api/health` });
+  log(`fetch-url 内网拦截: ${r.status}`);
+  check('fetch-url 拒绝内网地址', r.status === 400, `status=${r.status} error=${r.data?.error}`);
+
+  r = await req('/api/fetch-url', 'POST', { url: 'file:///etc/passwd' });
+  log(`fetch-url 非 http 协议: ${r.status}`);
+  check('fetch-url 拒绝非 http 协议', r.status === 400, `status=${r.status} error=${r.data?.error}`);
 
   r = await req(`/api/puzzles/${uniquePuzzleId}/complete`, 'POST', { grid: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]] });
   log(`错误盘面(应400): ${r.status}`);
