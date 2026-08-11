@@ -28,9 +28,11 @@ description: Nonogram 前端 UI、响应式布局与棋盘交互。用于修改 
 - 当前棋盘格子是 div，没有键盘格级导航与 ARIA；涉及可访问性改动时补齐 role/tabIndex/焦点管理，不要假装已支持。
 - 目前只有浅色主题；若加入深色主题，需在 nonogram-e2e 中补两套主题与对比度检查。
 
-## 视觉协作（不要重复造轮子）
+## 视觉协作（截图后必须用 Claude Vision 检查）
 
-- UI 改动影响布局/视觉时：用 `nonogram-e2e` 的视口矩阵截图，再用 `claude-vision-skill` 描述/检查截图（`node <skill目录>/vision.js "<png>" "<问题>"`），不要自己"看"图或重新实现识图。
+- UI 改动影响布局/视觉时：用 `nonogram-e2e` 的视口矩阵截图，然后必须调用 `claude-vision-skill` 检查截图：
+  `node <claude-vision-skill 目录>/vision.js "<png>" "<问题>"`（目录通常为 `~/.codex/skills/claude-vision-skill`）。
+- 不要自己“看”图、不要声称看不了图片、不要用 DOM 断言代替视觉检查；vision.js 的文字输出是视觉结论的来源。
 - 临时调试浏览器行为用 `webapp-testing`（通用 Playwright 工具包），不要新装视觉工具。
 - 保持视觉一致性：颜色取自既有色板/常量，新增样式先确认是否必要。
 

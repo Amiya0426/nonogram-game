@@ -34,12 +34,17 @@ description: Nonogram 真实浏览器端到端测试与视觉回归。用于修�
 - 深色主题：当前只有浅色；加入主题切换后再补两套检查
 - 棋盘核心操作可用：落子、打叉、拖拽、画笔、测量、缩放
 
-## 视觉回归工作流
+## 视觉回归工作流（截图后必须识图，不得跳过）
 
-1. 对每个视口截图（fullPage 或棋盘区域）。
-2. 用 `claude-vision-skill` 分析截图：`node <skill目录>/vision.js "<png>" "检查棋盘是否完整、clue 是否错位、是否有遮挡/溢出"`。
-3. 根据描述修复（通常属 nonogram-ui），再截图复验。
-4. 不重新实现识图能力；`webapp-testing` 提供通用 Playwright 辅助（服务器生命周期、示例脚本），本项目测试直接在 `tests/` 维护。
+1. 对每个视口截图（fullPage 或棋盘区域），保存为本地 png。
+2. 截图后必须立即调用 `claude-vision-skill` 识图，禁止自称“看不了图片”，也禁止改用 DOM 断言代替视觉确认：
+   ```
+   node <claude-vision-skill 目录>/vision.js "<截图路径>" "检查棋盘是否完整、clue 是否错位、是否有遮挡/溢出、移动端底部导航是否覆盖内容"
+   ```
+   skill 目录通常为 `~/.codex/skills/claude-vision-skill`（vision.js 输出文字描述）。
+3. 以 vision.js 的文字输出作为视觉结论；DOM 断言只能补充结构事实（元素存在、尺寸、属性），不能替代视觉检查。
+4. 根据描述修复（通常属 nonogram-ui），再截图复验，直到视觉检查通过。
+5. 不重新实现识图能力；`webapp-testing` 提供通用 Playwright 辅助（服务器生命周期、示例脚本），本项目测试直接在 `tests/` 维护。
 
 ## 验证
 

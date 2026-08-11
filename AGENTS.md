@@ -65,14 +65,17 @@
 - `webapp-testing` 提供通用 Playwright 调试辅助。
 - 不得重复实现识图能力，不得为了视觉检查新装工具。
 
+强制规则：截图后必须调用 `claude-vision-skill` 的 `vision.js` 识图（`node ~/.codex/skills/claude-vision-skill/vision.js "<png>" "<问题>"`）；模型不得以“看不了图片”为由跳过视觉检查，也不得改用 DOM 断言替代。流程固定为：截图 → vision.js 描述 → 修复 → 复验。
+
 ## 修改后验证流程
 
 1. 常规改动：`npm run lint`。
 2. 构建：`npm run build`。
-3. E2E：`npm run preview` 后 `npm run test:e2e`（`TEST_BASE` 可覆盖为其他环境）。
-4. 后端改动：用独立 `DATA_DIR` 跑 `server/smoke-test.mjs`、`server/progress-test.mjs`；注意 `api-smoke.mjs` 断言可能过时。
-5. 题库改动：`node tools/build-puzzle-db.mjs` 检查统计；改唯一解/ID 前先确认影响面。
-6. 部署：按 `nonogram-release` 门禁执行；数据库迁移前备份。
+3. 逻辑改动：`npm run test:unit`（`tests/unit/` 覆盖 `src/logic` 纯函数）。
+4. E2E：`npm run preview` 后 `npm run test:e2e`（`TEST_BASE` 可覆盖为其他环境）。
+5. 后端改动：用独立 `DATA_DIR` 跑 `server/smoke-test.mjs`、`server/progress-test.mjs`；注意 `api-smoke.mjs` 断言可能过时。
+6. 题库改动：`node tools/build-puzzle-db.mjs` 检查统计；改唯一解/ID 前先确认影响面。
+7. 部署：按 `nonogram-release` 门禁执行；数据库迁移前备份。
 
 ## 规则
 
