@@ -46,7 +46,7 @@ async function main() {
   };
 
   const uname = `smoke_${Date.now()}`;
-  let r = await req('/api/auth/register', 'POST', { username: uname, password: 'password123' });
+  let r = await req('/api/auth/register', 'POST', { username: uname, password: 'Password123!' });
   log(`注册: ${r.status}`);
   const uid = r.data?.id;
 

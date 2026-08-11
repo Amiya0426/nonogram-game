@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
+import { BlockList } from 'node:net';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { db } from './db.js';
@@ -31,6 +32,9 @@ import {
   clearEmailCode,
   checkSendCodeLimits,
   recordEmailSent,
+  recordAuthFailure,
+  clearAuthFailures,
+  recordSendViolation,
 } from './auth.js';
 import { sendEmailCode, isStubMailer } from './mailer.js';
 import { msg } from './i18n.js';
@@ -113,7 +117,41 @@ async function upsertPuzzleIntoLibrary(raw, userId) {
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', true);
+
+// 只信任本机 Nginx 与 Cloudflare 边缘节点，其余 X-Forwarded-For 一律视为伪造。
+// Node 已绑定 127.0.0.1，只有 Nginx 能连进来；Nginx 用 $proxy_add_x_forwarded_for
+// 在右侧追加真实对端 IP，因此 req.ip 会取到真实客户端（经 Cloudflare 时取到 CF-Connecting-IP 对应地址）。
+const CLOUDFLARE_IPS = new BlockList();
+for (const [ip, prefix, family] of [
+  ['173.245.48.0', 20, 'ipv4'],
+  ['103.21.244.0', 22, 'ipv4'],
+  ['103.22.200.0', 22, 'ipv4'],
+  ['103.31.4.0', 22, 'ipv4'],
+  ['141.101.64.0', 18, 'ipv4'],
+  ['108.162.192.0', 18, 'ipv4'],
+  ['190.93.240.0', 20, 'ipv4'],
+  ['188.114.96.0', 20, 'ipv4'],
+  ['197.234.240.0', 22, 'ipv4'],
+  ['198.41.128.0', 17, 'ipv4'],
+  ['162.158.0.0', 15, 'ipv4'],
+  ['104.16.0.0', 13, 'ipv4'],
+  ['104.24.0.0', 14, 'ipv4'],
+  ['172.64.0.0', 13, 'ipv4'],
+  ['131.0.72.0', 22, 'ipv4'],
+  ['2400:cb00::', 32, 'ipv6'],
+  ['2606:4700::', 32, 'ipv6'],
+  ['2803:f800::', 32, 'ipv6'],
+  ['2405:b500::', 32, 'ipv6'],
+  ['2405:8100::', 32, 'ipv6'],
+  ['2a06:98c0::', 29, 'ipv6'],
+  ['2c0f:f248::', 32, 'ipv6'],
+]) {
+  CLOUDFLARE_IPS.addSubnet(ip, prefix, family);
+}
+app.set('trust proxy', (address) => {
+  const normalized = address.startsWith('::ffff:') ? address.slice(7) : address;
+  return normalized === '127.0.0.1' || normalized === '::1' || CLOUDFLARE_IPS.check(address);
+});
 app.use(express.json({ limit: '5mb' }));
 app.use(cookieParser());
 
@@ -134,6 +172,7 @@ app.post('/api/auth/register', authRateLimit, (req, res) => {
     return res.status(400).json({ error: msg(req, 'auth.code_required') });
   }
   if (!verifyEmailCode(normalizedEmail, code.trim())) {
+    recordAuthFailure(req.ip);
     return res.status(400).json({ error: msg(req, 'auth.code_invalid') });
   }
 
@@ -164,11 +203,15 @@ app.post('/api/auth/send-code', authRateLimit, async (req, res) => {
   // 滥用防护：IP 每小时上限 / 每邮箱每日上限 / 全局每日与每月额度
   const guard = checkSendCodeLimits(req, normalized);
   if (!guard.ok) {
-    return res.status(429).json({ error: msg(req, guard.reason) });
+    if (guard.reason === 'auth.send_too_many' || guard.reason === 'auth.code_too_frequent') {
+      recordSendViolation(req.ip);
+    }
+    return res.status(429).json({ error: msg(req, guard.reason, guard.vars) });
   }
 
   const sent = sendEmailVerificationCode(normalized);
   if (!sent.ok) {
+    recordSendViolation(req.ip);
     return res.status(429).json({ error: msg(req, sent.reason) });
   }
   // 发送验证码邮件（Resend；未配置 API Key 时自动降级为桩模式）
@@ -202,6 +245,7 @@ app.post('/api/auth/reset-password', authRateLimit, (req, res) => {
     return res.status(400).json({ error: msg(req, 'auth.code_required') });
   }
   if (!verifyEmailCode(normalized, code.trim())) {
+    recordAuthFailure(req.ip);
     return res.status(400).json({ error: msg(req, 'auth.code_invalid') });
   }
 
@@ -221,8 +265,10 @@ app.post('/api/auth/login', authRateLimit, (req, res) => {
   }
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user || !verifyPassword(password, user.password_hash)) {
+    recordAuthFailure(req.ip);
     return res.status(401).json({ error: msg(req, 'auth.wrong_credentials') });
   }
+  clearAuthFailures(req.ip);
   const token = createSession(user.id);
   setSessionCookie(res, token);
   res.json({ id: user.id, username: user.username });

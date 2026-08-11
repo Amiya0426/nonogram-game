@@ -1,19 +1,20 @@
 // 服务端错误消息本地化：根据请求 Accept-Language 返回对应语言
 const zh = {
-  'auth.username_invalid': '用户名需为 2-32 位字母、数字、下划线或中文',
-  'auth.password_invalid': '密码长度需为 8-72 位',
+  'auth.username_invalid': '用户名需为 6-18 位字母、数字、下划线或中文',
+  'auth.password_invalid': '密码需为 8-16 位，且至少包含 1 个特殊字符',
   'auth.user_exists': '用户名已存在，请直接登录',
   'auth.credentials_required': '请输入用户名和密码',
   'auth.wrong_credentials': '用户名或密码错误',
   'auth.unauthorized': '未登录',
   'auth.session_expired': '会话已过期，请重新登录',
-  'auth.rate_limited': '尝试次数过多，请 15 分钟后再试',
+  'auth.rate_limited': '尝试次数过多，请 30 分钟后再试',
   'auth.email_invalid': '邮箱格式不正确',
   'auth.email_exists': '该邮箱已被注册',
   'auth.email_not_found': '该邮箱未注册',
   'auth.code_required': '请输入邮箱验证码',
   'auth.code_invalid': '验证码错误或已过期',
-  'auth.code_too_frequent': '发送过于频繁，请稍后再试',
+  'auth.code_too_frequent': '发送过于频繁，请 30 分钟后再试',
+  'auth.ip_banned': '该 IP 因异常行为被临时封禁，请 {minutes} 分钟后再试',
   'auth.email_quota': '今日/本月邮件额度已用完，请明天再试或联系管理员',
   'auth.email_send_failed': '邮件发送失败，请稍后再试',
   'auth.send_too_many': '验证码发送次数过多，请稍后再试',
@@ -33,20 +34,21 @@ const zh = {
 };
 
 const zhHant = {
-  'auth.username_invalid': '使用者名稱需為 2-32 位字母、數字、底線或中文',
-  'auth.password_invalid': '密碼長度需為 8-72 位',
+  'auth.username_invalid': '使用者名稱需為 6-18 位字母、數字、底線或中文',
+  'auth.password_invalid': '密碼需為 8-16 位，且至少包含 1 個特殊字元',
   'auth.user_exists': '使用者名稱已存在，請直接登入',
   'auth.credentials_required': '請輸入使用者名稱和密碼',
   'auth.wrong_credentials': '使用者名稱或密碼錯誤',
   'auth.unauthorized': '未登入',
   'auth.session_expired': '工作階段已過期，請重新登入',
-  'auth.rate_limited': '嘗試次數過多，請 15 分鐘後再試',
+  'auth.rate_limited': '嘗試次數過多，請 30 分鐘後再試',
   'auth.email_invalid': '信箱格式不正確',
   'auth.email_exists': '該信箱已被註冊',
   'auth.email_not_found': '該信箱未註冊',
   'auth.code_required': '請輸入信箱驗證碼',
   'auth.code_invalid': '驗證碼錯誤或已過期',
-  'auth.code_too_frequent': '傳送過於頻繁，請稍後再試',
+  'auth.code_too_frequent': '傳送過於頻繁，請 30 分鐘後再試',
+  'auth.ip_banned': '該 IP 因異常行為被暫時封禁，請 {minutes} 分鐘後再試',
   'auth.email_quota': '今日/本月郵件額度已用完，請明天再試或聯絡管理員',
   'auth.email_send_failed': '郵件傳送失敗，請稍後再試',
   'auth.send_too_many': '驗證碼傳送次數過多，請稍後再試',
@@ -66,20 +68,21 @@ const zhHant = {
 };
 
 const en = {
-  'auth.username_invalid': 'Username must be 2-32 letters, digits, underscores or Chinese characters',
-  'auth.password_invalid': 'Password must be 8-72 characters',
+  'auth.username_invalid': 'Username must be 6-18 letters, digits, underscores or Chinese characters',
+  'auth.password_invalid': 'Password must be 8-16 characters and include at least 1 special character',
   'auth.user_exists': 'Username already exists, please sign in directly',
   'auth.credentials_required': 'Please enter username and password',
   'auth.wrong_credentials': 'Incorrect username or password',
   'auth.unauthorized': 'Not signed in',
   'auth.session_expired': 'Session expired, please sign in again',
-  'auth.rate_limited': 'Too many attempts, please try again in 15 minutes',
+  'auth.rate_limited': 'Too many attempts, please try again in 30 minutes',
   'auth.email_invalid': 'Invalid email address',
   'auth.email_exists': 'This email is already registered',
   'auth.email_not_found': 'This email is not registered',
   'auth.code_required': 'Please enter the email verification code',
   'auth.code_invalid': 'Invalid or expired verification code',
-  'auth.code_too_frequent': 'Too many requests, please try again later',
+  'auth.code_too_frequent': 'Too many requests, please try again in 30 minutes',
+  'auth.ip_banned': 'This IP is temporarily blocked due to unusual activity, please try again in {minutes} minutes',
   'auth.email_quota': 'Email sending quota for today/this month has been reached. Please try again later',
   'auth.email_send_failed': 'Failed to send the email, please try again later',
   'auth.send_too_many': 'Too many verification code requests, please try again later',
@@ -99,20 +102,21 @@ const en = {
 };
 
 const ja = {
-  'auth.username_invalid': 'ユーザー名は 2〜32 文字の英字・数字・アンダースコア・日本語にしてください',
-  'auth.password_invalid': 'パスワードは 8〜72 文字にしてください',
+  'auth.username_invalid': 'ユーザー名は 6〜18 文字の英字・数字・アンダースコア・日本語にしてください',
+  'auth.password_invalid': 'パスワードは 8〜16 文字かつ特殊文字を1つ以上含む必要があります',
   'auth.user_exists': 'このユーザー名は既に登録されています。そのままログインしてください',
   'auth.credentials_required': 'ユーザー名とパスワードを入力してください',
   'auth.wrong_credentials': 'ユーザー名またはパスワードが正しくありません',
   'auth.unauthorized': 'ログインしていません',
   'auth.session_expired': 'セッションの有効期限が切れました。再度ログインしてください',
-  'auth.rate_limited': '試行回数が多すぎます。15分後にもう一度お試しください',
+  'auth.rate_limited': '試行回数が多すぎます。30分後にもう一度お試しください',
   'auth.email_invalid': 'メールアドレスの形式が正しくありません',
   'auth.email_exists': 'このメールアドレスは既に登録されています',
   'auth.email_not_found': 'このメールアドレスは登録されていません',
   'auth.code_required': 'メール認証コードを入力してください',
   'auth.code_invalid': '認証コードが正しくないか期限切れです',
-  'auth.code_too_frequent': '送信が頻繁すぎます。しばらくしてからお試しください',
+  'auth.code_too_frequent': '送信が頻繁すぎます。30分後にもう一度お試しください',
+  'auth.ip_banned': 'このIPは異常なアクティビティのため一時的にブロックされています。{minutes}分後にもう一度お試しください',
   'auth.email_quota': '本日/今月のメール送信上限に達しました。後ほどお試しください',
   'auth.email_send_failed': 'メールの送信に失敗しました。しばらくしてからお試しください',
   'auth.send_too_many': '認証コードの送信回数が多すぎます。しばらくしてからお試しください',
@@ -142,7 +146,10 @@ const pickLang = (req) => {
   return 'en';
 };
 
-export const msg = (req, key) => {
-  const dict = DICTS[pickLang(req)];
-  return dict?.[key] ?? zh[key] ?? key;
+export const msg = (req, key, vars) => {
+  const text = DICTS[pickLang(req)]?.[key] ?? zh[key] ?? key;
+  if (!vars) return text;
+  return String(text).replace(/\{(\w+)\}/g, (m, k) =>
+    vars[k] !== undefined ? vars[k] : m,
+  );
 };

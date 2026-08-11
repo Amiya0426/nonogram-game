@@ -69,7 +69,7 @@ const AuthModal = ({
   if (!open) return null;
 
   const startCodeCountdown = () => {
-    setCodeCountdown(60);
+    setCodeCountdown(30 * 60);
   };
 
   const handleSendCode = async (mode) => {
@@ -108,13 +108,17 @@ const AuthModal = ({
   };
 
   const submitRegister = async () => {
+    if (username.trim().length < 6 || username.trim().length > 18) {
+      setAuthMsg({ type: 'error', text: t('msg.usernameInvalid') });
+      return;
+    }
     const mail = email.trim();
     if (!EMAIL_RE.test(mail)) {
       setAuthMsg({ type: 'error', text: t('msg.emailInvalid') });
       return;
     }
-    if (password.length < 8) {
-      setAuthMsg({ type: 'error', text: t('msg.passwordTooShort') });
+    if (password.length < 8 || password.length > 16 || !/[^A-Za-z0-9]/.test(password)) {
+      setAuthMsg({ type: 'error', text: t('msg.passwordRule') });
       return;
     }
     if (!code.trim()) {
@@ -141,8 +145,8 @@ const AuthModal = ({
       setAuthMsg({ type: 'error', text: t('msg.codeRequired') });
       return;
     }
-    if (password.length < 8) {
-      setAuthMsg({ type: 'error', text: t('msg.passwordTooShort') });
+    if (password.length < 8 || password.length > 16 || !/[^A-Za-z0-9]/.test(password)) {
+      setAuthMsg({ type: 'error', text: t('msg.passwordRule') });
       return;
     }
     if (password !== confirm) {
@@ -206,7 +210,9 @@ const AuthModal = ({
         disabled={codeSending || codeCountdown > 0 || authBusy}
         className="shrink-0 px-3 py-2 text-xs font-bold rounded-lg border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {codeCountdown > 0 ? `${codeCountdown}s` : t('panel.sendCode')}
+        {codeCountdown > 0
+          ? `${Math.floor(codeCountdown / 60)}:${String(codeCountdown % 60).padStart(2, '0')}`
+          : t('panel.sendCode')}
       </button>
     </div>
   );
@@ -235,6 +241,14 @@ const AuthModal = ({
         {t('msg.passwordStrength')}: {strengthMeta.label}
       </span>
     </div>
+  );
+
+  const ruleLengthOk = password.length >= 8 && password.length <= 16;
+  const ruleSpecialOk = /[^A-Za-z0-9]/.test(password);
+  const ruleCheck = (ok, label) => (
+    <span className={ok ? 'text-emerald-600' : 'text-rose-500'}>
+      {ok ? '✓' : '✗'} {label}
+    </span>
   );
 
   const titles = {
@@ -362,6 +376,12 @@ const AuthModal = ({
                 () => {},
               )}
               {password && strengthMeter}
+              {password && (
+                <div className="flex flex-col gap-0.5 text-[10px]">
+                  {ruleCheck(ruleLengthOk, t('msg.pwdRuleLength'))}
+                  {ruleCheck(ruleSpecialOk, t('msg.pwdRuleSpecial'))}
+                </div>
+              )}
               {passwordInput(
                 confirm,
                 setConfirm,
@@ -386,6 +406,12 @@ const AuthModal = ({
                 () => {},
               )}
               {password && strengthMeter}
+              {password && (
+                <div className="flex flex-col gap-0.5 text-[10px]">
+                  {ruleCheck(ruleLengthOk, t('msg.pwdRuleLength'))}
+                  {ruleCheck(ruleSpecialOk, t('msg.pwdRuleSpecial'))}
+                </div>
+              )}
               {passwordInput(
                 confirm,
                 setConfirm,

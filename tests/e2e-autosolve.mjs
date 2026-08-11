@@ -27,7 +27,7 @@ const reg = await page.evaluate(async (u) => {
   const r = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: u, password: 'password123' }),
+    body: JSON.stringify({ username: u, password: 'Password123!' }),
     credentials: 'include',
   });
   return r.json();
