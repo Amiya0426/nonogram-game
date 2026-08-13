@@ -205,7 +205,7 @@ nginx -t && systemctl reload nginx
 本机已配置 SSH 免密登录后，可用 `deploy.ps1` 自动完成 lint → build → 上传 → PM2 重启 → 提交 GitHub：
 
 ```powershell
-$env:NONOGRAM_SERVER="YOUR_SERVER_IP"   # 必填，服务器地址不写入仓库
+$env:NONOGRAM_SERVER="nonogram"   # 必填，对应 ~/.ssh/config 的 Host 别名（主机/端口/密钥只存本机）
 powershell -File deploy.ps1 "部署说明"
 ```
 
@@ -223,7 +223,7 @@ powershell -File deploy.ps1 "部署说明"
 | `PORT` | 后端监听端口 | `3000` |
 | `DATA_DIR` | SQLite 数据目录 | `server/data` |
 | `SECURE_COOKIE` | 开启后会话 Cookie 仅 HTTPS 传输 | 空 |
-| `NONOGRAM_SERVER` | deploy.ps1 部署目标服务器地址 | 必填 |
+| `NONOGRAM_SERVER` | deploy.ps1 部署目标（~/.ssh/config 的 Host 别名，如 `nonogram`） | 必填 |
 | `TEST_BASE` | 端到端测试目标地址 | `http://localhost:4173` |
 
 ## 许可证
