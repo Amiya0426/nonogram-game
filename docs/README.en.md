@@ -1,91 +1,37 @@
 # Nonogram
 
-> **[简体中文](../README.md)** · **[繁體中文](README.zh-Hant.md)** · **[日本語](README.ja.md)**
-
-A complete browser-based Nonogram (Paint by Numbers) puzzle game: play, deduction, custom puzzles, puzzle library browsing, user accounts, and GIF replays.
+A full-featured browser-based Nonogram (Paint by Numbers) puzzle game: play, deduction, custom puzzles, library browsing, user accounts, and GIF replays.
 
 > Online: <https://nonogram.amiya1223.top>
+>
+> **[简体中文](../README.md)** · **[繁體中文](README.zh-Hant.md)** · **[日本語](README.ja.md)**
 
 ## Features
 
-- **Play & Deduction**: classic Nonogram gameplay with cycle/paint modes, multi-level deduction, error checking, checkpoints, smart hints, and auto-solve.
-- **Custom Puzzles**: draw a pattern to auto-generate clues, or enter row/column clues manually; export saves/images/codes to share.
-- **User System**: sign up / sign in / sign out; track solved count and size stats.
-- **Puzzle Library Browser**: paginated browsing with size filtering, completion markers, and filters for "my imports" / "completed".
-- **Server Puzzle Library**: 9000+ built-in unique-solution puzzles (5×5 ~ 80×80); random draw supports exact size or size range with de-duplication.
-- **Puzzle Import**: import from files / codes / page source; the server validates format and unique solution before adding to the library.
-- **Timer & Replay**: timing starts on your first move and can be paused; after solving, generate a GIF replay in move order.
-- **Responsive**: desktop sidebar with accordions; mobile full-screen drawer with bottom tab navigation.
-- **i18n**: Simplified Chinese, Traditional Chinese, English and Japanese, with an extensible language pack system (more languages can be added easily).
+- Classic Nonogram play: cycle/paint modes, multi-level deduction, error checking, smart hints, and one-click solve (full solver)
+- Custom puzzles: draw a pattern or enter clues manually, image-to-pattern, export saves/images/code to share
+- User system: register / sign in / forgot password (email verification code), solved-count stats
+- Library: 9000+ unique-solution puzzles (5×5 ~ 80×80), size filtering, random draw, "my imports" / "completed" markers
+- Import: files / codes / page source, validated for format and unique solution by the server
+- Timer & GIF replay: timing starts on your first move, pausable; generates a replay GIF after solving
+- i18n & responsive: Simplified Chinese / Traditional Chinese / English / Japanese; desktop sidebar + mobile drawer and bottom navigation
 
 ## Tech Stack
 
 | Layer | Tech |
 | --- | --- |
 | Frontend | React 19, Vite 8, Tailwind CSS, lucide-react |
-| Backend | Express 5, Node built-in `node:sqlite` (zero native dependencies) |
-| Database | SQLite (`server/data/app.db`, auto-migrated) |
-| GIF | gifenc (pure client-side encoding, no network dependency) |
-| Tests | Playwright + system Edge (headless E2E) |
+| Backend | Express 5, Node built-in `node:sqlite` (Node 24+) |
+| Tests | Node built-in test runner (unit) + Playwright/Edge (E2E) + server smoke |
+| Deploy | Nginx, PM2, Cloudflare (proxy + Origin cert), GitHub Actions CI |
 
-## Project Structure
+## Quick Start
 
-```
-nonogram-game/
-├── index.html               # Entry HTML
-├── src/                     # Frontend source
-│   ├── main.jsx             # React mount entry
-│   ├── App.jsx              # Layout and component assembly
-│   ├── constants.js         # Theme, presets, board limits
-│   ├── api.js               # Backend API wrapper
-│   ├── i18n/                # Language packs (zh / zh-Hant / en / ja, extensible)
-│   ├── hooks/
-│   │   └── useGameState.js  # Global state and business logic
-│   ├── logic/               # Pure functions (no React dependency)
-│   │   ├── board.js         # Board data utilities
-│   │   ├── clues.js         # Clue parsing / completion / auto-highlight
-│   │   ├── solver.js        # Nonogram solver
-│   │   ├── importer.js      # Page-source puzzle extraction
-│   │   ├── exporter.js      # Save / JSON / image export
-│   │   ├── gifReplay.js     # GIF replay generation
-│   │   ├── storage.js       # localStorage wrapper
-│   │   └── theme.js         # Deduction-mode styling helpers
-│   └── components/          # Board, sidebar, clue bars, modals
-├── server/                  # Backend (Express + SQLite)
-│   ├── index.js             # API routes (library / browse / users / progress)
-│   ├── auth.js              # Sessions and password hashing
-│   ├── db.js                # SQLite schema and connection
-│   ├── puzzle-lib.js        # Validation / unique-solution check / numeric IDs
-│   ├── i18n.js              # Server error localization
-│   ├── import-puzzles.mjs   # Bulk library import script
-│   └── data/                # SQLite data files (runtime, not committed)
-├── tools/                   # Puzzle collection & build scripts
-│   ├── fetch-webpbn.py      # webpbn downloader
-│   ├── convert-puzzlekit.py # puzzlekit dataset converter
-│   ├── merge-puzzle-data.py # Multi-source merge by size
-│   ├── build-puzzle-db.mjs  # Validate unique solutions and generate import file
-│   └── puzzle-data/         # Puzzle data (JSONL)
-├── tests/                   # Playwright E2E tests
-│   ├── e2e-load.mjs         # Page loads without errors
-│   ├── e2e-flow.mjs         # Timer / random draw / pause interactions
-│   ├── e2e-gif.mjs          # Solved state and GIF download
-│   ├── e2e-autosolve.mjs    # Auto-solve does not count as progress
-│   └── e2e-turn.mjs         # Rotation cross recording merge
-├── deploy/                  # Server deployment helpers
-│   ├── nonogram.conf        # Nginx config (HTTP→HTTPS / reverse proxy / SPA)
-│   ├── setup-server.sh      # Server initialization script
-│   └── check-cert-chain.sh  # Certificate chain check
-├── deploy.ps1               # One-click deploy script (requires NONOGRAM_SERVER)
-└── package.json
-```
-
-## Local Development
-
-Prerequisite: Node.js **24+** (backend uses the built-in `node:sqlite`).
+Prerequisite: Node.js **24+** (the backend needs `node:sqlite`).
 
 ```bash
-npm install        # install dependencies
-npm run dev        # start Vite dev server (/api proxied to localhost:3000)
+npm install          # install dependencies
+npm run dev          # start the frontend (/api proxied to localhost:3000)
 ```
 
 Start the backend in another terminal:
@@ -93,112 +39,59 @@ Start the backend in another terminal:
 ```bash
 cd server
 npm install
-npm start          # listens on 3000, creates data/app.db automatically
+npm start            # listens on 3000, creates server/data/app.db automatically
 ```
 
-## Build & Test
+## Tests
 
 ```bash
-npm run build      # production build → dist/
-npm run lint       # ESLint
-npm run test:e2e   # E2E tests (deploy first or set TEST_BASE)
+npm run lint        # ESLint
+npm run build       # production build
+npm run test:unit   # unit tests
+npm run test:e2e    # end-to-end tests
 ```
 
-E2E tests target `http://localhost:4173` by default (`vite preview`). Use an env var for other environments:
+Note: `vite preview` does not proxy `/api`; start the backend before running E2E:
 
 ```bash
-$env:TEST_BASE="https://your.domain"   # PowerShell
-TEST_BASE=https://your.domain npm run test:e2e   # Linux/macOS
+node server/index.js   # use DATA_DIR=<temp dir> for tests
+$env:TEST_BASE="http://127.0.0.1:3000"; npm run test:e2e
 ```
 
 ## Deployment
 
-### 1. Server Setup
+### One-click deploy (recommended)
 
-Example with a cloud ECS (2 vCPU / 2GB, Ubuntu/Debian/CentOS):
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt-get install -y nodejs nginx
-npm install -g pm2
-```
-
-Upload `deploy/setup-server.sh` to `/opt/nonogram/` and run it; the script installs backend dependencies, configures Nginx, starts PM2, and opens firewall ports.
-
-### 2. Build & Upload
-
-```bash
-npm run build
-```
-
-Upload `dist/` and `server/` to the server:
-
-```bash
-scp -r dist/* root@YOUR_SERVER:/opt/nonogram/dist/
-scp server/* root@YOUR_SERVER:/opt/nonogram/server/
-```
-
-### 3. Initialize the Library (optional, recommended)
-
-Library data is in `tools/puzzle-data/import.jsonl` (9000+ unique puzzles). Import it after uploading:
-
-```bash
-cd /opt/nonogram/server
-node import-puzzles.mjs /path/to/import.jsonl
-```
-
-To rebuild the library from raw data:
-
-```bash
-node tools/build-puzzle-db.mjs
-```
-
-### 4. Start Services & Nginx
-
-```bash
-cd /opt/nonogram/server
-pm2 start index.js --name nonogram-api
-pm2 save && pm2 startup
-```
-
-`deploy/nonogram.conf` reverse-proxies `/api` to port 3000 and serves static files:
-
-```bash
-cp deploy/nonogram.conf /etc/nginx/conf.d/nonogram.conf
-nginx -t && systemctl reload nginx
-```
-
-### 5. HTTPS Certificate (Cloudflare Origin, 15 years)
-
-The site is accessed through Cloudflare; the origin uses a Cloudflare Origin CA certificate (15 years, no renewal):
-
-1. Cloudflare dashboard → **SSL/TLS → Origin Server → Create Certificate**, hostname `example.com` (or `*.example.com`), validity 15 years, download the PEM (full chain).
-2. Upload to the origin:
-   - Certificate (with chain): `/etc/nginx/ssl/example.com.crt`
-   - Private key: `/etc/nginx/ssl/example.com.key` (mode 600)
-3. Reload Nginx:
-   ```bash
-   nginx -t && systemctl reload nginx
-   ```
-4. Set Cloudflare **SSL/TLS mode to Full (strict)**; run `deploy/check-cert-chain.sh` to verify the chain (leaf + Cloudflare Origin CA root = 2 certs, SAN covers `example.com`).
-
-> Note: Origin certificates only work through Cloudflare; no acme.sh / Let's Encrypt or renewal cron is needed. If the origin is on a mainland China cloud server (Tencent/Aliyun), an ICP filing is required first — otherwise the provider blocks HTTP/HTTPS access to the domain (shown as Cloudflare 525 or a 403 block page).
-
-### 6. One-Click Deploy (optional)
-
-With SSH key auth configured locally, `deploy.ps1` runs lint → build → upload → PM2 restart → GitHub commit:
+Configure SSH locally (the `nonogram` alias in `~/.ssh/config`; host/port/key stay local only), then:
 
 ```powershell
-$env:NONOGRAM_SERVER="YOUR_SERVER_IP"   # required, not stored in the repo
+$env:NONOGRAM_SERVER="nonogram"
 powershell -File deploy.ps1 "deploy message"
 ```
 
-### 7. Security Notes
+The script runs: lint → build → upload (clearing the server's dist first) + shared/server files → PM2 restart → health check → commit & push to GitHub.
 
-- Use SSH keys and disable root password login;
-- After enabling HTTPS, set `SECURE_COOKIE=1`;
-- Back up `server/data/app.db` regularly (e.g., cron);
-- Complete ICP filing for public services in mainland China, and open only ports 80/443 in the firewall.
+### Server setup
+
+Upload and run `deploy/setup-server.sh` (installs backend dependencies, configures Nginx, starts PM2, opens firewall ports), then put `deploy/nonogram.conf` in `/etc/nginx/conf.d/` and run `nginx -t && systemctl reload nginx`.
+
+### Certificate & Cloudflare
+
+The site is served through Cloudflare; the origin uses a **Cloudflare Origin certificate** (15 years, no renewal). Place the cert/key in `/etc/nginx/ssl/`, set Cloudflare SSL mode to **Full (strict)**, and verify the chain with `deploy/check-cert-chain.sh`.
+
+### Initialize the library
+
+```bash
+node tools/build-puzzle-db.mjs   # validate unique solutions, generate tools/puzzle-data/import.jsonl
+cd server && node import-puzzles.mjs /path/to/import.jsonl   # per-puzzle validation before insert (back up the DB first)
+```
+
+## Security Notes
+
+- Use SSH key login and disable password login; restrict firewall sources to needed ports
+- Set `SECURE_COOKIE=1` in production; the Nginx default listener rejects direct IP/unknown Host access (444)
+- Back up `server/data/app.db` regularly (e.g., cron)
+- Mainland China servers must complete ICP filing, otherwise the provider blocks unregistered domains
 
 ## Environment Variables
 
@@ -207,8 +100,18 @@ powershell -File deploy.ps1 "deploy message"
 | `PORT` | Backend listen port | `3000` |
 | `DATA_DIR` | SQLite data directory | `server/data` |
 | `SECURE_COOKIE` | Send session cookie over HTTPS only | empty |
-| `NONOGRAM_SERVER` | deploy.ps1 target server address | required |
-| `TEST_BASE` | E2E test target URL | `http://localhost:4173` |
+| `NONOGRAM_SERVER` | deploy.ps1 target (`~/.ssh/config` alias, e.g. `nonogram`) | required |
+| `TEST_BASE` | E2E target URL | `http://localhost:4173` |
+
+## Directory Overview
+
+- `src/`: frontend (`hooks/` composition root + domain hooks, `logic/` pure logic, `components/` UI, `i18n/`)
+- `shared/`: frontend/backend shared solve & clue core (single source of truth)
+- `server/`: Express + SQLite (auth, library, fetch-url proxy, audit scripts)
+- `tools/`: puzzle collection/merge/build scripts
+- `tests/`: `unit/` unit tests + `e2e-*.mjs` end-to-end
+- `deploy/`: Nginx/cert scripts; `deploy.ps1` one-click deploy
+- `.github/workflows/ci.yml`: CI (lint + unit + server smoke)
 
 ## License
 
