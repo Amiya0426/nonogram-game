@@ -7,7 +7,7 @@ description: Nonogram 前端 UI、响应式布局与棋盘交互。用于修改 
 
 ## 职责范围
 
-- `src/components/**` 与 `src/App.jsx` / `src/main.jsx`：布局、面板、弹窗、棋盘渲染与交互。
+- `src/components/**` 与 `src/App.jsx` / `src/main.jsx`：布局、面板、弹窗、棋盘渲染与交互（SidePanel 已拆 Header/EditToolbar/UserArea/GameControls/ViewSettings/ImportExport/Footer；AuthModal 拆 Login/Register/Forgot + authFields；IntroModal 内置语言选择）。
 - `src/i18n/**`：前端多语言（zh / zh-Hant / en / ja）。
 - `src/index.css` / `src/App.css` / `tailwind.config.js`：Tailwind 样式与视觉系统。
 - UI 相关的交互常量（cellSize 范围、brush 模式等）在 `src/constants.js`，修改需同时看 nonogram-core 的约束。
@@ -15,6 +15,7 @@ description: Nonogram 前端 UI、响应式布局与棋盘交互。用于修改 
 ## 交互红线
 
 - 棋盘格子必须保留 `data-cell` / `data-r` / `data-c` 属性，E2E 测试依赖它们定位。
+- 关键控件保留稳定 `data-testid`（面板标题/登录按钮/随机/计时/复盘 GIF/自动求解等），与 nonogram-e2e 的定位约定一致。
 - 触摸事件在 `Board.jsx` 用原生监听，`touchmove` 需要非 passive 才能阻止滚动；改动手势时不要引入页面滚动/缩放冲突。
 - hover 使用 rAF 节流；拖拽/画笔批次在结束时 flush 成一条 moveHistory（与 nonogram-core 语义一致）。
 - Ctrl 测量、滚轮缩放（MIN_CELL_SIZE=12 / MAX_CELL_SIZE=80）、fit-to-width 是既有交互，不要破坏。

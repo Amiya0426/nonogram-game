@@ -1,220 +1,97 @@
 # 数织（Nonogram）
 
-一款功能完整的数织解谜网页游戏：支持游玩、推演、自定义题目、题库浏览、用户体系与 GIF 复盘。
-
-> **[English](docs/README.en.md)** · **[繁體中文](docs/README.zh-Hant.md)** · **[日本語](docs/README.ja.md)**
+一款功能完整的数织解谜网页游戏：游玩/推演、自定义题目、题库浏览、用户系统与 GIF 复盘。
 
 > 在线地址：<https://nonogram.amiya1223.top>
+>
+> **[English](docs/README.en.md)** · **[繁體中文](docs/README.zh-Hant.md)** · **[日本語](docs/README.ja.md)**
 
-## 功能特性
+## 功能
 
-- **游玩与推演**：经典数织玩法，支持轮换/画笔模式、多级推演、检查错误、恢复检查点、智能提示、自动解题。
-- **自定义题目**：画盘面自动生成线索，或手动输入行列线索；可导出存档/图片/代码与他人分享。
-- **用户系统**：注册 / 登录 / 退出；统计已解题数与尺寸分布。
-- **题库浏览**：分页浏览服务器题库，支持按尺寸筛选，已完成题目带标记。
-- **服务器题库**：内置 9000+ 道唯一解题目（5×5 ~ 80×80），随机抽题支持精确尺寸与尺寸范围，同尺寸自动去重。
-- **题目导入**：文件 / 代码 / 网页源码导入，服务端校验合法性与唯一解后自动入库。
-- **计时与复盘**：从玩家首次落子开始计时，可暂停；完成后一键生成按操作顺序重放的 GIF 复盘。
-- **响应式**：桌面端侧边栏 + 手风琴，手机端全屏抽屉 + 底部标签导航。
+- 经典数织玩法：轮换/画笔模式、多级推演、错误检查、智能提示、一键解题（完整求解）
+- 自定义题目：画盘面或手动输线索，图片转图案，支持导出存档/图片/代码分享
+- 用户系统：注册/登录/忘记密码（邮箱验证码），统计已解题数
+- 题库：9000+ 道唯一解题目（5×5 ~ 80×80），按尺寸筛选、随机抽题、我导入的/已完成标记
+- 题目导入：文件 / 代码 / 网页源码，服务端校验合法性与唯一解后入库
+- 计时与 GIF 复盘：首击计时、可暂停，完成后按操作顺序生成复盘 GIF
+- 多语言与响应式：简中/繁中/英文/日文，桌面侧边栏 + 移动端抽屉与底部导航
 
 ## 技术栈
 
 | 层 | 技术 |
 | --- | --- |
 | 前端 | React 19、Vite 8、Tailwind CSS、lucide-react |
-| 后端 | Express 5、Node 内置 `node:sqlite`（零原生依赖） |
-| 数据库 | SQLite（`server/data/app.db`，自动建表） |
-| GIF 生成 | gifenc（纯前端编码，无网络依赖） |
-| 测试 | Playwright + 系统 Edge（无头端到端测试） |
+| 后端 | Express 5、Node 内置 `node:sqlite`（Node 24+） |
+| 测试 | Node 内置 test runner（单测）+ Playwright/Edge（E2E）+ 服务端冒烟 |
+| 部署 | Nginx、PM2、Cloudflare（代理 + Origin 证书）、GitHub Actions CI |
 
-## 项目结构
+## 快速开始
 
-```
-nonogram-game/
-├── index.html               # 入口 HTML
-├── src/                     # 前端源码
-│   ├── main.jsx             # React 挂载入口
-│   ├── App.jsx              # 布局与组件装配
-│   ├── constants.js         # 主题、预设题目、棋盘上限等常量
-│   ├── api.js               # 后端 API 封装
-│   ├── i18n/                # 多语言（简体中文 / 繁體中文 / English / 日本語，可扩展）
-│   ├── hooks/                # 状态组合根 + 领域 hook
-│   │   ├── useGameState.js  # 组合根：装配各领域 hook，对外暴露统一 API
-│   │   ├── useAuth.js       # 用户 / 进度 / 登录注册登出
-│   │   ├── useBoardInput.js # 格子交互与操作记录
-│   │   ├── useBoardSetup.js # 初始化 / 清空 / 随机 / 缩放
-│   │   ├── useGameChecks.js # 校验 / 提示 / 自动求解
-│   │   ├── useEditing.js    # 编辑模式
-│   │   ├── useImportExport.js # 导入导出
-│   │   └── ...              # 其余领域 hook（计时/题库/推演/复盘等）
-│   ├── logic/               # 纯函数逻辑（无 React 依赖）
-│   │   ├── board.js         # 棋盘数据工具
-│   │   ├── clues.js         # 线索解析 / 完成判定 / 自动高亮
-│   │   ├── solver.js        # 数织求解器（单行推导 + 全盘迭代）
-│   │   ├── moveHistory.js   # 操作记录合并（复盘数据源）
-│   │   ├── password.js      # 密码强度评分
-│   │   ├── importer.js      # 外部网页源码解析
-│   │   ├── exporter.js      # 存档 / JSON / 图片导出
-│   │   ├── gifReplay.js     # GIF 复盘生成
-│   │   ├── storage.js       # localStorage 封装
-│   │   └── theme.js         # 推演模式样式辅助
-│   └── components/          # 棋盘、侧边栏（用户区/游戏控制/视图设置/导入导出）、线索条等组件
-├── shared/
-│   └── puzzle-core.mjs      # 前后端共享求解/线索核心（唯一真源）
-├── server/                  # 后端（Express + SQLite）
-│   ├── index.js             # API 路由（题库 / 浏览 / 用户 / 进度 / fetch-url）
-│   ├── auth.js              # 会话、密码哈希、限流/封禁/验证码（SQLite 持久化）
-│   ├── db.js                # SQLite schema 与连接
-│   ├── puzzle-lib.js        # 题目校验 / 唯一解判定 / 数字 ID
-│   ├── fetch-proxy.js       # 网页源码抓取代理（SSRF 防护）
-│   ├── trust-proxy.js       # Cloudflare 边缘网段判定（可用环境变量覆盖）
-│   ├── import-puzzles.mjs   # 批量导入题库脚本
-│   └── data/                # SQLite 数据文件（运行时生成，不入库）
-├── tools/                   # 题库采集与构建脚本
-│   ├── fetch-webpbn.py      # webpbn 题库下载
-│   ├── convert-puzzlekit.py # puzzlekit 数据集转换
-│   ├── build-puzzle-db.mjs  # 校验唯一解并生成导入文件
-│   └── puzzle-data/         # 题库数据（JSONL）
-├── tests/                   # 测试
-│   ├── unit/                # Node 内置 test runner 单测（logic / shared）
-│   ├── e2e-load.mjs         # 页面加载零错误
-│   ├── e2e-flow.mjs         # 计时 / 随机抽题 / 暂停等交互
-│   ├── e2e-gif.mjs          # 完成状态与 GIF 下载
-│   ├── e2e-autosolve.mjs    # 一键解题不计入解题记录
-│   └── e2e-turn.mjs         # 轮换打叉操作记录合并
-├── .github/workflows/ci.yml # CI：lint + 单测 + 服务端冒烟
-├── deploy/                  # 服务器部署辅助
-│   ├── nonogram.conf        # Nginx 配置（HTTP→HTTPS 跳转 / 反向代理 / SPA）
-│   ├── setup-server.sh      # 服务器初始化脚本
-│   └── check-cert-chain.sh  # 证书链完整性检查
-├── deploy.ps1               # 一键部署脚本（需 NONOGRAM_SERVER 环境变量）
-└── package.json
-```
-
-## 本地开发
-
-前置要求：Node.js **24+**（后端使用 `node:sqlite` 内置模块）。
+前置：Node.js **24+**（后端需要 `node:sqlite`）。
 
 ```bash
-npm install        # 安装依赖
-npm run dev        # 启动 Vite 开发服务器（/api 代理到 localhost:3000）
+npm install          # 安装依赖
+npm run dev          # 启动前端（/api 代理到 localhost:3000）
 ```
 
-同时需要启动后端（另开一个终端）：
+另开一个终端启动后端：
 
 ```bash
 cd server
 npm install
-npm start          # 监听 3000 端口，自动创建 data/app.db 并建表
+npm start            # 监听 3000，自动创建 server/data/app.db 并建表
 ```
 
-## 构建与测试
+## 测试
 
 ```bash
-npm run build      # 生产构建，输出 dist/
-npm run lint       # ESLint 检查
-npm run test:unit  # 逻辑单测（Node 内置 test runner）
-npm run test:e2e   # 端到端测试（需先部署或设置 TEST_BASE）
+npm run lint        # ESLint
+npm run build       # 生产构建
+npm run test:unit   # 逻辑单测
+npm run test:e2e    # 端到端测试
 ```
 
-端到端测试默认指向本地 `http://localhost:4173`（`vite preview`）。测试其他环境时通过环境变量指定：
+注意：`vite preview` 不代理 `/api`，E2E 需要先起后端：
 
 ```bash
-$env:TEST_BASE="https://your.domain"   # PowerShell
-TEST_BASE=https://your.domain npm run test:e2e   # Linux/macOS
+node server/index.js   # 建议 DATA_DIR=<临时目录>
+$env:TEST_BASE="http://127.0.0.1:3000"; npm run test:e2e
 ```
 
-## 部署说明
+## 部署
 
-### 1. 服务器准备
+### 一键部署（推荐）
 
-以阿里云 ECS（推荐 2 核 2G，系统 Ubuntu/Debian/CentOS 均可）为例：
-
-```bash
-# 安装 Node.js 24+（以 NodeSource 为例）
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt-get install -y nodejs nginx
-npm install -g pm2
-```
-
-将 `deploy/setup-server.sh` 上传到服务器 `/opt/nonogram/` 后执行，脚本会安装后端依赖、配置 Nginx、启动 PM2 并开放防火墙端口。
-
-### 2. 构建与上传
-
-在本机：
-
-```bash
-npm run build
-```
-
-将 `dist/` 与 `server/` 上传到服务器 `/opt/nonogram/`（示例）：
-
-```bash
-scp -r dist/* root@YOUR_SERVER:/opt/nonogram/dist/
-scp server/* root@YOUR_SERVER:/opt/nonogram/server/
-```
-
-### 3. 初始化题库（可选，推荐）
-
-题库数据在 `tools/puzzle-data/import.jsonl`（约 9000+ 道唯一解题目）。上传后导入：
-
-```bash
-cd /opt/nonogram/server
-node import-puzzles.mjs /path/to/import.jsonl
-```
-
-如想从原始数据重新构建题库：
-
-```bash
-node tools/build-puzzle-db.mjs   # 校验唯一解并生成 tools/puzzle-data/import.jsonl
-```
-
-### 4. 启动与 Nginx
-
-```bash
-cd /opt/nonogram/server
-pm2 start index.js --name nonogram-api
-pm2 save && pm2 startup
-```
-
-`deploy/nonogram.conf` 将 `/api` 反向代理到 3000 端口并托管静态文件：
-
-```bash
-cp deploy/nonogram.conf /etc/nginx/conf.d/nonogram.conf
-nginx -t && systemctl reload nginx
-```
-
-### 5. HTTPS 证书（Cloudflare Origin 证书，15 年有效期）
-
-站点通过 Cloudflare 代理访问，源站使用 Cloudflare Origin CA 签发的证书（15 年，无需续期）：
-
-1. Cloudflare 控制台 → **SSL/TLS → Origin Server → Create Certificate**，主机名填 `example.com`（或 `*.example.com`），有效期选 15 年，下载 PEM（含完整链）。
-2. 将下载内容上传到源站：
-   - 证书（含链）：`/etc/nginx/ssl/example.com.crt`
-   - 私钥：`/etc/nginx/ssl/example.com.key`（权限 600）
-3. 重载 Nginx：
-   ```bash
-   nginx -t && systemctl reload nginx
-   ```
-4. Cloudflare **SSL/TLS 模式设为 Full (strict)**；可用 `deploy/check-cert-chain.sh` 验证证书链完整（应包含叶子 + Cloudflare Origin CA 根共 2 张证书，且 SAN 覆盖 `example.com`）。
-
-> 说明：Origin 证书仅对经过 Cloudflare 的访问有效，无需 acme.sh / Let's Encrypt，也没有续期 cron。若源站位于中国大陆云服务器（腾讯云/阿里云），必须先完成 ICP 备案，否则云厂商会拦截未备案域名的 HTTP/HTTPS 访问（表现为 Cloudflare 525 或 403 拦截页）。
-
-### 6. 一键部署（可选）
-
-本机已配置 SSH 免密登录后，可用 `deploy.ps1` 自动完成 lint → build → 上传 → PM2 重启 → 提交 GitHub：
+本机配置好 SSH（`~/.ssh/config` 的 `nonogram` 别名，主机/端口/密钥只存本机）后：
 
 ```powershell
-$env:NONOGRAM_SERVER="nonogram"   # 必填，对应 ~/.ssh/config 的 Host 别名（主机/端口/密钥只存本机）
+$env:NONOGRAM_SERVER="nonogram"
 powershell -File deploy.ps1 "部署说明"
 ```
 
-### 7. 安全建议
+脚本自动完成：lint → build → 上传（先清空服务器 dist）+ shared/server 文件 → PM2 重启 → 健康检查 → 提交并推送 GitHub。
 
-- 使用 SSH 密钥登录，关闭 root 密码登录；
-- 配置 HTTPS（Cloudflare Origin 证书等）后设置环境变量 `SECURE_COOKIE=1`；
-- 定期备份数据库文件 `server/data/app.db`（建议 cron）；
-- 服务器对公网提供服务请完成 ICP 备案，并配置防火墙仅开放 80/443。
+### 服务器准备
+
+上传并执行 `deploy/setup-server.sh`（安装后端依赖、配置 Nginx、启动 PM2、开放防火墙），再把 `deploy/nonogram.conf` 放到 `/etc/nginx/conf.d/` 并 `nginx -t && systemctl reload nginx`。
+
+### 证书与 Cloudflare
+
+站点经 Cloudflare 代理访问，源站使用 **Cloudflare Origin 证书**（15 年有效期，无需续期）：证书/私钥放 `/etc/nginx/ssl/`，Cloudflare SSL 模式设为 **Full (strict)**，用 `deploy/check-cert-chain.sh` 验证证书链。
+
+### 初始化题库
+
+```bash
+node tools/build-puzzle-db.mjs   # 校验唯一解并生成 tools/puzzle-data/import.jsonl
+cd server && node import-puzzles.mjs /path/to/import.jsonl   # 逐题校验后入库（先备份数据库）
+```
+
+## 安全建议
+
+- SSH 密钥登录，禁用密码登录；安全组只放行必要端口并限制来源
+- 生产设置 `SECURE_COOKIE=1`，Nginx 默认监听拒绝 IP/未知 Host 直访（444）
+- 定期备份 `server/data/app.db`（建议 cron）
+- 中国大陆服务器必须完成 ICP 备案，否则云厂商会拦截未备案域名访问
 
 ## 环境变量
 
@@ -223,8 +100,18 @@ powershell -File deploy.ps1 "部署说明"
 | `PORT` | 后端监听端口 | `3000` |
 | `DATA_DIR` | SQLite 数据目录 | `server/data` |
 | `SECURE_COOKIE` | 开启后会话 Cookie 仅 HTTPS 传输 | 空 |
-| `NONOGRAM_SERVER` | deploy.ps1 部署目标（~/.ssh/config 的 Host 别名，如 `nonogram`） | 必填 |
-| `TEST_BASE` | 端到端测试目标地址 | `http://localhost:4173` |
+| `NONOGRAM_SERVER` | deploy.ps1 目标（`~/.ssh/config` 别名，如 `nonogram`） | 必填 |
+| `TEST_BASE` | E2E 目标地址 | `http://localhost:4173` |
+
+## 目录速览
+
+- `src/`：前端（`hooks/` 组合根 + 领域 hook，`logic/` 纯逻辑，`components/` UI，`i18n/` 多语言）
+- `shared/`：前后端共享求解/线索核心（唯一真源）
+- `server/`：Express + SQLite（auth、题库、fetch-url 代理、审计脚本）
+- `tools/`：题库采集/合并/构建脚本
+- `tests/`：`unit/` 单测 + `e2e-*.mjs` 端到端
+- `deploy/`：Nginx/证书脚本；`deploy.ps1` 一键部署
+- `.github/workflows/ci.yml`：CI（lint + 单测 + 服务端冒烟）
 
 ## 许可证
 
