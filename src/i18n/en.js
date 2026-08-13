@@ -9,6 +9,7 @@ export default {
   },
   intro: {
     howTitle: 'How to Play',
+    language: 'Language',
     how: [
       'Each number in a row/column tells the length of a consecutive run of filled cells; separate runs need at least one empty cell between them.',
       'Left-click cycles Fill → Cross → Clear; drag to paint continuously; right-click crosses directly.',

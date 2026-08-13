@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { X, Dices, Check } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher.jsx';
 import { useI18n } from '../i18n/index.js';
 
 /** 新手引导 / 帮助弹窗：玩法规则、主要功能、小提示，可随时通过帮助按钮再次打开 */
@@ -43,7 +44,12 @@ const IntroModal = ({ open, onClose }) => {
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 flex flex-col gap-4">
+          {/* 首次进入即可设置语言；切换后整个弹窗即时换语言 */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-500">{t('intro.language')}</span>
+            <LanguageSwitcher />
+          </div>
           <ul className="flex flex-col gap-2 text-[13px] text-slate-600 leading-relaxed">
             {(t('intro.how') || []).map((it, i) => (
               <li key={i} className="flex gap-2">
