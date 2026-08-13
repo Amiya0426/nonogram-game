@@ -84,7 +84,7 @@ src/api.js ──HTTP──> server/index.js ──> auth / db / puzzle-lib / fe
 - 认证/限流/封禁等状态一律写入 SQLite，禁止新增进程内存 `Map` 方案（多实例会分片、重启即失）。
 - `tools` 不修改源码；`tools` 不直接写生产数据库。
 - `tests` 不针对组件私有状态或脆弱实现细节；内部结构（存档格式、moveHistory 合并等）由单测覆盖。
-- `deploy` 不硬编码服务器 IP、API key 或证书私钥；生产服务器只经 `NONOGRAM_SERVER` / 本机 SSH 别名访问。
+- `deploy` 不硬编码服务器 IP、API key 或证书私钥；生产服务器只经 `NONOGRAM_SERVER` / 本机 SSH 别名访问，SSH 端口为 1408（`deploy.ps1` 已内置）。
 
 ## 关键约定
 

@@ -4,6 +4,8 @@
 
 $ErrorActionPreference = 'Stop'
 $env:GIT_TERMINAL_PROMPT = '0'
+# SSH 端口 1408（服务器已从 22 迁移，22 已关闭）
+$SSH_PORT = '1408'
 # 服务器地址从环境变量读取，避免在仓库中硬编码
 $SERVER = $env:NONOGRAM_SERVER
 if ([string]::IsNullOrWhiteSpace($SERVER)) {
@@ -23,14 +25,14 @@ if ($LASTEXITCODE -ne 0) { throw 'build 失败，终止部署' }
 
 Write-Host "== 3/5 上传到服务器 ==" -ForegroundColor Cyan
 tar -czf dist.tar.gz -C dist .
-scp -o BatchMode=yes -o ConnectTimeout=15 dist.tar.gz "${REMOTE}:/tmp/nonogram-dist.tar.gz"
+scp -P $SSH_PORT -o BatchMode=yes -o ConnectTimeout=15 dist.tar.gz "${REMOTE}:/tmp/nonogram-dist.tar.gz"
 if ($LASTEXITCODE -ne 0) { throw 'dist 上传失败' }
-ssh -o BatchMode=yes -o ConnectTimeout=15 "${REMOTE}" "mkdir -p $APP/shared"
-scp -o BatchMode=yes shared/puzzle-core.mjs "${REMOTE}:$APP/shared/"
+ssh -p $SSH_PORT -o BatchMode=yes -o ConnectTimeout=15 "${REMOTE}" "mkdir -p $APP/shared"
+scp -P $SSH_PORT -o BatchMode=yes shared/puzzle-core.mjs "${REMOTE}:$APP/shared/"
 if ($LASTEXITCODE -ne 0) { throw 'shared 文件上传失败' }
-scp -o BatchMode=yes server/index.js server/auth.js server/db.js server/env.js server/i18n.js server/mailer.js server/puzzle-lib.js server/solve-worker.mjs server/import-puzzles.mjs server/audit-unique.mjs server/fetch-proxy.js server/trust-proxy.js server/package.json server/package-lock.json "${REMOTE}:$APP/server/"
+scp -P $SSH_PORT -o BatchMode=yes server/index.js server/auth.js server/db.js server/env.js server/i18n.js server/mailer.js server/puzzle-lib.js server/solve-worker.mjs server/import-puzzles.mjs server/audit-unique.mjs server/fetch-proxy.js server/trust-proxy.js server/package.json server/package-lock.json "${REMOTE}:$APP/server/"
 if ($LASTEXITCODE -ne 0) { throw 'server 文件上传失败' }
-ssh -o BatchMode=yes "${REMOTE}" "cd $APP/server && npm install --omit=dev --no-audit --no-fund >/dev/null 2>&1; rm -rf $APP/dist && mkdir -p $APP/dist && tar -xzf /tmp/nonogram-dist.tar.gz -C $APP/dist && rm -f /tmp/nonogram-dist.tar.gz && pm2 restart nonogram-api >/dev/null 2>&1 && sleep 1 && echo SERVER_DEPLOY_OK && curl -s http://127.0.0.1:3000/api/health"
+ssh -p $SSH_PORT -o BatchMode=yes "${REMOTE}" "cd $APP/server && npm install --omit=dev --no-audit --no-fund >/dev/null 2>&1; rm -rf $APP/dist && mkdir -p $APP/dist && tar -xzf /tmp/nonogram-dist.tar.gz -C $APP/dist && rm -f /tmp/nonogram-dist.tar.gz && pm2 restart nonogram-api >/dev/null 2>&1 && sleep 1 && echo SERVER_DEPLOY_OK && curl -s http://127.0.0.1:3000/api/health"
 if ($LASTEXITCODE -ne 0) { throw '服务器部署失败' }
 try { [System.IO.File]::Delete((Join-Path (Get-Location) 'dist.tar.gz')) } catch {}
 Write-Host "服务器部署完成" -ForegroundColor Green
