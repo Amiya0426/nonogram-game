@@ -119,12 +119,7 @@ const imported = await page.evaluate(async () => {
 });
 check('题库导入 5x5 唯一解题', imported.results?.[0]?.ok === true, JSON.stringify(imported));
 
-// 8) 随机抽题（展开"视图与棋盘设置"，点随机按钮）：成功后应重置计时器
-const viewAcc = page.locator('[data-testid="view-settings-accordion"]').first();
-if (await viewAcc.isVisible()) {
-  await viewAcc.click();
-  await page.waitForTimeout(300);
-}
+// 8) 随机抽题（棋盘设置区常驻显示，直接点随机按钮）：成功后应重置计时器
 const randomBtn = page.locator('[data-testid="random-btn"]');
 check('随机按钮存在', await randomBtn.isVisible());
 await randomBtn.click();

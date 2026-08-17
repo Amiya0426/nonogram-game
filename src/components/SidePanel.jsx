@@ -216,7 +216,6 @@ const SidePanel = ({
             userProgress={userProgress}
             onLogout={onLogout}
             onOpenAuth={onOpenAuth}
-            onOpenBrowse={onOpenBrowse}
           />
         )}
 
@@ -252,8 +251,21 @@ const SidePanel = ({
           </div>
         )}
 
-        {/* === 游戏控制 + 视图设置（game tab） === */}
+        {/* === 棋盘设置 + 游戏控制（game tab） === */}
         <div className={tabCls('game')}>
+          <SidePanelViewSettings
+            mode={mode}
+            rows={rows}
+            cols={cols}
+            onInitBoard={onInitBoard}
+            onGenerateRandom={onGenerateRandom}
+            onClearClues={onClearClues}
+            cellSize={cellSize}
+            setCellSize={setCellSize}
+            onFitToWidth={onFitToWidth}
+            onModeChange={onModeChange}
+            onOpenBrowse={onOpenBrowse}
+          />
           <SidePanelGameControls
             mode={mode}
             deductionLevel={deductionLevel}
@@ -270,18 +282,6 @@ const SidePanel = ({
             setCurrentBrush={setCurrentBrush}
             gameSettings={gameSettings}
             setGameSettings={setGameSettings}
-          />
-          <SidePanelViewSettings
-            mode={mode}
-            rows={rows}
-            cols={cols}
-            onInitBoard={onInitBoard}
-            onGenerateRandom={onGenerateRandom}
-            onClearClues={onClearClues}
-            cellSize={cellSize}
-            setCellSize={setCellSize}
-            onFitToWidth={onFitToWidth}
-            onModeChange={onModeChange}
           />
         </div>
 

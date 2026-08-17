@@ -21,6 +21,7 @@ export const DEFAULT_SETTINGS = {
   autoFillCross: true,
   showClueSums: true,
   showTimer: true,
+  showDualSideClues: true,
 };
 
 export const PRESETS = {

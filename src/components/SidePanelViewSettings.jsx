@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { ZoomIn, Minus, Plus, RefreshCw, FileMinus, Maximize, PencilLine } from 'lucide-react';
-import Accordion from './Accordion.jsx';
+import { Minus, Plus, RefreshCw, FileMinus, Maximize, PencilLine, Library } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 
-/** 视图设置区：行列尺寸、随机/清线索、缩放与适配、自定义题目入口 */
+/** 棋盘设置区（非折叠）：行列尺寸、随机/清线索、缩放与适配、自定义题目 + 题库浏览入口 */
 const SidePanelViewSettings = ({
   mode,
   rows,
@@ -15,6 +14,7 @@ const SidePanelViewSettings = ({
   setCellSize,
   onFitToWidth,
   onModeChange,
+  onOpenBrowse,
 }) => {
   const { t } = useI18n();
   const [rowText, setRowText] = useState(String(rows));
@@ -47,12 +47,8 @@ const SidePanelViewSettings = ({
   };
 
   return (
-    <Accordion
-      title={t('panel.viewBoardTitle')}
-      icon={ZoomIn}
-      defaultOpen={mode === 'edit'}
-      testId="view-settings-accordion"
-    >
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 shrink-0">
+      {/* 行列设置 */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <label className="text-xs font-semibold text-slate-500">{t('panel.rowsLabel')}</label>
@@ -150,7 +146,8 @@ const SidePanelViewSettings = ({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 pt-2">
+      {/* 缩放 */}
+      <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-slate-500">{t('panel.zoom')}</span>
         <div className="flex items-center gap-2 flex-1 ml-2">
           <input
@@ -170,16 +167,27 @@ const SidePanelViewSettings = ({
           </button>
         </div>
       </div>
+
+      {/* 自定义题目 + 题库浏览（左右并列，仅游玩模式） */}
       {mode === 'play' && (
-        <button
-          onClick={() => onModeChange('edit')}
-          className="w-full mt-2 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-orange-200 transition-colors"
-          title={t('panel.createPuzzleTitle')}
-        >
-          <PencilLine className="w-3.5 h-3.5" /> {t('panel.customTitle')}
-        </button>
+        <div className="grid grid-cols-2 gap-1.5 pt-1">
+          <button
+            onClick={() => onModeChange('edit')}
+            className="py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-orange-200 transition-colors"
+            title={t('panel.createPuzzleTitle')}
+          >
+            <PencilLine className="w-3.5 h-3.5" /> {t('panel.customTitle')}
+          </button>
+          <button
+            data-testid="browse-btn"
+            onClick={onOpenBrowse}
+            className="py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 border border-indigo-200 transition-colors"
+          >
+            <Library className="w-3.5 h-3.5" /> {t('panel.browse')}
+          </button>
+        </div>
       )}
-    </Accordion>
+    </div>
   );
 };
 

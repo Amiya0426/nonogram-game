@@ -65,6 +65,8 @@ export default {
     autoMarkNumbers: '自動高亮已完成線索',
     autoFillCross: '自動補全確定叉格',
     hoverHints: '懸浮提示',
+    dualSideClues: '雙側線索',
+    dualSideCluesHint: '關閉後僅在左側和上方顯示線索',
     hoverRow: '行跟隨',
     hoverCol: '列跟隨',
     clueSum: '線索和',

@@ -65,6 +65,8 @@ export default {
     autoMarkNumbers: 'Auto-highlight confirmed clues',
     autoFillCross: 'Auto-fill certain crosses',
     hoverHints: 'Hover Hints',
+    dualSideClues: 'Clues on both sides',
+    dualSideCluesHint: 'Turn off to show clues on the left and top only',
     hoverRow: 'Row',
     hoverCol: 'Column',
     clueSum: 'Clue sums',

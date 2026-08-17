@@ -65,6 +65,8 @@ export default {
     autoMarkNumbers: '自动高亮已完成线索',
     autoFillCross: '自动补全确定叉格',
     hoverHints: '悬浮提示',
+    dualSideClues: '双侧线索',
+    dualSideCluesHint: '关闭后仅在左侧和上方显示线索',
     hoverRow: '行跟随',
     hoverCol: '列跟随',
     clueSum: '线索和',

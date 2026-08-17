@@ -1,8 +1,8 @@
-import { LogIn, LogOut, Trophy, UserRound, Library } from 'lucide-react';
+import { LogIn, LogOut, Trophy, UserRound } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 
-/** 用户区：登录/注册入口或用户卡片 + 题库浏览 */
-const SidePanelUserArea = ({ user, userProgress, onLogout, onOpenAuth, onOpenBrowse }) => {
+/** 用户区：登录/注册入口或用户卡片 */
+const SidePanelUserArea = ({ user, userProgress, onLogout, onOpenAuth }) => {
   const { t } = useI18n();
 
   if (!user) {
@@ -43,13 +43,6 @@ const SidePanelUserArea = ({ user, userProgress, onLogout, onOpenAuth, onOpenBro
           <LogOut className="w-4 h-4" />
         </button>
       </div>
-      <button
-        data-testid="browse-btn"
-        onClick={onOpenBrowse}
-        className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-indigo-200"
-      >
-        <Library className="w-4 h-4" /> {t('panel.browse')}
-      </button>
     </div>
   );
 };

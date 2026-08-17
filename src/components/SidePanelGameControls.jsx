@@ -194,9 +194,30 @@ const SidePanelGameControls = ({
           />{' '}
           {t('panel.autoFillCross')}
         </label>
+        <label className="flex items-center gap-2 text-xs cursor-pointer text-slate-700">
+          <input
+            type="checkbox"
+            checked={gameSettings.showClueSums}
+            onChange={(e) => setGameSettings((p) => ({ ...p, showClueSums: e.target.checked }))}
+            className="accent-indigo-600 w-3 h-3"
+          />{' '}
+          {t('panel.clueSum')}
+        </label>
+        <label
+          className="flex items-center gap-2 text-xs cursor-pointer text-slate-700"
+          title={t('panel.dualSideCluesHint')}
+        >
+          <input
+            type="checkbox"
+            checked={gameSettings.showDualSideClues}
+            onChange={(e) => setGameSettings((p) => ({ ...p, showDualSideClues: e.target.checked }))}
+            className="accent-indigo-600 w-3 h-3"
+          />{' '}
+          {t('panel.dualSideClues')}
+        </label>
         <div className="border-t border-slate-100 pt-2 mt-1 flex flex-col gap-1.5">
           <span className="text-[9px] font-bold text-slate-400">{t('panel.hoverHints')}</span>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
               <input
                 type="checkbox"
@@ -214,15 +235,6 @@ const SidePanelGameControls = ({
                 className="accent-indigo-600 w-3 h-3"
               />
               {t('panel.hoverCol')}
-            </label>
-            <label className="flex items-center gap-1 text-xs cursor-pointer text-slate-700">
-              <input
-                type="checkbox"
-                checked={gameSettings.showClueSums}
-                onChange={(e) => setGameSettings((p) => ({ ...p, showClueSums: e.target.checked }))}
-                className="accent-indigo-600 w-3 h-3"
-              />
-              {t('panel.clueSum')}
             </label>
           </div>
         </div>

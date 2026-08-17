@@ -65,6 +65,8 @@ export default {
     autoMarkNumbers: '確定した手がかりを自動でハイライト',
     autoFillCross: '確定したバツを自動入力',
     hoverHints: 'ホバー表示',
+    dualSideClues: '両側にヒントを表示',
+    dualSideCluesHint: 'オフにすると左と上のみ表示します',
     hoverRow: '行追従',
     hoverCol: '列追従',
     clueSum: '手がかりの合計',

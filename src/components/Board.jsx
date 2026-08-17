@@ -45,6 +45,7 @@ const Board = ({
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
   const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
+  const showDualSideClues = gameSettings.showDualSideClues;
 
   // Ctrl + 滚轮缩放棋盘（原生监听，确保 preventDefault 生效）
   useEffect(() => {
@@ -213,7 +214,11 @@ const Board = ({
           id="board-grid"
           ref={gridRef}
           className={`grid gap-[1px] bg-slate-400 border-2 relative transition-colors ${getBorderColorClass(deductionLevel)}`}
-          style={{ gridTemplateColumns: `auto repeat(${cols}, ${cellSize}px) auto` }}
+          style={{
+            gridTemplateColumns: showDualSideClues
+              ? `auto repeat(${cols}, ${cellSize}px) auto`
+              : `auto repeat(${cols}, ${cellSize}px)`,
+          }}
           onContextMenu={(e) => e.preventDefault()}
           onMouseOver={handleMouseOver}
           onMouseDown={handleMouseDown}
@@ -222,7 +227,9 @@ const Board = ({
           {/* 第一行：顶部列线索 */}
           <div className={`bg-white border-r-2 border-b-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
           {renderTopClues('top')}
-          <div className={`bg-white border-l-2 border-b-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
+          {showDualSideClues && (
+            <div className={`bg-white border-l-2 border-b-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
+          )}
 
           {/* 中间游戏区域 */}
           {grid.map((row, r) => {
@@ -293,36 +300,42 @@ const Board = ({
                   );
                 })}
 
-                <RowClueBar
-                  r={r}
-                  position="right"
-                  mode={mode}
-                  editInputMode={editInputMode}
-                  clueTextSize={clueTextSize}
-                  parsed={rowInfo.parsed}
-                  previewClues={derivedClues?.rows[r]}
-                  completed={mode === 'play' && rowInfo.completed}
-                  isHovered={mode === 'play' && hoverPos.r === r}
-                  isHintRow={isHintRow}
-                  hintError={!!hintInfo?.isError}
-                  deductionLevel={deductionLevel}
-                  markedFlags={rowInfo.markedFlags}
-                  sum={rowInfo.sum}
-                  showClueSums={gameSettings.showClueSums}
-                  completeLineStyle={gameSettings.completeLineStyle}
-                  editValue={rowCluesStr[r]}
-                  onEditClue={onEditRowClue}
-                  onClueMouseDown={onToggleMarkedRow}
-                  hasBottomBorder={r % 5 === 4 && r !== rows - 1}
-                />
+                {showDualSideClues && (
+                  <RowClueBar
+                    r={r}
+                    position="right"
+                    mode={mode}
+                    editInputMode={editInputMode}
+                    clueTextSize={clueTextSize}
+                    parsed={rowInfo.parsed}
+                    previewClues={derivedClues?.rows[r]}
+                    completed={mode === 'play' && rowInfo.completed}
+                    isHovered={mode === 'play' && hoverPos.r === r}
+                    isHintRow={isHintRow}
+                    hintError={!!hintInfo?.isError}
+                    deductionLevel={deductionLevel}
+                    markedFlags={rowInfo.markedFlags}
+                    sum={rowInfo.sum}
+                    showClueSums={gameSettings.showClueSums}
+                    completeLineStyle={gameSettings.completeLineStyle}
+                    editValue={rowCluesStr[r]}
+                    onEditClue={onEditRowClue}
+                    onClueMouseDown={onToggleMarkedRow}
+                    hasBottomBorder={r % 5 === 4 && r !== rows - 1}
+                  />
+                )}
               </Fragment>
             );
           })}
 
           {/* 最后一行：底部列线索 */}
-          <div className={`bg-white border-r-2 border-t-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
-          {renderTopClues('bottom')}
-          <div className={`bg-white border-l-2 border-t-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
+          {showDualSideClues && (
+            <>
+              <div className={`bg-white border-r-2 border-t-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
+              {renderTopClues('bottom')}
+              <div className={`bg-white border-l-2 border-t-2 transition-colors ${getBorderBaseClass(deductionLevel)}`} />
+            </>
+          )}
         </div>
       </div>
     </div>
