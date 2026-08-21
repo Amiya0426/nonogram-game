@@ -14,7 +14,7 @@ export const LANGS = [
 
 const messages = { zh, 'zh-Hant': zhHant, en, ja };
 const HTML_LANG = { zh: 'zh-CN', 'zh-Hant': 'zh-TW', en: 'en', ja: 'ja' };
-const TITLES = { zh: '数织', 'zh-Hant': '數織', en: 'Nonogram', ja: 'ノノグラム' };
+const TITLE = 'Nonogram';
 const STORE_KEY = 'nonogram_lang';
 let currentLang = 'zh';
 
@@ -62,7 +62,7 @@ export const I18nProvider = ({ children }) => {
       // 忽略存储失败
     }
     document.documentElement.lang = HTML_LANG[lang] || 'zh-CN';
-    document.title = TITLES[lang] || 'Nonogram';
+    document.title = TITLE;
   }, [lang]);
 
   const setLang = useCallback((code) => {
