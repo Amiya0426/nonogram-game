@@ -27,6 +27,7 @@ const RowClueBar = ({
   editValue,
   onEditClue,
   onClueMouseDown,
+  sealed,
   hasBottomBorder,
 }) => {
   const { t } = useI18n();
@@ -61,7 +62,7 @@ const RowClueBar = ({
       `}
       style={bgStyle}
     >
-      {mode === 'play' && showClueSums && sum > 0 && (
+      {mode === 'play' && showClueSums && sum > 0 && !sealed && (
         <span
           className={`absolute top-0.5 ${isLeft ? 'left-0.5' : 'right-0.5'} text-[11px] text-blue-500 font-bold leading-none pointer-events-none`}
           title={t('clue.sumTitle')}
@@ -82,12 +83,15 @@ const RowClueBar = ({
             type="text"
             value={editValue}
             onChange={(e) => onEditClue(r, e.target.value)}
+            onFocus={(e) => e.target.select()}
             className={`w-24 text-right ${clueTextSize} font-black bg-orange-100 hover:bg-orange-200 outline-none text-orange-900 px-1 py-0.5 rounded focus:bg-white`}
             placeholder="0"
           />
         ) : (
           <span className="text-slate-300 px-4 text-xs font-medium">{t('clue.mirror')}</span>
         )
+      ) : sealed ? (
+        <span className={`${clueTextSize} font-black text-slate-400 select-none`}>?</span>
       ) : (
         parsed.map((num, i) => (
           <span

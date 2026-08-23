@@ -122,8 +122,9 @@ export default function useGameState() {
       ? savedState.timerSeconds
       : 0,
     initialRunning: savedState ? savedState.timerRunning === true : false,
+    initialPaused: savedState?.timerPaused === true,
   });
-  const { timerSeconds, timerRunning, resetTimer, stopTimer, startIfNotRunning } = timer;
+  const { timerSeconds, timerRunning, timerPaused, resetTimer, stopTimer, startIfNotRunning } = timer;
   const library = usePuzzleLibrary({ user, setAlertMsg });
 
   // 拖拽/触摸批次的复位动作（由 handleGlobalLeave 触发；经 ref 解除与 useBoardInput 的循环依赖）
@@ -174,6 +175,7 @@ export default function useGameState() {
     setMoveHistory,
     scheduleHover: hover.scheduleHover,
     maybeStartTimer: startIfNotRunning,
+    sealed: timerPaused,
   });
   const {
     dragAction,
@@ -205,6 +207,7 @@ export default function useGameState() {
     setGrid,
     setAlertMsg,
     recordMove,
+    sealed: timerPaused,
   });
 
   useAutofillCross({
@@ -218,6 +221,7 @@ export default function useGameState() {
     cols,
     rowCluesStr,
     colCluesStr,
+    sealed: timerPaused,
   });
 
   const progress = useProgressReporting({
@@ -283,6 +287,7 @@ export default function useGameState() {
     setBackupGrids,
     recordMove,
     markHandled: progress.markHandled,
+    sealed: timerPaused,
   });
 
   /** 登录用户导入题目时提交服务器题库：校验合法且唯一解后入库 */
@@ -437,6 +442,7 @@ export default function useGameState() {
         currentPuzzleId,
         timerSeconds,
         timerRunning,
+        timerPaused,
         moveHistory,
       });
     }, 500);
@@ -461,6 +467,7 @@ export default function useGameState() {
     currentPuzzleId,
     timerSeconds,
     timerRunning,
+    timerPaused,
     moveHistory,
   ]);
 
@@ -557,6 +564,7 @@ export default function useGameState() {
     timerSeconds,
     timerRunning,
     togglePauseTimer: timer.togglePauseTimer,
+    timerPaused,
     moveHistory,
     userProgress,
     refreshUserProgress,

@@ -33,7 +33,8 @@ export default function NonogramApp() {
     return false;
   });
 
-  const showTooltip = g.showMeasure || g.showHoverRow || g.showHoverCol;
+  // 暂停封盘时禁止通过悬浮测量查看线索
+  const showTooltip = !g.timerPaused && (g.showMeasure || g.showHoverRow || g.showHoverCol);
   const hoverOnlyRow = g.showHoverRow && !g.showHoverCol;
   const hoverOnlyCol = !g.showHoverRow && g.showHoverCol;
 
@@ -110,7 +111,7 @@ export default function NonogramApp() {
         authBusy={g.authBusy}
         onOpenAuth={() => setAuthOpen(true)}
         onLogout={g.logout}
-        hintInfo={g.hintInfo}
+        hintInfo={g.timerPaused ? null : g.hintInfo}
         alertMsg={g.alertMsg}
         deductionLevel={g.deductionLevel}
         onStartDeduction={g.startDeduction}
@@ -244,9 +245,10 @@ export default function NonogramApp() {
           derivedClues={g.derivedClues}
           hoverPos={g.hoverPos}
           measureStart={g.measureStart}
-          hintInfo={g.hintInfo}
+          hintInfo={g.timerPaused ? null : g.hintInfo}
           gameSettings={g.gameSettings}
           clueTextSize={g.clueTextSize}
+          sealed={g.timerPaused}
           onCellMouseDown={g.handleCellMouseDown}
           onCellMouseEnter={g.handleCellMouseEnter}
           startTouchPaint={g.startTouchPaint}

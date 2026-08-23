@@ -14,16 +14,19 @@ export default function useDeduction({
   setGrid,
   setAlertMsg,
   recordMove,
+  sealed,
 }) {
   const startDeduction = useCallback(() => {
+    if (sealed) return;
     if (deductionLevel < 3) {
       setBackupGrids((prev) => [...prev, cloneGrid(grid)]);
       setDeductionLevel((prev) => prev + 1);
       setAlertMsg(tr('msg.deductionEnter', { n: deductionLevel + 1 }));
     }
-  }, [deductionLevel, grid, setBackupGrids, setDeductionLevel, setAlertMsg]);
+  }, [sealed, deductionLevel, grid, setBackupGrids, setDeductionLevel, setAlertMsg]);
 
   const applyDeduction = useCallback(() => {
+    if (sealed) return;
     if (deductionLevel > 0) {
       const currentCF = deductionLevel * 2 + 1;
       const currentCX = deductionLevel * 2 + 2;
@@ -49,6 +52,7 @@ export default function useDeduction({
       setAlertMsg(tr('msg.deductionApply', { n: deductionLevel }));
     }
   }, [
+    sealed,
     deductionLevel,
     grid,
     mode,
@@ -61,13 +65,14 @@ export default function useDeduction({
   ]);
 
   const cancelDeduction = useCallback(() => {
+    if (sealed) return;
     if (deductionLevel > 0) {
       setGrid(backupGrids[backupGrids.length - 1].map((r) => [...r]));
       setBackupGrids((prev) => prev.slice(0, -1));
       setDeductionLevel((prev) => prev - 1);
       setAlertMsg(tr('msg.deductionCancel', { n: deductionLevel }));
     }
-  }, [deductionLevel, backupGrids, setGrid, setBackupGrids, setDeductionLevel, setAlertMsg]);
+  }, [sealed, deductionLevel, backupGrids, setGrid, setBackupGrids, setDeductionLevel, setAlertMsg]);
 
   return { startDeduction, applyDeduction, cancelDeduction };
 }

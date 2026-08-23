@@ -17,6 +17,7 @@ export default function useBoardInput({
   setMoveHistory,
   scheduleHover,
   maybeStartTimer,
+  sealed,
 }) {
   const [dragAction, setDragAction] = useState(null);
   const dragBatchRef = useRef(null);
@@ -107,7 +108,7 @@ export default function useBoardInput({
   const handleCellMouseDown = useCallback(
     (e, r, c) => {
       const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
-      if (!editable) return;
+      if (!editable || sealed) return;
       e.preventDefault();
       if (mode === 'play') {
         flushDragBatch();
@@ -127,7 +128,7 @@ export default function useBoardInput({
       setDragAction(newAction);
       updateCellValue(r, c, newAction);
     },
-    [mode, editInputMode, computeCellAction, grid, deductionLevel, updateCellValue, flushDragBatch],
+    [mode, editInputMode, sealed, computeCellAction, grid, deductionLevel, updateCellValue, flushDragBatch],
   );
 
   const handleCellMouseEnter = useCallback(
@@ -138,19 +139,19 @@ export default function useBoardInput({
         flushDragBatch();
       }
       scheduleHover(r, c);
-      if (!editable || dragAction === null || e.buttons === 0) return;
+      if (!editable || sealed || dragAction === null || e.buttons === 0) return;
       // 拖拽：首次进入时开启批量记录，后续格合并为一条操作
       if (!dragBatchRef.current) dragBatchRef.current = { cells: [] };
       updateCellValue(r, c, dragAction);
     },
-    [dragAction, mode, editInputMode, scheduleHover, updateCellValue, flushDragBatch],
+    [dragAction, mode, editInputMode, sealed, scheduleHover, updateCellValue, flushDragBatch],
   );
 
   /** 触摸拖画：长按进入绘制后使用同一操作值连续填充 */
   const startTouchPaint = useCallback(
     (r, c) => {
       const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
-      if (!editable) return;
+      if (!editable || sealed) return;
       const action = computeCellAction(r, c);
       if (mode === 'play') {
         flushTouchBatch();
@@ -158,18 +159,19 @@ export default function useBoardInput({
       touchPaintActionRef.current = action;
       updateCellValue(r, c, action);
     },
-    [mode, editInputMode, computeCellAction, updateCellValue, flushTouchBatch],
+    [mode, editInputMode, sealed, computeCellAction, updateCellValue, flushTouchBatch],
   );
 
   const continueTouchPaint = useCallback(
     (r, c) => {
+      if (sealed) return;
       if (touchPaintActionRef.current != null) {
         // 长按拖动：后续格合并为一条批量记录
         if (!touchBatchRef.current) touchBatchRef.current = { cells: [] };
         updateCellValue(r, c, touchPaintActionRef.current);
       }
     },
-    [updateCellValue],
+    [sealed, updateCellValue],
   );
 
   const endTouchPaint = useCallback(() => {

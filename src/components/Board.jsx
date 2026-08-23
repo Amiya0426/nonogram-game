@@ -34,6 +34,7 @@ const Board = ({
   startTouchPaint,
   continueTouchPaint,
   endTouchPaint,
+  sealed,
   onToggleMarkedRow,
   onToggleMarkedCol,
   onEditRowClue,
@@ -44,8 +45,11 @@ const Board = ({
   const lastHoverKeyRef = useRef('');
   const gridRef = useRef(null);
   const scrollRef = useRef(null);
-  const editable = mode === 'play' || (mode === 'edit' && editInputMode === 'pattern');
+  const editable =
+    !sealed && (mode === 'play' || (mode === 'edit' && editInputMode === 'pattern'));
   const showDualSideClues = gameSettings.showDualSideClues;
+  // 封盘（暂停）时不显示提示高亮，避免泄露线索信息
+  const activeHint = sealed ? null : hintInfo;
 
   // Ctrl + 滚轮缩放棋盘（原生监听，确保 preventDefault 生效）
   useEffect(() => {
@@ -186,10 +190,10 @@ const Board = ({
         completed={mode === 'play' && info.completed}
         isHovered={mode === 'play' && hoverPos.c === c}
         isHintCol={
-          (hintInfo?.type === 'col' && hintInfo.index === c) ||
-          (hintInfo?.type === 'cell' && hintInfo.c === c)
+          (activeHint?.type === 'col' && activeHint.index === c) ||
+          (activeHint?.type === 'cell' && activeHint.c === c)
         }
-        hintError={!!hintInfo?.isError}
+        hintError={!!activeHint?.isError}
         deductionLevel={deductionLevel}
         markedFlags={info.markedFlags}
         sum={info.sum}
@@ -198,6 +202,7 @@ const Board = ({
         editValue={colCluesStr[c]}
         onEditClue={onEditColClue}
         onClueMouseDown={onToggleMarkedCol}
+        sealed={sealed}
         hasRightBorder={c % 5 === 4 && c !== cols - 1}
       />
     ));
@@ -235,8 +240,8 @@ const Board = ({
           {grid.map((row, r) => {
             const rowInfo = lineAnalysis.rows[r];
             const isHintRow =
-              (hintInfo?.type === 'row' && hintInfo.index === r) ||
-              (hintInfo?.type === 'cell' && hintInfo.r === r);
+              (activeHint?.type === 'row' && activeHint.index === r) ||
+              (activeHint?.type === 'cell' && activeHint.r === r);
 
             return (
               <Fragment key={`row-${r}`}>
@@ -260,18 +265,19 @@ const Board = ({
                   editValue={rowCluesStr[r]}
                   onEditClue={onEditRowClue}
                   onClueMouseDown={onToggleMarkedRow}
+                  sealed={sealed}
                   hasBottomBorder={r % 5 === 4 && r !== rows - 1}
                 />
 
                 {row.map((cell, c) => {
                   const isHintCol =
-                    (hintInfo?.type === 'col' && hintInfo.index === c) ||
-                    (hintInfo?.type === 'cell' && hintInfo.c === c);
+                    (activeHint?.type === 'col' && activeHint.index === c) ||
+                    (activeHint?.type === 'cell' && activeHint.c === c);
                   const isExactError =
-                    hintInfo?.type === 'cell' &&
-                    hintInfo.r === r &&
-                    hintInfo.c === c &&
-                    hintInfo.isError;
+                    activeHint?.type === 'cell' &&
+                    activeHint.r === r &&
+                    activeHint.c === c &&
+                    activeHint.isError;
                   const inMeasureRect = measureRect
                     ? r >= measureRect.minR &&
                       r <= measureRect.maxR &&
@@ -291,7 +297,7 @@ const Board = ({
                       isHovered={mode === 'play' && (hoverPos.r === r || hoverPos.c === c)}
                       isHintRow={isHintRow}
                       isHintCol={isHintCol}
-                      hintError={!!hintInfo?.isError}
+                      hintError={!!activeHint?.isError}
                       isExactError={isExactError}
                       inMeasureRect={inMeasureRect}
                       hasRightBorder={c % 5 === 4 && c !== cols - 1}
@@ -321,6 +327,7 @@ const Board = ({
                     editValue={rowCluesStr[r]}
                     onEditClue={onEditRowClue}
                     onClueMouseDown={onToggleMarkedRow}
+                    sealed={sealed}
                     hasBottomBorder={r % 5 === 4 && r !== rows - 1}
                   />
                 )}

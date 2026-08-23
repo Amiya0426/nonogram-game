@@ -14,9 +14,10 @@ export default function useAutofillCross({
   cols,
   rowCluesStr,
   colCluesStr,
+  sealed,
 }) {
   useEffect(() => {
-    if (!gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus || deductionLevel > 0) {
+    if (sealed || !gameSettings.autoFillCross || mode !== 'play' || isSolvedStatus || deductionLevel > 0) {
       return;
     }
 
@@ -115,6 +116,7 @@ export default function useAutofillCross({
 
     return () => clearTimeout(timer);
   }, [
+    sealed,
     grid,
     gameSettings.autoFillCross,
     mode,

@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 /** 单盘计时：首击启动、可暂停、完成/切换模式时停止 */
-export default function useTimer({ initialSeconds = 0, initialRunning = false } = {}) {
+export default function useTimer({
+  initialSeconds = 0,
+  initialRunning = false,
+  initialPaused = false,
+} = {}) {
   const [timerSeconds, setTimerSeconds] = useState(initialSeconds);
   const [timerRunning, setTimerRunning] = useState(initialRunning);
+  const [timerPaused, setTimerPaused] = useState(initialPaused);
 
   useEffect(() => {
     if (!timerRunning) return;
@@ -17,10 +22,12 @@ export default function useTimer({ initialSeconds = 0, initialRunning = false } 
   const resetTimer = useCallback(() => {
     setTimerSeconds(0);
     setTimerRunning(false);
+    setTimerPaused(false);
   }, []);
 
   const togglePauseTimer = useCallback(() => {
     setTimerRunning((r) => !r);
+    setTimerPaused((p) => !p);
   }, []);
 
   /** 玩家首次点击格子时启动：仅当归零且未运行时生效 */
@@ -30,11 +37,13 @@ export default function useTimer({ initialSeconds = 0, initialRunning = false } 
 
   const stopTimer = useCallback(() => {
     setTimerRunning(false);
+    setTimerPaused(false);
   }, []);
 
   return {
     timerSeconds,
     timerRunning,
+    timerPaused,
     setTimerSeconds,
     resetTimer,
     togglePauseTimer,

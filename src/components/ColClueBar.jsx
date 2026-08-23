@@ -26,6 +26,7 @@ const ColClueBar = ({
   editValue,
   onEditClue,
   onClueMouseDown,
+  sealed,
   hasRightBorder,
 }) => {
   const { t } = useI18n();
@@ -60,7 +61,7 @@ const ColClueBar = ({
       `}
       style={bgStyle}
     >
-      {mode === 'play' && showClueSums && sum > 0 && (
+      {mode === 'play' && showClueSums && sum > 0 && !sealed && (
         <span
           className={`absolute ${isTop ? 'top-0.5 left-0.5' : 'bottom-0 left-0.5'} text-[11px] text-blue-500 font-bold leading-none pointer-events-none`}
           title={t('clue.sumTitle')}
@@ -80,6 +81,7 @@ const ColClueBar = ({
           <textarea
             value={editValue}
             onChange={(e) => onEditClue(c, e.target.value)}
+            onFocus={(e) => e.target.select()}
             className={`w-full text-center ${clueTextSize} font-black bg-orange-100 hover:bg-orange-200 outline-none resize-none overflow-hidden text-orange-900 leading-tight focus:bg-white`}
             rows={Math.max(4, editValue.split('\n').length)}
             placeholder="0"
@@ -87,6 +89,8 @@ const ColClueBar = ({
         ) : (
           <span className="text-slate-300 text-xs font-medium pt-2">{t('clue.mirror')}</span>
         )
+      ) : sealed ? (
+        <span className={`${clueTextSize} font-black text-slate-400 select-none`}>?</span>
       ) : (
         parsed.map((num, i) => (
           <span

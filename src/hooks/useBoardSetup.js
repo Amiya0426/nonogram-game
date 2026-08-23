@@ -80,7 +80,9 @@ export default function useBoardSetup({
     setMarkedColClues({});
     setDeductionLevel(0);
     setBackupGrids([]);
-  }, [rows, cols, setGrid, setAlertMsg, setHintInfo, setMarkedRowClues, setMarkedColClues, setDeductionLevel, setBackupGrids]);
+    setMoveHistory([]);
+    resetTimer();
+  }, [rows, cols, setGrid, setAlertMsg, setHintInfo, setMarkedRowClues, setMarkedColClues, setDeductionLevel, setBackupGrids, setMoveHistory, resetTimer]);
 
   const clearClues = useCallback(() => {
     setRowCluesStr(Array(rows).fill('0'));

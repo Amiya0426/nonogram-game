@@ -23,8 +23,10 @@ export default function useGameChecks({
   setBackupGrids,
   recordMove,
   markHandled,
+  sealed,
 }) {
   const validateGrid = useCallback(() => {
+    if (sealed) return;
     setHintInfo(null);
     setAlertMsg('');
     if (mode !== 'play') return;
@@ -76,9 +78,10 @@ export default function useGameChecks({
         setAlertMsg(tr('msg.checkOk'));
       }
     }
-  }, [mode, rowCluesStr, colCluesStr, rows, cols, grid, setHintInfo, setAlertMsg, setLastCorrectSnapshot]);
+  }, [sealed, mode, rowCluesStr, colCluesStr, rows, cols, grid, setHintInfo, setAlertMsg, setLastCorrectSnapshot]);
 
   const restoreLastCorrect = useCallback(() => {
+    if (sealed) return;
     if (lastCorrectSnapshot) {
       setGrid(cloneGrid(lastCorrectSnapshot));
       const cells = [];
@@ -97,9 +100,10 @@ export default function useGameChecks({
     } else {
       setAlertMsg(tr('msg.noCheckpoint'));
     }
-  }, [lastCorrectSnapshot, grid, rows, cols, mode, isSolvedStatus, recordMove, setGrid, setHintInfo, setAlertMsg]);
+  }, [sealed, lastCorrectSnapshot, grid, rows, cols, mode, isSolvedStatus, recordMove, setGrid, setHintInfo, setAlertMsg]);
 
   const provideHint = useCallback(() => {
+    if (sealed) return;
     setHintInfo(null);
     setAlertMsg('');
     if (isSolvedStatus) {
@@ -198,9 +202,10 @@ export default function useGameChecks({
         isError: false,
       });
     }
-  }, [isSolvedStatus, rowCluesStr, colCluesStr, rows, cols, grid, setHintInfo, setAlertMsg]);
+  }, [sealed, isSolvedStatus, rowCluesStr, colCluesStr, rows, cols, grid, setHintInfo, setAlertMsg]);
 
   const autoSolve = useCallback(() => {
+    if (sealed) return;
     setAlertMsg('');
     setHintInfo(null);
     // 完整求解：先逻辑传播，推不动时 DFS 回溯补齐（带超时/节点上限）
@@ -229,7 +234,7 @@ export default function useGameChecks({
     }
     setDeductionLevel(0);
     setBackupGrids([]);
-  }, [rowCluesStr, colCluesStr, rows, cols, mode, recordMove, currentPuzzleId, setGrid, setAlertMsg, setHintInfo, setDeductionLevel, setBackupGrids, markHandled]);
+  }, [sealed, rowCluesStr, colCluesStr, rows, cols, mode, recordMove, currentPuzzleId, setGrid, setAlertMsg, setHintInfo, setDeductionLevel, setBackupGrids, markHandled]);
 
   return { validateGrid, restoreLastCorrect, provideHint, autoSolve };
 }
