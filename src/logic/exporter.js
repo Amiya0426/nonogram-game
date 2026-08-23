@@ -1,6 +1,5 @@
 // 导出：存档代码 / JSON 文件 / 图片
 import { parseClue, getLineClue, arraysEqual } from './clues.js';
-import lzString from 'lz-string';
 
 /** 本地时间格式化为 YYYY-MM-DD_HH-mm */
 export const formatTimestamp = (d = new Date()) => {
@@ -97,7 +96,7 @@ export const buildExportData = (state, remark) => ({
  * 生成分享用存档代码（v2 压缩格式，最精简）。
  * 网格展平为数字串、标记为空时省略，lz-string 使用 Base64 编码（比 URL 安全编码更短）。
  */
-export const buildExportCode = (state, remark) => {
+export const buildExportCode = async (state, remark) => {
   const payload = {
     v: 1,
     r: state.rows,
@@ -122,13 +121,15 @@ export const buildExportCode = (state, remark) => {
   if (state.deductionLevel) payload.d = state.deductionLevel;
   const remarkText = (remark || '').trim();
   if (remarkText) payload.t = remarkText;
+  const lzString = (await import('lz-string')).default;
   return `v2:${lzString.compressToBase64(JSON.stringify(payload))}`;
 };
 
 /** 解码存档代码：v2 压缩（Base64 或旧版 URL 编码）与旧版 base64(encodeURIComponent(JSON)) 均兼容 */
-export const decodeExportCode = (code) => {
+export const decodeExportCode = async (code) => {
   const text = String(code || '').trim();
   if (text.startsWith('v2:')) {
+    const lzString = (await import('lz-string')).default;
     const t = text.slice(3);
     let json = null;
     try {

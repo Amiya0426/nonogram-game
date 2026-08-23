@@ -44,7 +44,7 @@ export default function useImportExport({
   const handleExportCode = useCallback(async () => {
     const finalFilename =
       exportFilename.trim() || buildPuzzleExportName({ rows, cols, progressPercent });
-    const code = buildExportCode(
+    const code = await buildExportCode(
       {
         rows,
         cols,
@@ -165,8 +165,8 @@ export default function useImportExport({
 
   /** 从存档代码导入（base64 → JSON → 应用到盘面） */
   const importFromCode = useCallback(
-    (code) => {
-      const data = decodeExportCode(code);
+    async (code) => {
+      const data = await decodeExportCode(code);
       onApplyPuzzle(data);
       onSubmitToLibrary(data);
     },
@@ -194,7 +194,7 @@ export default function useImportExport({
       }
     }
     try {
-      importFromCode(code);
+      await importFromCode(code);
       setLocalImportData('');
     } catch {
       setAlertMsg(tr('msg.codeImportFailed'));

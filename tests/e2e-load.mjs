@@ -20,7 +20,7 @@ await page.waitForTimeout(2500);
 
 const title = await page.title();
 console.log('页面标题:', title);
-if (title !== '数织') errors.push(`TITLE: 期望"数织"实际"${title}"`);
+if (title !== 'Nonogram') errors.push(`TITLE: 期望"Nonogram"实际"${title}"`);
 console.log('root 内容长度:', (await page.locator('#root').innerText()).length);
 console.log('错误数:', errors.length);
 for (const e of errors.slice(0, 10)) console.log(e);

@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Menu, Dices, Check, PencilLine } from 'lucide-react';
 import useGameState from './hooks/useGameState.js';
 import Board from './components/Board.jsx';
 import SidePanel from './components/SidePanel.jsx';
-import PuzzleBrowser from './components/PuzzleBrowser.jsx';
 import FloatingTimer from './components/FloatingTimer.jsx';
-import ImageToPuzzle from './components/ImageToPuzzle.jsx';
 import MeasureTooltip from './components/MeasureTooltip.jsx';
 import LanguageSwitcher from './components/LanguageSwitcher.jsx';
-import AuthModal from './components/AuthModal.jsx';
-import IntroModal from './components/IntroModal.jsx';
 import './App.css';
 import { useI18n } from './i18n/index.js';
+
+// 弹窗组件按需加载，减小首屏 JS 体积（只在用户打开时下载）
+const PuzzleBrowser = lazy(() => import('./components/PuzzleBrowser.jsx'));
+const ImageToPuzzle = lazy(() => import('./components/ImageToPuzzle.jsx'));
+const AuthModal = lazy(() => import('./components/AuthModal.jsx'));
+const IntroModal = lazy(() => import('./components/IntroModal.jsx'));
 
 export default function NonogramApp() {
   const g = useGameState();
@@ -154,45 +156,53 @@ export default function NonogramApp() {
       />
 
       {/* 题库浏览悬浮窗 */}
-      <PuzzleBrowser
-        open={browseOpen}
-        onClose={() => setBrowseOpen(false)}
-        browse={g.browse}
-        onLoadPuzzles={g.loadPuzzles}
-        onOpenPuzzle={(item) => {
-          g.openPuzzleFromBrowse(item);
-          setBrowseOpen(false);
-        }}
-        userProgress={g.userProgress}
-        user={g.user}
-        onRenamePuzzle={g.renamePuzzle}
-      />
+      <Suspense fallback={null}>
+        <PuzzleBrowser
+          open={browseOpen}
+          onClose={() => setBrowseOpen(false)}
+          browse={g.browse}
+          onLoadPuzzles={g.loadPuzzles}
+          onOpenPuzzle={(item) => {
+            g.openPuzzleFromBrowse(item);
+            setBrowseOpen(false);
+          }}
+          userProgress={g.userProgress}
+          user={g.user}
+          onRenamePuzzle={g.renamePuzzle}
+        />
+      </Suspense>
 
       {/* 图片转题目弹窗 */}
-      <ImageToPuzzle
-        open={imageImportOpen}
-        onClose={() => setImageImportOpen(false)}
-        onApply={(grid, rows, cols) => {
-          g.applyPatternImage(grid, rows, cols);
-          setImageImportOpen(false);
-        }}
-      />
+      <Suspense fallback={null}>
+        <ImageToPuzzle
+          open={imageImportOpen}
+          onClose={() => setImageImportOpen(false)}
+          onApply={(grid, rows, cols) => {
+            g.applyPatternImage(grid, rows, cols);
+            setImageImportOpen(false);
+          }}
+        />
+      </Suspense>
 
       {/* 登录 / 注册 / 忘记密码 弹窗 */}
       {authOpen && (
-        <AuthModal
-          open={authOpen}
-          onClose={() => setAuthOpen(false)}
-          onLogin={g.login}
-          onRegister={g.register}
-          onSendCode={g.sendCode}
-          onResetPassword={g.resetPassword}
-          authBusy={g.authBusy}
-        />
+        <Suspense fallback={null}>
+          <AuthModal
+            open={authOpen}
+            onClose={() => setAuthOpen(false)}
+            onLogin={g.login}
+            onRegister={g.register}
+            onSendCode={g.sendCode}
+            onResetPassword={g.resetPassword}
+            authBusy={g.authBusy}
+          />
+        </Suspense>
       )}
 
       {/* 新手引导 / 帮助 */}
-      <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} />
+      <Suspense fallback={null}>
+        <IntroModal open={introOpen} onClose={() => setIntroOpen(false)} />
+      </Suspense>
 
       {/* 棋盘区域 */}
       <div

@@ -278,8 +278,9 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/auth/me', requireAuth, (req, res) => {
-  res.json(req.user);
+app.get('/api/auth/me', resolveUser, (req, res) => {
+  // 未登录返回 200 + null，避免浏览器把 401 记入控制台错误
+  res.json(req.user ?? null);
 });
 
 // ---------- 题库 ----------

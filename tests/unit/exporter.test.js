@@ -65,7 +65,7 @@ test('buildExportData 包含存档字段', () => {
   assert.deepEqual(data.grid, [[1, 0], [0, 1]]);
 });
 
-test('buildExportCode/decodeExportCode v2 往返一致', () => {
+test('buildExportCode/decodeExportCode v2 往返一致', async () => {
   const state = {
     rows: 2,
     cols: 2,
@@ -77,9 +77,9 @@ test('buildExportCode/decodeExportCode v2 往返一致', () => {
     isSolvedStatus: true,
     deductionLevel: 1,
   };
-  const code = buildExportCode(state, ' 我的备注 ');
+  const code = await buildExportCode(state, ' 我的备注 ');
   assert.ok(code.startsWith('v2:'));
-  const decoded = decodeExportCode(code);
+  const decoded = await decodeExportCode(code);
   assert.equal(decoded.rows, 2);
   assert.equal(decoded.cols, 2);
   assert.deepEqual(decoded.grid, [[1, 0], [0, 1]]);
@@ -90,7 +90,7 @@ test('buildExportCode/decodeExportCode v2 往返一致', () => {
   assert.equal(decoded.remark, '我的备注');
 });
 
-test('decodeExportCode 兼容旧版 base64(encodeURIComponent(JSON))', () => {
+test('decodeExportCode 兼容旧版 base64(encodeURIComponent(JSON))', async () => {
   const data = {
     rows: 2,
     cols: 2,
@@ -99,11 +99,14 @@ test('decodeExportCode 兼容旧版 base64(encodeURIComponent(JSON))', () => {
     grid: [[1, 0], [0, 1]],
   };
   const code = btoa(encodeURIComponent(JSON.stringify(data)));
-  const decoded = decodeExportCode(code);
+  const decoded = await decodeExportCode(code);
   assert.equal(decoded.rows, 2);
   assert.deepEqual(decoded.grid, [[1, 0], [0, 1]]);
 });
 
-test('decodeExportCode 损坏代码抛出', () => {
-  assert.throws(() => decodeExportCode('v2:not-valid-base64!!!'), /存档代码已损坏|Invalid character/);
+test('decodeExportCode 损坏代码抛出', async () => {
+  await assert.rejects(
+    () => decodeExportCode('v2:not-valid-base64!!!'),
+    /存档代码已损坏|Invalid character/,
+  );
 });

@@ -1,5 +1,4 @@
 // 游玩复盘 GIF 生成：按操作顺序重放棋盘，输出 GIF 文件数据
-import { GIFEncoder, quantize, applyPalette } from 'gifenc/dist/gifenc.esm.js';
 
 const COLORS = {
   bg: [248, 250, 252],
@@ -166,6 +165,10 @@ export async function generateReplayGif({
   canvas._clueArea = { clueWidth, clueHeight };
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
+  // GIF 编码库体积较大，仅在实际导出复盘时按需加载
+  const { GIFEncoder, quantize, applyPalette } = await import(
+    'gifenc/dist/gifenc.esm.js'
+  );
   const gif = GIFEncoder();
   let grid = Array.from({ length: rows }, () => new Array(cols).fill(0));
   let frameIndex = 0;
