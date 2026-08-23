@@ -472,7 +472,7 @@ export default function useGameState() {
         const me = await api.me();
         if (cancelled) return;
         setUser(me);
-        refreshUserProgress();
+        if (me) refreshUserProgress();
       } catch {
         // 未登录或会话失效
       }
