@@ -65,6 +65,7 @@ const SidePanelViewSettings = ({
               type="number"
               min="1"
               max="80"
+              aria-label={t('panel.rowsLabel')}
               value={rowText}
               onChange={(e) => setRowText(e.target.value)}
               onBlur={commitRow}
@@ -103,6 +104,7 @@ const SidePanelViewSettings = ({
               type="number"
               min="1"
               max="80"
+              aria-label={t('panel.colsLabel')}
               value={colText}
               onChange={(e) => setColText(e.target.value)}
               onBlur={commitCol}

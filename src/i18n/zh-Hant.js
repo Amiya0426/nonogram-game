@@ -6,6 +6,7 @@ export default {
     custom: '自訂',
     done: '完成',
     solved: '解謎成功！',
+    togglePanel: '開啟/收起側邊面板',
   },
   intro: {
     howTitle: '玩法規則',

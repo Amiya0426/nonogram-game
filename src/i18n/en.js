@@ -6,6 +6,7 @@ export default {
     custom: 'Custom',
     done: 'Done',
     solved: 'Solved!',
+    togglePanel: 'Toggle side panel',
   },
   intro: {
     howTitle: 'How to Play',

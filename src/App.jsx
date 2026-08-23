@@ -83,6 +83,7 @@ export default function NonogramApp() {
           <button
             onClick={() => g.setShowLeftPanel(!g.showLeftPanel)}
             className="p-2 bg-slate-100 rounded-md"
+            aria-label={t('app.togglePanel')}
           >
             <Menu className="w-5 h-5" />
           </button>

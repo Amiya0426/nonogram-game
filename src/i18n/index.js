@@ -1,8 +1,5 @@
 import { createContext, createElement, useCallback, useContext, useEffect, useState } from 'react';
 import zh from './zh.js';
-import zhHant from './zh-Hant.js';
-import en from './en.js';
-import ja from './ja.js';
 
 // 新增语言：在 LANGS 中追加一项，并新增对应语言包文件、注册到 messages
 export const LANGS = [
@@ -12,16 +9,31 @@ export const LANGS = [
   { code: 'ja', label: '日本語', short: '日' },
 ];
 
-const messages = { zh, 'zh-Hant': zhHant, en, ja };
+// 默认语言随主包加载；其余语言包按需动态加载，减小首屏 JS 体积
+const messages = { zh };
+const loaders = {
+  'zh-Hant': () => import('./zh-Hant.js'),
+  en: () => import('./en.js'),
+  ja: () => import('./ja.js'),
+};
 const HTML_LANG = { zh: 'zh-CN', 'zh-Hant': 'zh-TW', en: 'en', ja: 'ja' };
 const TITLE = 'Nonogram';
 const STORE_KEY = 'nonogram_lang';
 let currentLang = 'zh';
 
+const loadMessages = async (code) => {
+  const loader = loaders[code];
+  if (loader && !messages[code]) {
+    const mod = await loader();
+    messages[code] = mod.default;
+  }
+  return messages[code];
+};
+
 const detectLang = () => {
   try {
     const saved = localStorage.getItem(STORE_KEY);
-    if (saved && messages[saved]) return saved;
+    if (saved && LANGS.some((l) => l.code === saved)) return saved;
     const nav = (navigator.language || 'zh').toLowerCase();
     if (nav.startsWith('zh')) {
       return /(^|-)tw(-|$)|hk|mo|hant/.test(nav) ? 'zh-Hant' : 'zh';
@@ -53,8 +65,10 @@ const I18nContext = createContext({ lang: 'zh', t: translate, setLang: () => {} 
 
 export const I18nProvider = ({ children }) => {
   const [lang, setLangState] = useState(detectLang);
+  const [, setDictTick] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     currentLang = lang;
     try {
       localStorage.setItem(STORE_KEY, lang);
@@ -63,10 +77,17 @@ export const I18nProvider = ({ children }) => {
     }
     document.documentElement.lang = HTML_LANG[lang] || 'zh-CN';
     document.title = TITLE;
+    // 语言包加载完成后触发一次重渲染，切回该语言的实际文案
+    loadMessages(lang).then(() => {
+      if (!cancelled) setDictTick((n) => n + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [lang]);
 
   const setLang = useCallback((code) => {
-    if (messages[code]) setLangState(code);
+    if (LANGS.some((l) => l.code === code)) setLangState(code);
   }, []);
 
   const t = useCallback(

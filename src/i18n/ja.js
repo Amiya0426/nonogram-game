@@ -6,6 +6,7 @@ export default {
     custom: 'カスタム',
     done: '完了',
     solved: '完成しました！',
+    togglePanel: 'サイドパネルを開く/閉じる',
   },
   intro: {
     howTitle: '遊び方',

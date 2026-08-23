@@ -1,9 +1,9 @@
-# 数织（Nonogram）站点抓取规则
+# Nonogram puzzle site crawling rules
 
 User-agent: *
 Allow: /
 
-# AI 爬虫默认不允许抓取（按需调整）
+# AI crawlers are disallowed by default (adjust as needed)
 User-agent: Amazonbot
 Disallow: /
 

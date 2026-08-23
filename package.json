@@ -6,7 +6,7 @@
   "homepage": "https://Amiya0426.github.io/nonogram-game/",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node tools/inline-css.mjs",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "lint": "eslint .",

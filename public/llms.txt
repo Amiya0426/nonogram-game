@@ -1,0 +1,14 @@
+# Nonogram 数织 (Nonogram Puzzle Game)
+
+Nonogram is a classic logic puzzle game where you fill cells according to row and column clues.
+Features include multi-level deduction, auto-solve, custom puzzles, image-to-puzzle conversion,
+puzzle library browsing, save/export (code / JSON / image / webpage parsing), GIF replay,
+user accounts, and multilingual support (Simplified Chinese / Traditional Chinese / English / Japanese).
+
+数织（Nonogram）网页游戏：经典逻辑填色谜题，支持多级推导、自动求解、自定义题目、图片转图案、题库浏览、
+存档导入导出、GIF 复盘、用户系统与多语言（简体中文 / 繁體中文 / English / 日本語）。
+
+## Key pages
+
+- [Nonogram Game](https://nonogram.amiya1223.top/)
+- [GitHub Source Repository](https://github.com/Amiya0426/nonogram-game)
