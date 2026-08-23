@@ -156,6 +156,7 @@ const SidePanelViewSettings = ({
             type="range"
             min="12"
             max="80"
+            aria-label={t('panel.zoom')}
             value={cellSize}
             onChange={(e) => setCellSize(Number(e.target.value))}
             className="w-full accent-indigo-500 cursor-ew-resize"
